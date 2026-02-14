@@ -18,6 +18,9 @@ struct StudySession: Codable, Sendable, Identifiable, Equatable {
     /// The absolute time the current period (focus or break) ends.
     /// Both devices calculate their countdown from this value, which removes per-tick syncing.
     var targetEndDate: Date
+    /// The configured focus duration in seconds (for example, 1500 for 25 minutes).
+    /// Used to compute `targetEndDate` on state transitions.
+    var duration: TimeInterval
     var isPaused: Bool
     var pausedBy: String?
     var currentRound: Int
