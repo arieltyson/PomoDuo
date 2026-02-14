@@ -1,14 +1,20 @@
+# ===========================
 # Xcode
-#
-# gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
+# ===========================
 
-## User settings
+## User-specific settings (window positions, breakpoints, schemes)
 xcuserdata/
+
+## Test result bundles (Swift Testing + XCUITest output)
+*.xcresult
+
+## Build artifacts
+build/
+DerivedData/
+*.moved-aside
 
 ## Obj-C/Swift specific
 *.hmap
-
-## App packaging
 *.ipa
 *.dSYM.zip
 *.dSYM
@@ -17,46 +23,94 @@ xcuserdata/
 timeline.xctimeline
 playground.xcworkspace
 
+## Xcode auto-generated workspace (recreated on open)
+*.xcworkspace/xcuserdata/
+
+# ===========================
 # Swift Package Manager
-#
-# Add this line if you want to avoid checking in source code from Swift Package Manager dependencies.
-# Packages/
-# Package.pins
-# Package.resolved
-# *.xcodeproj
-#
-# Xcode automatically generates this directory with a .xcworkspacedata file and xcuserdata
-# hence it is not needed unless you have added a package configuration file to your project
-# .swiftpm
+# ===========================
 
+## SPM resolves dependencies on build — no need to track them
+## This includes firebase-ios-sdk and any future packages
 .build/
+.swiftpm/
+Package.resolved
 
-# CocoaPods
-#
-# We recommend against adding the Pods directory to your .gitignore. However
-# you should judge for yourself, the pros and cons are mentioned at:
-# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
-#
-# Pods/
-#
-# Add this line if you want to avoid checking in source code from the Xcode workspace
-# *.xcworkspace
+# ===========================
+# Firebase
+# ===========================
 
-# Carthage
-#
-# Add this line if you want to avoid checking in source code from Carthage dependencies.
-# Carthage/Checkouts
+## Service account keys — NEVER commit these
+**/serviceAccountKey*.json
+**/firebase-adminsdk*.json
 
-Carthage/Build/
+## Firebase debug log
+firebase-debug.log
+firebase-debug.*.log
 
-# fastlane
-#
-# It is recommended to not store the screenshots in the git repo.
-# Instead, use fastlane to re-generate the screenshots whenever they are needed.
-# For more information about the recommended setup visit:
-# https://docs.fastlane.tools/best-practices/source-control/#source-control
+## Firebase emulator data
+.firebase/
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log
+storage-debug.log
 
+## GoogleService-Info.plist contains API keys — keep out of public repos
+## Uncomment the line below if your repo is PUBLIC:
+**/GoogleService-Info.plist
+
+# ===========================
+# Cloud Functions (Node.js)
+# ===========================
+
+**/functions/node_modules/
+**/functions/.env
+**/functions/.env.local
+
+# ===========================
+# Node.js (Firebase CLI tooling)
+# ===========================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# ===========================
+# macOS
+# ===========================
+
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ===========================
+# Secrets & Environment
+# ===========================
+
+*.p8
+*.p12
+*.key
+*.pem
+.env
+.env.*
+
+# ===========================
+# Misc
+# ===========================
+
+## Fastlane
 fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+## Carthage (won't use, but safe to keep)
+Carthage/Build/
+
+## CocoaPods (won't use, but safe to keep)
+Pods/
