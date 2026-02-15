@@ -13,6 +13,7 @@ struct TimerView: View {
     @Query private var configurations: [TimerConfiguration]
     @Environment(\.modelContext) private var modelContext
     @Environment(NotificationManager.self) private var notificationManager
+    @Environment(LiveActivityManager.self) private var liveActivityManager
 
     @State private var activeConfiguration: TimerConfiguration?
     @State private var viewModel = TimerViewModel()
@@ -51,6 +52,7 @@ struct TimerView: View {
         .onChange(of: viewModel.isComplete) { wasComplete, isNowComplete in
             if !wasComplete && isNowComplete {
                 haptic.fire(.complete)
+                liveActivityManager.end()
             }
         }
         .navigationTitle("Focus")
@@ -78,6 +80,15 @@ struct TimerView: View {
         phase = .focus
         viewModel.startFocus(with: configuration)
         haptic.fire(.start)
+
+        let targetEndDate = Date.now.addingTimeInterval(configuration.focusDuration)
+        liveActivityManager.start(
+            phase: .focus,
+            currentRound: currentRound,
+            totalRounds: configuration.roundsBeforeLongBreak,
+            targetEndDate: targetEndDate
+        )
+
         scheduleNotification(
             duration: configuration.focusDuration,
             message: "Focus session complete! Time for a break. 🎉"
@@ -87,6 +98,12 @@ struct TimerView: View {
     private func pauseTimer() {
         viewModel.pause()
         haptic.fire(.pause)
+        liveActivityManager.update(
+            phase: phase.activityPhase,
+            currentRound: currentRound,
+            targetEndDate: .now,
+            isPaused: true
+        )
         cancelNotification()
     }
 
@@ -95,7 +112,19 @@ struct TimerView: View {
         viewModel.unpause()
         haptic.fire(.resume)
 
-        guard remainingSeconds > 0 else { return }
+        guard remainingSeconds > 0 else {
+            liveActivityManager.end()
+            return
+        }
+
+        let targetEndDate = Date.now.addingTimeInterval(remainingSeconds)
+        liveActivityManager.update(
+            phase: phase.activityPhase,
+            currentRound: currentRound,
+            targetEndDate: targetEndDate,
+            isPaused: false
+        )
+
         let message = phase.isBreak
             ? "Break's over! Ready to focus? 📚"
             : "Focus session complete! Time for a break. 🎉"
@@ -107,6 +136,7 @@ struct TimerView: View {
         phase = .idle
         currentRound = 1
         haptic.fire(.stop)
+        liveActivityManager.end()
         cancelNotification()
     }
 
@@ -118,6 +148,15 @@ struct TimerView: View {
             if currentRound >= configuration.roundsBeforeLongBreak {
                 phase = .longBreak
                 viewModel.startLongBreak(with: configuration)
+
+                let targetEndDate = Date.now.addingTimeInterval(configuration.longBreakDuration)
+                liveActivityManager.start(
+                    phase: .longBreak,
+                    currentRound: currentRound,
+                    totalRounds: configuration.roundsBeforeLongBreak,
+                    targetEndDate: targetEndDate
+                )
+
                 scheduleNotification(
                     duration: configuration.longBreakDuration,
                     message: "Long break is over! Ready for another round? 💪"
@@ -125,6 +164,15 @@ struct TimerView: View {
             } else {
                 phase = .shortBreak
                 viewModel.startShortBreak(with: configuration)
+
+                let targetEndDate = Date.now.addingTimeInterval(configuration.shortBreakDuration)
+                liveActivityManager.start(
+                    phase: .shortBreak,
+                    currentRound: currentRound,
+                    totalRounds: configuration.roundsBeforeLongBreak,
+                    targetEndDate: targetEndDate
+                )
+
                 scheduleNotification(
                     duration: configuration.shortBreakDuration,
                     message: "Break's over! Ready to focus? 📚"
@@ -134,6 +182,15 @@ struct TimerView: View {
             currentRound += 1
             phase = .focus
             viewModel.startFocus(with: configuration)
+
+            let targetEndDate = Date.now.addingTimeInterval(configuration.focusDuration)
+            liveActivityManager.start(
+                phase: .focus,
+                currentRound: currentRound,
+                totalRounds: configuration.roundsBeforeLongBreak,
+                targetEndDate: targetEndDate
+            )
+
             scheduleNotification(
                 duration: configuration.focusDuration,
                 message: "Focus session complete! Time for a break. 🎉"
@@ -142,6 +199,15 @@ struct TimerView: View {
             currentRound = 1
             phase = .focus
             viewModel.startFocus(with: configuration)
+
+            let targetEndDate = Date.now.addingTimeInterval(configuration.focusDuration)
+            liveActivityManager.start(
+                phase: .focus,
+                currentRound: currentRound,
+                totalRounds: configuration.roundsBeforeLongBreak,
+                targetEndDate: targetEndDate
+            )
+
             scheduleNotification(
                 duration: configuration.focusDuration,
                 message: "Focus session complete! Time for a break. 🎉"
@@ -337,6 +403,17 @@ private enum TimerPhase {
             "Short Break"
         case .longBreak:
             "Long Break"
+        }
+    }
+
+    var activityPhase: TimerActivityAttributes.Phase {
+        switch self {
+        case .idle, .focus:
+            .focus
+        case .shortBreak:
+            .shortBreak
+        case .longBreak:
+            .longBreak
         }
     }
 }
