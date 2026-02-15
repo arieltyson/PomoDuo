@@ -5,7 +5,7 @@
 ## App Store  : Coming Soon
 
 <kbd>
-    <img src="https://placehold.co/1200x650/png?text=PomoDuo+%E2%99%A5%EF%B8%8F%F0%9F%93%9A" alt="PomoDuo Hero" width="800" height="500">
+    <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="PomoDuo Hero" width="800" height="500">
 </kbd>
 
 ## Project Description 🎨
@@ -33,25 +33,25 @@ Coming soon
 
 <div style="display: flex; justify-content: center; align-items: center;">
     <kbd>
-        <img src="https://placehold.co/400x870/png?text=Dashboard" alt="Dashboard" width="200">
+        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="Dashboard" width="200">
     </kbd>
     <kbd>
-        <img src="https://placehold.co/400x870/png?text=Pairing+Flow" alt="Pairing Flow" width="200">
+        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="Pairing Flow" width="200">
     </kbd>
     <kbd>
-        <img src="https://placehold.co/400x870/png?text=Active+Session" alt="Active Session" width="200">
+        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="Active Session" width="200">
     </kbd>
 </div>
 
 <div style="display: flex; justify-content: center; align-items: center;">
     <kbd>
-        <img src="https://placehold.co/400x870/png?text=App+Selection" alt="App Selection" width="200">
+        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="App Selection" width="200">
     </kbd>
     <kbd>
-        <img src="https://placehold.co/400x870/png?text=Live+Activity" alt="Live Activity" width="200">
+        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="Live Activity" width="200">
     </kbd>
     <kbd>
-        <img src="https://placehold.co/400x870/png?text=History+View" alt="History View" width="200">
+        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="History View" width="200">
     </kbd>
 </div>
 
