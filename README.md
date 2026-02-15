@@ -14,20 +14,36 @@
 
 The app combines Apple's Screen Time API stack (`FamilyControls`, `ManagedSettings`, `DeviceActivity`) with a real-time sync layer (Firebase Auth + Firestore + FCM) to support collaborative focus sessions, optional partner-triggered lock flows, and social accountability while preserving user consent and privacy.
 
-## Current Status 🚧
 
-This repository is currently in foundation stage with the initial SwiftUI app shell and test targets. The implementation roadmap includes:
+## Highlights 💫
+<div align="left">
 
-- A protocol-driven session domain and pure state machine
-- Local-first Pomodoro timer engine using Swift Concurrency
-- Screen Time integration for focus-time app shielding
-- Real-time two-device synchronization with Firebase
-- Live Activities / Dynamic Island support via ActivityKit
-- Accessibility and App Store production hardening
+### Session Architecture (Protocol-Driven) 🏗️
+- **Pure State Machine** manages session logic, ensuring predictable state transitions and robust error handling.
+- **Protocol-oriented design** decouples the domain layer from the UI, maximizing testability and modularity.
+
+### Focus Engine & Shielding 🛡️
+- **Local-first Pomodoro timer** built with **Swift Concurrency** for high-precision, background-safe timing without network dependency.
+- **Screen Time integration** (via `FamilyControls` and `ManagedSettings`) provides system-level app shielding to enforce deep focus periods.
+
+### Real-Time Synchronization 🔄
+- **Firebase** backend enables seamless **two-device synchronization**, keeping session data and timer states consistent across multiple devices instantly.
+
+### Live Activities & Dynamic Island 🏝️
+- **ActivityKit** support brings live timer updates and session status directly to the **Dynamic Island** and Lock Screen.
+- Provides immediate glanceability and quick controls without requiring the user to unlock their device or open the app.
+
+### Production Hardening & Accessibility 🦾
+- **Accessibility-first design** ensures full support for VoiceOver and Dynamic Type, making the focus tools usable for everyone.
+- **App Store hardening** includes rigorous edge-case handling and performance optimization, ensuring a stable, production-ready experience.
+
+</div>
+
 
 ## Demo:
 
 Coming soon
+
 
 ## Screenshots:
 
