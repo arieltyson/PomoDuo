@@ -43,6 +43,21 @@ final class TimerViewModel {
         }
     }
 
+    /// Starts a focus timer using the persisted configuration.
+    func startFocus(with configuration: TimerConfiguration) {
+        startTimer(duration: configuration.focusDuration)
+    }
+
+    /// Starts a short-break timer using the persisted configuration.
+    func startShortBreak(with configuration: TimerConfiguration) {
+        startTimer(duration: configuration.shortBreakDuration)
+    }
+
+    /// Starts a long-break timer using the persisted configuration.
+    func startLongBreak(with configuration: TimerConfiguration) {
+        startTimer(duration: configuration.longBreakDuration)
+    }
+
     /// Aligns the local timer with a remote session that is already in progress.
     func syncToRemote(targetEndDate: Date, totalDuration: TimeInterval) {
         let runIdentifier = beginNewRun()

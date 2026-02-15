@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct PomoDuoApp: App {
@@ -13,5 +14,6 @@ struct PomoDuoApp: App {
         WindowGroup {
             RootView()
         }
+        .modelContainer(for: StorageConfiguration.modelTypes)
     }
 }
