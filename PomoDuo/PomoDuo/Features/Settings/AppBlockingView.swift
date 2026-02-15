@@ -23,11 +23,7 @@ struct AppBlockingView: View {
                     onPickApps: { isPickerPresented = true }
                 )
             } else {
-                UnauthorizedAppBlockingContent {
-                    Task {
-                        await screenTimeManager.requestAuthorization()
-                    }
-                }
+                UnauthorizedAppBlockingContent(screenTimeManager: screenTimeManager)
             }
         }
         .navigationTitle("App Blocking")
@@ -35,11 +31,34 @@ struct AppBlockingView: View {
             isPresented: $isPickerPresented,
             selection: $bindableScreenTimeManager.activitySelection
         )
+        .alert(
+            "App Blocking Unavailable",
+            isPresented: authorizationErrorAlertIsPresented
+        ) {
+            Button("OK") {
+                screenTimeManager.clearAuthorizationError()
+            }
+        } message: {
+            if let authorizationError = screenTimeManager.authorizationError {
+                Text(authorizationError)
+            }
+        }
+    }
+
+    private var authorizationErrorAlertIsPresented: Binding<Bool> {
+        Binding(
+            get: { screenTimeManager.authorizationError != nil },
+            set: { isPresented in
+                if !isPresented {
+                    screenTimeManager.clearAuthorizationError()
+                }
+            }
+        )
     }
 }
 
 private struct UnauthorizedAppBlockingContent: View {
-    let onAuthorize: () -> Void
+    let screenTimeManager: ScreenTimeManager
 
     var body: some View {
         Section {
@@ -58,15 +77,40 @@ private struct UnauthorizedAppBlockingContent: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
-                Button("Enable App Blocking", systemImage: "lock.shield", action: onAuthorize)
-                    .buttonStyle(.borderedProminent)
-                    .tint(AppColors.lavender)
-                    .controlSize(.large)
-                    .padding(.top, 8)
-                    .accessibilityHint("Requests Screen Time authorization for app blocking.")
+                Button {
+                    Task {
+                        await screenTimeManager.requestAuthorization()
+                    }
+                } label: {
+                    if screenTimeManager.isRequestingAuthorization {
+                        ProgressView()
+                            .controlSize(.regular)
+                    } else {
+                        Label("Enable App Blocking", systemImage: "lock.shield")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AppColors.lavender)
+                .controlSize(.large)
+                .padding(.top, 8)
+                .accessibilityHint("Requests Screen Time authorization for app blocking.")
+                .disabled(screenTimeManager.isRequestingAuthorization)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
+        }
+
+        Section("Setup Required") {
+            HStack(alignment: .top) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
+
+                Text("If authorization does not appear, enable the Family Controls capability in Xcode Signing & Capabilities.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
         }
     }
 }

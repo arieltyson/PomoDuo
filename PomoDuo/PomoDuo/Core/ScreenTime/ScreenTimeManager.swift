@@ -15,6 +15,8 @@ import Foundation
 @Observable
 final class ScreenTimeManager {
     private(set) var authorizationStatus: AuthorizationStatus
+    private(set) var authorizationError: String?
+    private(set) var isRequestingAuthorization = false
 
     var activitySelection = FamilyActivitySelection() {
         didSet {
@@ -46,13 +48,21 @@ final class ScreenTimeManager {
     }
 
     func requestAuthorization() async {
+        isRequestingAuthorization = true
+        authorizationError = nil
+
         do {
             try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
         } catch {
-            // Keep the latest status below; user may have denied authorization.
+            authorizationError = Self.userFacingMessage(for: error)
         }
 
         refreshAuthorizationStatus()
+        isRequestingAuthorization = false
+    }
+
+    func clearAuthorizationError() {
+        authorizationError = nil
     }
 
     func clearSelection() {
@@ -76,5 +86,28 @@ final class ScreenTimeManager {
         }
 
         activitySelection = selection
+    }
+
+    private static func userFacingMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        let loweredDescription = error.localizedDescription.localizedLowercase
+
+        if loweredDescription.localizedStandardContains("denied") {
+            return "Screen Time authorization was denied."
+        }
+
+        if loweredDescription.localizedStandardContains("restricted") {
+            return "Screen Time is restricted on this device."
+        }
+
+        if loweredDescription.localizedStandardContains("unavailable") {
+            return "Screen Time is unavailable on this device."
+        }
+
+        if nsError.domain.localizedStandardContains("familycontrols") {
+            return "Could not enable app blocking. Confirm the Family Controls capability is enabled for the app target."
+        }
+
+        return "Could not enable app blocking: \(error.localizedDescription)"
     }
 }
