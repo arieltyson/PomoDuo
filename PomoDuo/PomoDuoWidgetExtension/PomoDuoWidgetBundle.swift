@@ -11,5 +11,6 @@ import WidgetKit
 struct PomoDuoWidgetBundle: WidgetBundle {
     var body: some Widget {
         PomoDuoLiveActivity()
+        FocusStatsWidget()
     }
 }

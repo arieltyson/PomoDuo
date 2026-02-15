@@ -10,6 +10,9 @@ import SwiftData
 
 /// Defines the SwiftData schema and provides the shared model container.
 enum StorageConfiguration {
+    /// Shared app group used for widget data exchange.
+    static let widgetAppGroupID = "group.com.arieljtyson.pomoduo"
+
     /// All SwiftData model types used by PomoDuo.
     static let modelTypes: [any PersistentModel.Type] = [
         TimerConfiguration.self,

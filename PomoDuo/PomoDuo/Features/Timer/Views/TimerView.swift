@@ -286,6 +286,44 @@ struct TimerView: View {
 
         modelContext.insert(session)
         focusStartedAt = nil
+        refreshWidgetData()
+    }
+
+    private func refreshWidgetData() {
+        let descriptor = FetchDescriptor<CompletedSession>(
+            sortBy: [SortDescriptor(\.dayBucket, order: .reverse)]
+        )
+        guard let sessions = try? modelContext.fetch(descriptor) else { return }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let todaySessions = sessions.filter { calendar.isDate($0.dayBucket, inSameDayAs: today) }
+        let todayMinutes = todaySessions.reduce(0) { $0 + $1.focusMinutes }
+        let todaySessionCount = todaySessions.count
+        let currentStreak = streakCount(from: sessions.map(\.dayBucket), calendar: calendar, today: today)
+
+        WidgetDataProvider.update(
+            todayMinutes: todayMinutes,
+            todaySessionCount: todaySessionCount,
+            currentStreak: currentStreak
+        )
+        WidgetDataProvider.reloadWidget()
+    }
+
+    private func streakCount(from dayBuckets: [Date], calendar: Calendar, today: Date) -> Int {
+        let activeDays = Set(dayBuckets.map { calendar.startOfDay(for: $0) })
+        var cursor = today
+        var streak = 0
+
+        while activeDays.contains(cursor) {
+            streak += 1
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+                break
+            }
+            cursor = previous
+        }
+
+        return streak
     }
 
     private func scheduleNotification(duration: TimeInterval, message: String) {
