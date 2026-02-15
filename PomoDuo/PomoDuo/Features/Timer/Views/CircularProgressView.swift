@@ -1,0 +1,70 @@
+//
+//  CircularProgressView.swift
+//  PomoDuo
+//
+//  Created by Codex on 2/15/26.
+//
+
+import SwiftUI
+
+/// Circular progress component for the active countdown.
+struct CircularProgressView: View {
+    /// Remaining progress from `1.0` (start) to `0.0` (complete).
+    let remainingProgress: Double
+    let timeString: String
+    let isPaused: Bool
+    let isBreak: Bool
+
+    private let ringLineWidth: CGFloat = 12
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(
+                    AppColors.paleViolet.opacity(0.26),
+                    style: StrokeStyle(lineWidth: ringLineWidth, lineCap: .round)
+                )
+
+            Circle()
+                .trim(from: 0, to: max(0, min(1, remainingProgress)))
+                .stroke(
+                    style: StrokeStyle(lineWidth: ringLineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .foregroundStyle(isBreak ? AppGradients.breakRing : AppGradients.focusRing)
+                .animation(.easeInOut(duration: 0.7), value: remainingProgress)
+
+            TimerCenterView(
+                timeString: timeString,
+                isPaused: isPaused
+            )
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(isBreak ? "Break timer" : "Focus timer")
+        .accessibilityValue(timeString)
+    }
+}
+
+private struct TimerCenterView: View {
+    let timeString: String
+    let isPaused: Bool
+
+    var body: some View {
+        VStack {
+            Text(timeString)
+                .font(.system(.largeTitle, design: .rounded))
+                .bold()
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .foregroundStyle(isPaused ? AppColors.secondaryLabel : .primary)
+
+            if isPaused {
+                Label("Paused", systemImage: "pause.fill")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.pauseTint)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isPaused)
+    }
+}
