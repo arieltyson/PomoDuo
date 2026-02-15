@@ -15,6 +15,7 @@ struct TimerView: View {
     @Environment(NotificationManager.self) private var notificationManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(FocusIntentState.self) private var focusIntentState
+    @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
 
     @State private var activeConfiguration: TimerConfiguration?
     @State private var viewModel = TimerViewModel()
@@ -40,6 +41,7 @@ struct TimerView: View {
                     isBreak: phase.isBreak,
                     isRunning: viewModel.isRunning,
                     isComplete: viewModel.isComplete,
+                    isBlocking: restrictionCoordinator.isRestricting,
                     onStart: { startFocus(using: activeConfiguration) },
                     onPause: pauseTimer,
                     onResume: resumeTimer,
@@ -56,6 +58,7 @@ struct TimerView: View {
                 haptic.fire(.complete)
                 liveActivityManager.end()
                 recordCompletedFocusIfNeeded()
+                restrictionCoordinator.liftRestrictions()
                 AccessibilityAnnouncer.announceRoundComplete()
             }
         }
@@ -112,6 +115,9 @@ struct TimerView: View {
             duration: configuration.focusDuration,
             message: "Focus session complete! Time for a break. 🎉"
         )
+
+        restrictionCoordinator.enforceFocusRestrictions()
+
         AccessibilityAnnouncer.announceStart(
             round: currentRound,
             totalRounds: configuration.roundsBeforeLongBreak
@@ -164,6 +170,7 @@ struct TimerView: View {
         haptic.fire(.stop)
         liveActivityManager.end()
         cancelNotification()
+        restrictionCoordinator.forceRemoveRestrictions()
         AccessibilityAnnouncer.announceStop()
     }
 
@@ -173,6 +180,7 @@ struct TimerView: View {
         switch phase {
         case .idle, .focus:
             focusStartedAt = nil
+            restrictionCoordinator.liftRestrictions()
             if currentRound >= configuration.roundsBeforeLongBreak {
                 phase = .longBreak
                 viewModel.startLongBreak(with: configuration)
@@ -226,6 +234,9 @@ struct TimerView: View {
                 duration: configuration.focusDuration,
                 message: "Focus session complete! Time for a break. 🎉"
             )
+
+            restrictionCoordinator.enforceFocusRestrictions()
+
             AccessibilityAnnouncer.announceFocusResumed(
                 round: currentRound,
                 totalRounds: configuration.roundsBeforeLongBreak
@@ -248,6 +259,9 @@ struct TimerView: View {
                 duration: configuration.focusDuration,
                 message: "Focus session complete! Time for a break. 🎉"
             )
+
+            restrictionCoordinator.enforceFocusRestrictions()
+
             AccessibilityAnnouncer.announceFocusResumed(
                 round: currentRound,
                 totalRounds: configuration.roundsBeforeLongBreak
@@ -349,6 +363,7 @@ private struct TimerCanvasView: View {
 
     let isRunning: Bool
     let isComplete: Bool
+    let isBlocking: Bool
 
     let onStart: () -> Void
     let onPause: () -> Void
@@ -387,16 +402,22 @@ private struct TimerCanvasView: View {
 
             Spacer()
 
-            TimerControlsView(
-                isRunning: isRunning,
-                isPaused: isPaused,
-                isComplete: isComplete,
-                onStart: onStart,
-                onPause: onPause,
-                onResume: onResume,
-                onStop: onStop,
-                onSkip: onSkip
-            )
+            VStack {
+                TimerControlsView(
+                    isRunning: isRunning,
+                    isPaused: isPaused,
+                    isComplete: isComplete,
+                    onStart: onStart,
+                    onPause: onPause,
+                    onResume: onResume,
+                    onStop: onStop,
+                    onSkip: onSkip
+                )
+
+                if isBlocking {
+                    BlockingIndicatorView()
+                }
+            }
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -405,6 +426,19 @@ private struct TimerCanvasView: View {
                 .fill(.background)
                 .ignoresSafeArea()
         }
+    }
+}
+
+private struct BlockingIndicatorView: View {
+    var body: some View {
+        Label("Apps Blocked", systemImage: "shield.fill")
+            .font(.caption2)
+            .foregroundStyle(AppColors.lavender)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(AppColors.lavender.opacity(0.14), in: .capsule)
+            .accessibilityLabel("App blocking is active")
+            .transition(.opacity)
     }
 }
 

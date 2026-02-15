@@ -13,8 +13,17 @@ struct PomoDuoApp: App {
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
-    @State private var screenTimeManager = ScreenTimeManager()
+    @State private var screenTimeManager: ScreenTimeManager
+    @State private var restrictionCoordinator: RestrictionCoordinator
     @State private var appearanceManager = AppearanceManager()
+
+    init() {
+        let screenTimeManager = ScreenTimeManager()
+        _screenTimeManager = State(initialValue: screenTimeManager)
+        _restrictionCoordinator = State(
+            initialValue: RestrictionCoordinator(screenTimeManager: screenTimeManager)
+        )
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -23,6 +32,7 @@ struct PomoDuoApp: App {
                 .environment(liveActivityManager)
                 .environment(focusIntentState)
                 .environment(screenTimeManager)
+                .environment(restrictionCoordinator)
                 .environment(appearanceManager)
                 .preferredColorScheme(appearanceManager.preferredColorScheme)
                 .task {
