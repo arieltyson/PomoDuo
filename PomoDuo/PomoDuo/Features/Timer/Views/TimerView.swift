@@ -20,6 +20,7 @@ struct TimerView: View {
     @State private var currentRound = 1
     @State private var phase: TimerPhase = .idle
     @State private var haptic = HapticTrigger()
+    @State private var focusStartedAt: Date?
 
     var body: some View {
         Group {
@@ -53,6 +54,7 @@ struct TimerView: View {
             if !wasComplete && isNowComplete {
                 haptic.fire(.complete)
                 liveActivityManager.end()
+                recordCompletedFocusIfNeeded()
             }
         }
         .navigationTitle("Focus")
@@ -78,6 +80,7 @@ struct TimerView: View {
 
     private func startFocus(using configuration: TimerConfiguration) {
         phase = .focus
+        focusStartedAt = .now
         viewModel.startFocus(with: configuration)
         haptic.fire(.start)
 
@@ -135,6 +138,7 @@ struct TimerView: View {
         viewModel.stop()
         phase = .idle
         currentRound = 1
+        focusStartedAt = nil
         haptic.fire(.stop)
         liveActivityManager.end()
         cancelNotification()
@@ -145,6 +149,7 @@ struct TimerView: View {
 
         switch phase {
         case .idle, .focus:
+            focusStartedAt = nil
             if currentRound >= configuration.roundsBeforeLongBreak {
                 phase = .longBreak
                 viewModel.startLongBreak(with: configuration)
@@ -181,6 +186,7 @@ struct TimerView: View {
         case .shortBreak:
             currentRound += 1
             phase = .focus
+            focusStartedAt = .now
             viewModel.startFocus(with: configuration)
 
             let targetEndDate = Date.now.addingTimeInterval(configuration.focusDuration)
@@ -198,6 +204,7 @@ struct TimerView: View {
         case .longBreak:
             currentRound = 1
             phase = .focus
+            focusStartedAt = .now
             viewModel.startFocus(with: configuration)
 
             let targetEndDate = Date.now.addingTimeInterval(configuration.focusDuration)
@@ -213,6 +220,25 @@ struct TimerView: View {
                 message: "Focus session complete! Time for a break. 🎉"
             )
         }
+    }
+
+    private func recordCompletedFocusIfNeeded() {
+        guard phase == .focus,
+              let configuration = activeConfiguration,
+              let startedAt = focusStartedAt else {
+            return
+        }
+
+        let session = CompletedSession(
+            startedAt: startedAt,
+            focusDuration: configuration.focusDuration,
+            roundNumber: currentRound,
+            totalRounds: configuration.roundsBeforeLongBreak,
+            sessionType: .solo
+        )
+
+        modelContext.insert(session)
+        focusStartedAt = nil
     }
 
     private func scheduleNotification(duration: TimeInterval, message: String) {

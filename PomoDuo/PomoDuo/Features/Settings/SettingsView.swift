@@ -17,6 +17,12 @@ struct SettingsView: View {
                 } label: {
                     Label("Timer Durations", systemImage: "timer")
                 }
+
+                NavigationLink {
+                    SessionHistoryView()
+                } label: {
+                    Label("Session History", systemImage: "clock.arrow.circlepath")
+                }
             }
 
             Section("Integrations") {
