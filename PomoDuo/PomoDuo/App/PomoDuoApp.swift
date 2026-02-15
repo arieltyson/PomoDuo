@@ -10,9 +10,15 @@ import SwiftData
 
 @main
 struct PomoDuoApp: App {
+    @State private var notificationManager = NotificationManager()
+
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(notificationManager)
+                .task {
+                    await notificationManager.refreshAuthorizationStatus()
+                }
         }
         .modelContainer(for: StorageConfiguration.modelTypes)
     }

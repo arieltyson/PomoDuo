@@ -12,6 +12,7 @@ import SwiftData
 struct TimerView: View {
     @Query private var configurations: [TimerConfiguration]
     @Environment(\.modelContext) private var modelContext
+    @Environment(NotificationManager.self) private var notificationManager
 
     @State private var activeConfiguration: TimerConfiguration?
     @State private var viewModel = TimerViewModel()
@@ -36,8 +37,8 @@ struct TimerView: View {
                     isRunning: viewModel.isRunning,
                     isComplete: viewModel.isComplete,
                     onStart: { startFocus(using: activeConfiguration) },
-                    onPause: { viewModel.pause() },
-                    onResume: { viewModel.unpause() },
+                    onPause: pauseTimer,
+                    onResume: resumeTimer,
                     onStop: stopTimer,
                     onSkip: { advancePhase(using: activeConfiguration) }
                 )
@@ -69,12 +70,33 @@ struct TimerView: View {
     private func startFocus(using configuration: TimerConfiguration) {
         phase = .focus
         viewModel.startFocus(with: configuration)
+        scheduleNotification(
+            duration: configuration.focusDuration,
+            message: "Focus session complete! Time for a break. 🎉"
+        )
+    }
+
+    private func pauseTimer() {
+        viewModel.pause()
+        cancelNotification()
+    }
+
+    private func resumeTimer() {
+        let remainingSeconds = max(0, viewModel.currentTick?.remainingSeconds ?? 0)
+        viewModel.unpause()
+
+        guard remainingSeconds > 0 else { return }
+        let message = phase.isBreak
+            ? "Break's over! Ready to focus? 📚"
+            : "Focus session complete! Time for a break. 🎉"
+        scheduleNotification(duration: remainingSeconds, message: message)
     }
 
     private func stopTimer() {
         viewModel.stop()
         phase = .idle
         currentRound = 1
+        cancelNotification()
     }
 
     private func advancePhase(using configuration: TimerConfiguration) {
@@ -83,18 +105,53 @@ struct TimerView: View {
             if currentRound >= configuration.roundsBeforeLongBreak {
                 phase = .longBreak
                 viewModel.startLongBreak(with: configuration)
+                scheduleNotification(
+                    duration: configuration.longBreakDuration,
+                    message: "Long break is over! Ready for another round? 💪"
+                )
             } else {
                 phase = .shortBreak
                 viewModel.startShortBreak(with: configuration)
+                scheduleNotification(
+                    duration: configuration.shortBreakDuration,
+                    message: "Break's over! Ready to focus? 📚"
+                )
             }
         case .shortBreak:
             currentRound += 1
             phase = .focus
             viewModel.startFocus(with: configuration)
+            scheduleNotification(
+                duration: configuration.focusDuration,
+                message: "Focus session complete! Time for a break. 🎉"
+            )
         case .longBreak:
             currentRound = 1
             phase = .focus
             viewModel.startFocus(with: configuration)
+            scheduleNotification(
+                duration: configuration.focusDuration,
+                message: "Focus session complete! Time for a break. 🎉"
+            )
+        }
+    }
+
+    private func scheduleNotification(duration: TimeInterval, message: String) {
+        Task {
+            if !notificationManager.hasCheckedAuthorization || !notificationManager.isAuthorized {
+                await notificationManager.requestPermission()
+            }
+
+            guard notificationManager.isAuthorized else { return }
+
+            let endDate = Date.now.addingTimeInterval(max(1, duration))
+            await notificationManager.scheduleTimerEnd(at: endDate, message: message)
+        }
+    }
+
+    private func cancelNotification() {
+        Task {
+            await notificationManager.cancelTimerEnd()
         }
     }
 
