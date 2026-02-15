@@ -14,6 +14,7 @@ struct TimerView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(NotificationManager.self) private var notificationManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
+    @Environment(FocusIntentState.self) private var focusIntentState
 
     @State private var activeConfiguration: TimerConfiguration?
     @State private var viewModel = TimerViewModel()
@@ -57,6 +58,11 @@ struct TimerView: View {
                 recordCompletedFocusIfNeeded()
             }
         }
+        .onChange(of: focusIntentState.pendingFocusRequest) { _, isPending in
+            if isPending {
+                consumePendingFocusRequest()
+            }
+        }
         .navigationTitle("Focus")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: configurations.count) {
@@ -64,18 +70,27 @@ struct TimerView: View {
         }
     }
 
+    private func consumePendingFocusRequest() {
+        guard focusIntentState.consumeStartFocusRequest(),
+              !viewModel.isRunning,
+              let configuration = activeConfiguration else {
+            return
+        }
+
+        startFocus(using: configuration)
+    }
+
     @MainActor
     private func ensureConfigurationLoaded() async {
         if let existing = configurations.first {
             activeConfiguration = existing
-            return
+        } else if activeConfiguration == nil {
+            let configuration = TimerConfiguration()
+            modelContext.insert(configuration)
+            activeConfiguration = configuration
         }
 
-        guard activeConfiguration == nil else { return }
-
-        let configuration = TimerConfiguration()
-        modelContext.insert(configuration)
-        activeConfiguration = configuration
+        consumePendingFocusRequest()
     }
 
     private func startFocus(using configuration: TimerConfiguration) {

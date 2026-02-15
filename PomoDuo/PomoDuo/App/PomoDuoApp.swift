@@ -12,12 +12,14 @@ import SwiftData
 struct PomoDuoApp: App {
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
+    @State private var focusIntentState = FocusIntentState.shared
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(notificationManager)
                 .environment(liveActivityManager)
+                .environment(focusIntentState)
                 .task {
                     await notificationManager.refreshAuthorizationStatus()
                 }
