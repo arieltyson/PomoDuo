@@ -18,6 +18,7 @@ struct TimerView: View {
     @State private var viewModel = TimerViewModel()
     @State private var currentRound = 1
     @State private var phase: TimerPhase = .idle
+    @State private var haptic = HapticTrigger()
 
     var body: some View {
         Group {
@@ -46,6 +47,12 @@ struct TimerView: View {
                 TimerConfigurationLoadingView()
             }
         }
+        .sensoryFeedback(haptic.feedback, trigger: haptic)
+        .onChange(of: viewModel.isComplete) { wasComplete, isNowComplete in
+            if !wasComplete && isNowComplete {
+                haptic.fire(.complete)
+            }
+        }
         .navigationTitle("Focus")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: configurations.count) {
@@ -70,6 +77,7 @@ struct TimerView: View {
     private func startFocus(using configuration: TimerConfiguration) {
         phase = .focus
         viewModel.startFocus(with: configuration)
+        haptic.fire(.start)
         scheduleNotification(
             duration: configuration.focusDuration,
             message: "Focus session complete! Time for a break. 🎉"
@@ -78,12 +86,14 @@ struct TimerView: View {
 
     private func pauseTimer() {
         viewModel.pause()
+        haptic.fire(.pause)
         cancelNotification()
     }
 
     private func resumeTimer() {
         let remainingSeconds = max(0, viewModel.currentTick?.remainingSeconds ?? 0)
         viewModel.unpause()
+        haptic.fire(.resume)
 
         guard remainingSeconds > 0 else { return }
         let message = phase.isBreak
@@ -96,10 +106,13 @@ struct TimerView: View {
         viewModel.stop()
         phase = .idle
         currentRound = 1
+        haptic.fire(.stop)
         cancelNotification()
     }
 
     private func advancePhase(using configuration: TimerConfiguration) {
+        haptic.fire(.phaseChange)
+
         switch phase {
         case .idle, .focus:
             if currentRound >= configuration.roundsBeforeLongBreak {
