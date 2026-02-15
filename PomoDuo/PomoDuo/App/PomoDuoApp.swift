@@ -15,6 +15,7 @@ struct PomoDuoApp: App {
     @State private var focusIntentState = FocusIntentState.shared
     @State private var screenTimeManager: ScreenTimeManager
     @State private var restrictionCoordinator: RestrictionCoordinator
+    @State private var onboardingManager = OnboardingManager()
     @State private var appearanceManager = AppearanceManager()
 
     init() {
@@ -33,6 +34,7 @@ struct PomoDuoApp: App {
                 .environment(focusIntentState)
                 .environment(screenTimeManager)
                 .environment(restrictionCoordinator)
+                .environment(onboardingManager)
                 .environment(appearanceManager)
                 .preferredColorScheme(appearanceManager.preferredColorScheme)
                 .task {
