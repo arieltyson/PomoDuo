@@ -17,17 +17,18 @@ struct PomoDuoLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    PhaseIcon(phase: context.state.phase, isPaused: context.state.isPaused)
+                    ExpandedPhaseIcon(phase: context.state.phase, isPaused: context.state.isPaused)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    CountdownLabel(state: context.state)
+                    ExpandedCountdownLabel(state: context.state)
                 }
 
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.isPaused ? "Paused" : context.state.phase.label)
                         .font(.headline)
                         .bold()
+                        .foregroundStyle(.white)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
@@ -41,18 +42,42 @@ struct PomoDuoLiveActivity: Widget {
 
                         Text("Round \(context.state.currentRound) of \(context.attributes.totalRounds)")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.72))
                     }
                 }
             } compactLeading: {
-                Image(systemName: context.state.phase.systemImage)
-                    .foregroundStyle(context.state.phase.isBreak ? .teal : .purple)
+                Image(systemName: compactIconName(for: context.state))
+                    .font(.caption)
+                    .foregroundStyle(compactTint(for: context.state))
             } compactTrailing: {
-                CountdownLabel(state: context.state)
+                CompactCountdownLabel(state: context.state)
             } minimal: {
-                CountdownLabel(state: context.state)
+                MinimalCountdownLabel(state: context.state)
             }
         }
+    }
+
+    private func compactIconName(for state: TimerActivityAttributes.ContentState) -> String {
+        if state.isPaused {
+            return "pause.circle.fill"
+        }
+
+        switch state.phase {
+        case .focus:
+            return "brain.fill"
+        case .shortBreak:
+            return "cup.and.saucer.fill"
+        case .longBreak:
+            return "figure.walk"
+        }
+    }
+
+    private func compactTint(for state: TimerActivityAttributes.ContentState) -> Color {
+        if state.isPaused {
+            return .orange
+        }
+
+        return state.phase.isBreak ? .teal : .indigo
     }
 }
 
@@ -61,7 +86,7 @@ private struct LockScreenBanner: View {
 
     var body: some View {
         HStack {
-            PhaseIcon(phase: context.state.phase, isPaused: context.state.isPaused)
+            ExpandedPhaseIcon(phase: context.state.phase, isPaused: context.state.isPaused)
 
             VStack(alignment: .leading) {
                 Text(context.state.isPaused ? "Paused" : context.state.phase.label)
@@ -75,14 +100,14 @@ private struct LockScreenBanner: View {
 
             Spacer()
 
-            CountdownLabel(state: context.state)
+            ExpandedCountdownLabel(state: context.state)
         }
         .padding()
         .activityBackgroundTint(context.state.phase.isBreak ? .teal.opacity(0.15) : .purple.opacity(0.15))
     }
 }
 
-private struct PhaseIcon: View {
+private struct ExpandedPhaseIcon: View {
     let phase: TimerActivityAttributes.Phase
     let isPaused: Bool
 
@@ -101,7 +126,7 @@ private struct PhaseIcon: View {
     }
 }
 
-private struct CountdownLabel: View {
+private struct ExpandedCountdownLabel: View {
     let state: TimerActivityAttributes.ContentState
 
     var body: some View {
@@ -113,6 +138,42 @@ private struct CountdownLabel: View {
                 .font(.headline)
                 .bold()
                 .monospacedDigit()
+                .foregroundStyle(.white)
+        }
+    }
+}
+
+private struct CompactCountdownLabel: View {
+    let state: TimerActivityAttributes.ContentState
+
+    var body: some View {
+        if state.isPaused {
+            Image(systemName: "pause.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        } else {
+            Text(timerInterval: Date.now...state.targetEndDate, countsDown: true)
+                .font(.caption)
+                .bold()
+                .monospacedDigit()
+                .foregroundStyle(.white)
+        }
+    }
+}
+
+private struct MinimalCountdownLabel: View {
+    let state: TimerActivityAttributes.ContentState
+
+    var body: some View {
+        if state.isPaused {
+            Image(systemName: "pause.fill")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+        } else {
+            Text(timerInterval: Date.now...state.targetEndDate, countsDown: true)
+                .font(.caption2)
+                .monospacedDigit()
+                .foregroundStyle(.white)
         }
     }
 }
@@ -133,11 +194,11 @@ private struct RoundDots: View {
 
     private func color(for round: Int) -> Color {
         if round < currentRound {
-            .purple
+            .indigo
         } else if round == currentRound {
-            .purple.opacity(0.8)
+            .indigo.opacity(0.8)
         } else {
-            .secondary.opacity(0.3)
+            .white.opacity(0.3)
         }
     }
 }
