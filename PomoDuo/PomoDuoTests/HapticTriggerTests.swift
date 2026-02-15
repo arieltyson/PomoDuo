@@ -8,6 +8,7 @@
 import Testing
 @testable import PomoDuo
 
+@MainActor
 struct HapticTriggerTests {
 
     @Test func initialStateHasNoEvent() {

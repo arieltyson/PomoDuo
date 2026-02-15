@@ -23,7 +23,7 @@ struct RootView: View {
 
             Tab(AppTab.partner.title, systemImage: AppTab.partner.systemImage, value: .partner) {
                 NavigationStack {
-                    PartnerPlaceholderView()
+                    PartnerView()
                 }
             }
 
@@ -34,17 +34,5 @@ struct RootView: View {
             }
         }
         .tint(AppColors.lavender)
-    }
-}
-
-/// Temporary placeholder until the paired social experience is implemented.
-private struct PartnerPlaceholderView: View {
-    var body: some View {
-        ContentUnavailableView {
-            Label("Partner", systemImage: "heart.fill")
-        } description: {
-            Text("Invite your study partner to begin a shared focus session.")
-        }
-        .navigationTitle("Partner")
     }
 }
