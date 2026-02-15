@@ -42,12 +42,17 @@ private enum RoundDotState {
 private struct RoundDot: View {
     let state: RoundDotState
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Circle()
             .fill(dotColor)
             .frame(width: state == .current ? 10 : 8, height: state == .current ? 10 : 8)
             .scaleEffect(state == .current ? 1.2 : 1)
-            .animation(.bouncy(duration: 0.35), value: state == .current)
+            .animation(
+                reduceMotion ? .none : .bouncy(duration: 0.35),
+                value: state == .current
+            )
     }
 
     private var dotColor: Color {

@@ -15,6 +15,8 @@ struct CircularProgressView: View {
     let isPaused: Bool
     let isBreak: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let ringLineWidth: CGFloat = 12
 
     var body: some View {
@@ -32,7 +34,10 @@ struct CircularProgressView: View {
                 )
                 .rotationEffect(.degrees(-90))
                 .foregroundStyle(isBreak ? AppGradients.breakRing : AppGradients.focusRing)
-                .animation(.easeInOut(duration: 0.7), value: remainingProgress)
+                .animation(
+                    reduceMotion ? .none : .easeInOut(duration: 0.7),
+                    value: remainingProgress
+                )
 
             TimerCenterView(
                 timeString: timeString,
@@ -40,8 +45,20 @@ struct CircularProgressView: View {
             )
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isBreak ? "Break timer" : "Focus timer")
+        .accessibilityLabel(accessibilityDescription)
         .accessibilityValue(timeString)
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+
+    private var accessibilityDescription: String {
+        let timerType = isBreak ? "Break timer" : "Focus timer"
+
+        if isPaused {
+            return "\(timerType), paused"
+        }
+
+        let percentComplete = Int((1 - remainingProgress) * 100)
+        return "\(timerType), \(percentComplete) percent complete"
     }
 }
 
@@ -49,22 +66,27 @@ private struct TimerCenterView: View {
     let timeString: String
     let isPaused: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack {
             Text(timeString)
                 .font(.system(.largeTitle, design: .rounded))
                 .bold()
                 .monospacedDigit()
-                .contentTransition(.numericText())
+                .contentTransition(reduceMotion ? .identity : .numericText())
                 .foregroundStyle(isPaused ? AppColors.secondaryLabel : .primary)
 
             if isPaused {
                 Label("Paused", systemImage: "pause.fill")
                     .font(.caption)
                     .foregroundStyle(AppColors.pauseTint)
-                    .transition(.opacity)
+                    .transition(reduceMotion ? .opacity : .opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: isPaused)
+        .animation(
+            reduceMotion ? .none : .easeInOut(duration: 0.2),
+            value: isPaused
+        )
     }
 }

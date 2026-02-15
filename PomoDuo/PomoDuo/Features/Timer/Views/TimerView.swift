@@ -56,6 +56,7 @@ struct TimerView: View {
                 haptic.fire(.complete)
                 liveActivityManager.end()
                 recordCompletedFocusIfNeeded()
+                AccessibilityAnnouncer.announceRoundComplete()
             }
         }
         .onChange(of: focusIntentState.pendingFocusRequest) { _, isPending in
@@ -111,6 +112,10 @@ struct TimerView: View {
             duration: configuration.focusDuration,
             message: "Focus session complete! Time for a break. 🎉"
         )
+        AccessibilityAnnouncer.announceStart(
+            round: currentRound,
+            totalRounds: configuration.roundsBeforeLongBreak
+        )
     }
 
     private func pauseTimer() {
@@ -123,6 +128,7 @@ struct TimerView: View {
             isPaused: true
         )
         cancelNotification()
+        AccessibilityAnnouncer.announcePause()
     }
 
     private func resumeTimer() {
@@ -147,6 +153,7 @@ struct TimerView: View {
             ? "Break's over! Ready to focus? 📚"
             : "Focus session complete! Time for a break. 🎉"
         scheduleNotification(duration: remainingSeconds, message: message)
+        AccessibilityAnnouncer.announceResume()
     }
 
     private func stopTimer() {
@@ -157,6 +164,7 @@ struct TimerView: View {
         haptic.fire(.stop)
         liveActivityManager.end()
         cancelNotification()
+        AccessibilityAnnouncer.announceStop()
     }
 
     private func advancePhase(using configuration: TimerConfiguration) {
@@ -181,6 +189,7 @@ struct TimerView: View {
                     duration: configuration.longBreakDuration,
                     message: "Long break is over! Ready for another round? 💪"
                 )
+                AccessibilityAnnouncer.announceBreakStarted(isLong: true)
             } else {
                 phase = .shortBreak
                 viewModel.startShortBreak(with: configuration)
@@ -197,6 +206,7 @@ struct TimerView: View {
                     duration: configuration.shortBreakDuration,
                     message: "Break's over! Ready to focus? 📚"
                 )
+                AccessibilityAnnouncer.announceBreakStarted(isLong: false)
             }
         case .shortBreak:
             currentRound += 1
@@ -216,6 +226,10 @@ struct TimerView: View {
                 duration: configuration.focusDuration,
                 message: "Focus session complete! Time for a break. 🎉"
             )
+            AccessibilityAnnouncer.announceFocusResumed(
+                round: currentRound,
+                totalRounds: configuration.roundsBeforeLongBreak
+            )
         case .longBreak:
             currentRound = 1
             phase = .focus
@@ -233,6 +247,10 @@ struct TimerView: View {
             scheduleNotification(
                 duration: configuration.focusDuration,
                 message: "Focus session complete! Time for a break. 🎉"
+            )
+            AccessibilityAnnouncer.announceFocusResumed(
+                round: currentRound,
+                totalRounds: configuration.roundsBeforeLongBreak
             )
         }
     }
@@ -358,7 +376,13 @@ private struct TimerCanvasView: View {
                 isPaused: isPaused,
                 isBreak: isBreak,
                 currentRound: currentRound,
-                totalRounds: totalRounds
+                totalRounds: totalRounds,
+                isRunning: isRunning,
+                isComplete: isComplete,
+                onPause: onPause,
+                onResume: onResume,
+                onStop: onStop,
+                onSkip: onSkip
             )
 
             Spacer()
@@ -387,6 +411,13 @@ private struct TimerBodyContent: View {
     let isBreak: Bool
     let currentRound: Int
     let totalRounds: Int
+    let isRunning: Bool
+    let isComplete: Bool
+
+    let onPause: () -> Void
+    let onResume: () -> Void
+    let onStop: () -> Void
+    let onSkip: () -> Void
 
     var body: some View {
         VStack {
@@ -398,6 +429,20 @@ private struct TimerBodyContent: View {
             )
             .containerRelativeFrame(.horizontal) { width, _ in
                 width * 0.66
+            }
+            .accessibilityActions {
+                if isRunning && !isComplete {
+                    if isPaused {
+                        Button("Resume", action: onResume)
+                    } else {
+                        Button("Pause", action: onPause)
+                    }
+                    Button("Stop", action: onStop)
+                }
+
+                if isComplete {
+                    Button("Continue", action: onSkip)
+                }
             }
 
             RoundIndicatorView(

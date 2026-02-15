@@ -19,6 +19,8 @@ struct TimerControlsView: View {
     let onStop: () -> Void
     let onSkip: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Group {
             if isComplete {
@@ -35,9 +37,9 @@ struct TimerControlsView: View {
                 IdleControls(onStart: onStart)
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: isRunning)
-        .animation(.easeInOut(duration: 0.3), value: isPaused)
-        .animation(.easeInOut(duration: 0.3), value: isComplete)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: isRunning)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: isPaused)
+        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: isComplete)
     }
 }
 
@@ -49,6 +51,7 @@ private struct IdleControls: View {
             .buttonStyle(.borderedProminent)
             .tint(AppColors.lavender)
             .controlSize(.large)
+            .accessibilityHint("Begins a new focus session.")
     }
 }
 
@@ -64,22 +67,26 @@ private struct ActiveControls: View {
             Button("Stop", systemImage: "stop.fill", action: onStop)
                 .buttonStyle(.bordered)
                 .tint(.secondary)
+                .accessibilityHint("Ends the session and resets the timer.")
 
             if isPaused {
                 Button("Resume", systemImage: "play.fill", action: onResume)
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.lavender)
                     .controlSize(.large)
+                    .accessibilityHint("Continues the paused timer.")
             } else {
                 Button("Pause", systemImage: "pause.fill", action: onPause)
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.pauseTint)
                     .controlSize(.large)
+                    .accessibilityHint("Pauses the running timer.")
             }
 
             Button("Skip", systemImage: "forward.fill", action: onSkip)
                 .buttonStyle(.bordered)
                 .tint(.secondary)
+                .accessibilityHint("Skips to the next phase.")
         }
     }
 }
@@ -92,5 +99,6 @@ private struct CompletedControls: View {
             .buttonStyle(.borderedProminent)
             .tint(AppColors.success)
             .controlSize(.large)
+            .accessibilityHint("Moves to the next phase.")
     }
 }
