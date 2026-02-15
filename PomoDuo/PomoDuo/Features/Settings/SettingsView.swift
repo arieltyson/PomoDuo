@@ -6,9 +6,12 @@
 //
 
 import SwiftUI
+import FamilyControls
 
 /// Root view for the Settings tab.
 struct SettingsView: View {
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
+
     var body: some View {
         Form {
             Section("Focus") {
@@ -27,14 +30,17 @@ struct SettingsView: View {
 
             Section("Integrations") {
                 NavigationLink {
-                    ContentUnavailableView {
-                        Label("Screen Time", systemImage: "hourglass")
-                    } description: {
-                        Text("App blocking during focus sessions is coming soon.")
-                    }
-                    .navigationTitle("Screen Time")
+                    AppBlockingView()
                 } label: {
-                    Label("App Blocking", systemImage: "hourglass")
+                    Label {
+                        HStack {
+                            Text("App Blocking")
+                            Spacer()
+                            AppBlockingStatusBadge(screenTimeManager: screenTimeManager)
+                        }
+                    } icon: {
+                        Image(systemName: "hourglass")
+                    }
                 }
             }
 
@@ -52,5 +58,29 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+    }
+}
+
+private struct AppBlockingStatusBadge: View {
+    let screenTimeManager: ScreenTimeManager
+
+    var body: some View {
+        if screenTimeManager.isAuthorized && screenTimeManager.hasSelectedApps {
+            let blockedCount = screenTimeManager.activitySelection.applicationTokens.count
+                + screenTimeManager.activitySelection.categoryTokens.count
+            Text("\(blockedCount)")
+                .font(.caption2)
+                .bold()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(AppColors.lavender, in: .capsule)
+                .accessibilityLabel("\(blockedCount) items blocked")
+        } else if screenTimeManager.isAuthorized {
+            Text("Set Up")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("App blocking authorized, no apps selected")
+        }
     }
 }

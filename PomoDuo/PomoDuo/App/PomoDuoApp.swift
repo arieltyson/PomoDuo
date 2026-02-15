@@ -13,6 +13,7 @@ struct PomoDuoApp: App {
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
+    @State private var screenTimeManager = ScreenTimeManager()
 
     var body: some Scene {
         WindowGroup {
@@ -20,8 +21,10 @@ struct PomoDuoApp: App {
                 .environment(notificationManager)
                 .environment(liveActivityManager)
                 .environment(focusIntentState)
+                .environment(screenTimeManager)
                 .task {
                     await notificationManager.refreshAuthorizationStatus()
+                    screenTimeManager.refreshAuthorizationStatus()
                 }
         }
         .modelContainer(for: StorageConfiguration.modelTypes)
