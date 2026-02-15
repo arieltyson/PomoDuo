@@ -14,6 +14,7 @@ struct PomoDuoApp: App {
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
     @State private var screenTimeManager = ScreenTimeManager()
+    @State private var appearanceManager = AppearanceManager()
 
     var body: some Scene {
         WindowGroup {
@@ -22,6 +23,8 @@ struct PomoDuoApp: App {
                 .environment(liveActivityManager)
                 .environment(focusIntentState)
                 .environment(screenTimeManager)
+                .environment(appearanceManager)
+                .preferredColorScheme(appearanceManager.preferredColorScheme)
                 .task {
                     await notificationManager.refreshAuthorizationStatus()
                     screenTimeManager.refreshAuthorizationStatus()

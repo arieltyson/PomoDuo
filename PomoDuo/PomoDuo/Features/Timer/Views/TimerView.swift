@@ -400,7 +400,11 @@ private struct TimerCanvasView: View {
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppColors.surface.ignoresSafeArea())
+        .background {
+            Rectangle()
+                .fill(.background)
+                .ignoresSafeArea()
+        }
     }
 }
 

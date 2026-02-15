@@ -11,8 +11,11 @@ import FamilyControls
 /// Root view for the Settings tab.
 struct SettingsView: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
+    @Environment(AppearanceManager.self) private var appearanceManager
 
     var body: some View {
+        @Bindable var bindableAppearanceManager = appearanceManager
+
         Form {
             Section("Focus") {
                 NavigationLink {
@@ -42,6 +45,21 @@ struct SettingsView: View {
                         Image(systemName: "hourglass")
                     }
                 }
+            }
+
+            Section("Appearance") {
+                Picker("Appearance", selection: $bindableAppearanceManager.selectedAppearance) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.title)
+                            .tag(appearance)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityHint("Sets app appearance to system, light, or dark.")
+
+                Text(appearanceManager.selectedAppearance.detailText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Preferences") {

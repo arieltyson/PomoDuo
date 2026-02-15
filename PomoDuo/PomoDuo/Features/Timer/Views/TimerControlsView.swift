@@ -65,8 +65,7 @@ private struct ActiveControls: View {
     var body: some View {
         HStack {
             Button("Stop", systemImage: "stop.fill", action: onStop)
-                .buttonStyle(.bordered)
-                .tint(.secondary)
+                .buttonStyle(SecondaryControlButtonStyle(tint: AppColors.stopTint))
                 .accessibilityHint("Ends the session and resets the timer.")
 
             if isPaused {
@@ -84,8 +83,7 @@ private struct ActiveControls: View {
             }
 
             Button("Skip", systemImage: "forward.fill", action: onSkip)
-                .buttonStyle(.bordered)
-                .tint(.secondary)
+                .buttonStyle(SecondaryControlButtonStyle(tint: AppColors.lavender))
                 .accessibilityHint("Skips to the next phase.")
         }
     }
@@ -100,5 +98,23 @@ private struct CompletedControls: View {
             .tint(AppColors.success)
             .controlSize(.large)
             .accessibilityHint("Moves to the next phase.")
+    }
+}
+
+private struct SecondaryControlButtonStyle: ButtonStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(tint)
+            .padding(.horizontal)
+            .padding(.vertical)
+            .background(.thinMaterial, in: .capsule)
+            .overlay {
+                Capsule()
+                    .stroke(tint.opacity(0.36), lineWidth: 1)
+            }
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
     }
 }

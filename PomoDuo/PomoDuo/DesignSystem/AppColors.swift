@@ -26,6 +26,7 @@ enum AppColors {
     static let breakTint = Color(red: 0.55, green: 0.78, blue: 0.78)
     static let success = Color(red: 0.45, green: 0.73, blue: 0.54)
     static let pauseTint = Color(red: 0.90, green: 0.70, blue: 0.40)
+    static let stopTint = Color(red: 0.82, green: 0.34, blue: 0.38)
 
     // MARK: - Surfaces
 
