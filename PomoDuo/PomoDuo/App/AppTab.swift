@@ -11,27 +11,32 @@ import Foundation
 enum AppTab: String, CaseIterable, Identifiable, Sendable {
     case timer
     case partner
+    case history
     case settings
 
-    var id: String { rawValue }
+    nonisolated var id: String { rawValue }
 
-    var title: String {
+    nonisolated var title: String {
         switch self {
         case .timer:
             "Focus"
         case .partner:
             "Partner"
+        case .history:
+            "History"
         case .settings:
             "Settings"
         }
     }
 
-    var systemImage: String {
+    nonisolated var systemImage: String {
         switch self {
         case .timer:
             "timer"
         case .partner:
             "heart.fill"
+        case .history:
+            "clock.arrow.circlepath"
         case .settings:
             "gearshape"
         }

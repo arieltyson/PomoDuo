@@ -5,13 +5,24 @@
 //  Created by Codex on 2/16/26.
 //
 
+import SwiftData
 import SwiftUI
 
 /// Active paired-session surface shown in the Partner tab.
+///
+/// Integrates with persistence, Live Activity, haptics, and accessibility.
 struct ActivePairedSessionView: View {
     let session: StudySession
     let partner: PartnerProfile
     let viewModel: PartnerSessionViewModel
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(AuthManager.self) private var authManager
+    @Environment(LiveActivityManager.self) private var liveActivityManager
+
+    @State private var haptic = HapticTrigger()
+    @State private var focusStartedAt: Date?
+    @State private var hasAnnouncedRequestState = false
 
     var body: some View {
         VStack {
@@ -37,6 +48,7 @@ struct ActivePairedSessionView: View {
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sensoryFeedback(haptic.feedback, trigger: haptic)
         .animation(.default, value: session.state)
         .alert(
             "Session Error",
@@ -50,6 +62,15 @@ struct ActivePairedSessionView: View {
                 Text(sessionError)
             }
         }
+        .onChange(of: session.state) { oldState, newState in
+            handleStateTransition(from: oldState, to: newState)
+        }
+        .onChange(of: session.isPaused) { wasPaused, isPaused in
+            handlePauseChange(wasPaused: wasPaused, isPaused: isPaused)
+        }
+        .task {
+            configureForInitialState()
+        }
     }
 
     private var sessionErrorIsPresented: Binding<Bool> {
@@ -60,6 +81,208 @@ struct ActivePairedSessionView: View {
                     viewModel.dismissError()
                 }
             }
+        )
+    }
+
+    // MARK: - State Transitions
+
+    private func configureForInitialState() {
+        switch session.state {
+        case .requesting:
+            if !hasAnnouncedRequestState {
+                AccessibilityAnnouncer.announcePairedSessionStarted(partnerName: partner.displayName)
+                hasAnnouncedRequestState = true
+            }
+        case .focus:
+            focusStartedAt = session.startTime
+            startLiveActivityForFocus(isPaused: session.isPaused)
+        default:
+            break
+        }
+    }
+
+    private func handleStateTransition(from oldState: SessionState, to newState: SessionState) {
+        switch (oldState, newState) {
+
+        case (.requesting, .focus):
+            focusStartedAt = session.startTime
+            haptic.fire(.start)
+            startLiveActivityForFocus(isPaused: session.isPaused)
+            AccessibilityAnnouncer.announcePairedFocusBegan(
+                round: session.currentRound,
+                totalRounds: session.totalRounds,
+                partnerName: partner.displayName
+            )
+
+        case (.focus, .shortBreak):
+            recordCompletedFocusRound()
+            haptic.fire(.phaseChange)
+            updateLiveActivityForBreak(isLong: false)
+            AccessibilityAnnouncer.announcePairedBreak(isLong: false)
+
+        case (.focus, .longBreak):
+            recordCompletedFocusRound()
+            haptic.fire(.phaseChange)
+            updateLiveActivityForBreak(isLong: true)
+            AccessibilityAnnouncer.announcePairedBreak(isLong: true)
+
+        case (.shortBreak, .focus), (.longBreak, .focus):
+            focusStartedAt = session.startTime
+            haptic.fire(.start)
+            startLiveActivityForFocus(isPaused: session.isPaused)
+            AccessibilityAnnouncer.announcePairedFocusBegan(
+                round: session.currentRound,
+                totalRounds: session.totalRounds,
+                partnerName: partner.displayName
+            )
+
+        case (.focus, .completed):
+            haptic.fire(.complete)
+            liveActivityManager.end()
+            AccessibilityAnnouncer.announcePairedSessionCompleted()
+
+        case (.longBreak, .completed):
+            haptic.fire(.complete)
+            liveActivityManager.end()
+            AccessibilityAnnouncer.announcePairedSessionCompleted()
+
+        case (.requesting, .idle),
+             (.focus, .idle),
+             (.shortBreak, .idle),
+             (.longBreak, .idle),
+             (.completed, .idle):
+            haptic.fire(.stop)
+            liveActivityManager.end()
+            AccessibilityAnnouncer.announcePairedSessionEnded()
+
+        default:
+            break
+        }
+    }
+
+    private func handlePauseChange(wasPaused: Bool, isPaused: Bool) {
+        guard session.state == .focus else { return }
+
+        if !wasPaused && isPaused {
+            haptic.fire(.pause)
+            updateLiveActivityPaused(true)
+            AccessibilityAnnouncer.announcePairedPause()
+        } else if wasPaused && !isPaused {
+            haptic.fire(.resume)
+            updateLiveActivityPaused(false)
+            AccessibilityAnnouncer.announcePairedResume()
+        }
+    }
+
+    // MARK: - Persistence
+
+    private func recordCompletedFocusRound() {
+        let startedAt = focusStartedAt ?? session.startTime
+
+        let completedSession = CompletedSession(
+            startedAt: startedAt,
+            focusDuration: session.duration,
+            roundNumber: session.currentRound,
+            totalRounds: session.totalRounds,
+            sessionType: .paired,
+            userID: authManager.currentUserID
+        )
+
+        modelContext.insert(completedSession)
+        focusStartedAt = nil
+        refreshWidgetData()
+    }
+
+    // MARK: - Widget Refresh
+
+    private func refreshWidgetData() {
+        let descriptor = FetchDescriptor<CompletedSession>(
+            sortBy: [SortDescriptor(\.dayBucket, order: .reverse)]
+        )
+        guard let sessions = try? modelContext.fetch(descriptor) else { return }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let scopedSessions = sessionsForCurrentUser(from: sessions)
+        let todaySessions = scopedSessions.filter { calendar.isDate($0.dayBucket, inSameDayAs: today) }
+
+        let todayMinutes = todaySessions.reduce(0) { partial, session in
+            partial + session.focusMinutes
+        }
+        let todaySessionCount = todaySessions.count
+        let currentStreak = streakCount(
+            from: scopedSessions.map(\.dayBucket),
+            calendar: calendar,
+            today: today
+        )
+
+        WidgetDataProvider.update(
+            todayMinutes: todayMinutes,
+            todaySessionCount: todaySessionCount,
+            currentStreak: currentStreak
+        )
+        WidgetDataProvider.reloadWidget()
+    }
+
+    private func sessionsForCurrentUser(from sessions: [CompletedSession]) -> [CompletedSession] {
+        guard let userID = authManager.currentUserID else {
+            return sessions
+        }
+
+        return sessions.filter { $0.userID == nil || $0.userID == userID }
+    }
+
+    private func streakCount(from dayBuckets: [Date], calendar: Calendar, today: Date) -> Int {
+        let activeDays = Set(dayBuckets.map { calendar.startOfDay(for: $0) })
+        var cursor = today
+        var streak = 0
+
+        while activeDays.contains(cursor) {
+            streak += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+                break
+            }
+            cursor = previousDay
+        }
+
+        return streak
+    }
+
+    // MARK: - Live Activity
+
+    private func startLiveActivityForFocus(isPaused: Bool) {
+        liveActivityManager.start(
+            phase: .focus,
+            currentRound: session.currentRound,
+            totalRounds: session.totalRounds,
+            targetEndDate: session.targetEndDate
+        )
+
+        if isPaused {
+            liveActivityManager.update(
+                phase: .focus,
+                currentRound: session.currentRound,
+                targetEndDate: session.targetEndDate,
+                isPaused: true
+            )
+        }
+    }
+
+    private func updateLiveActivityForBreak(isLong: Bool) {
+        liveActivityManager.update(
+            phase: isLong ? .longBreak : .shortBreak,
+            currentRound: session.currentRound,
+            targetEndDate: session.targetEndDate,
+            isPaused: false
+        )
+    }
+
+    private func updateLiveActivityPaused(_ isPaused: Bool) {
+        liveActivityManager.update(
+            phase: .focus,
+            currentRound: session.currentRound,
+            targetEndDate: session.targetEndDate,
+            isPaused: isPaused
         )
     }
 }

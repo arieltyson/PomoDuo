@@ -5,8 +5,8 @@
 //  Created by Codex on 2/15/26.
 //
 
-import SwiftUI
 import FamilyControls
+import SwiftUI
 
 /// Root view for the Settings tab.
 struct SettingsView: View {
@@ -25,12 +25,6 @@ struct SettingsView: View {
                     TimerSettingsView()
                 } label: {
                     Label("Timer Durations", systemImage: "timer")
-                }
-
-                NavigationLink {
-                    SessionHistoryView()
-                } label: {
-                    Label("Session History", systemImage: "clock.arrow.circlepath")
                 }
             }
 
@@ -151,6 +145,7 @@ private struct SignedInAccountRow: View {
                 Text(user.displayName)
                     .font(.subheadline)
                     .bold()
+
                 Text(user.isAnonymous ? "Guest" : "Signed In")
                     .font(.caption)
                     .foregroundStyle(.secondary)

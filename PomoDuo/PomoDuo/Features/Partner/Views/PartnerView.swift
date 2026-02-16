@@ -63,8 +63,8 @@ private struct SignedInPartnerContent: View {
     @Binding var isShowingCodeSheet: Bool
 
     var body: some View {
-        if sessionViewModel.hasActiveSession,
-           let session = sessionViewModel.activeSession,
+        if let session = sessionViewModel.activeSession,
+           session.state != .idle,
            case let .paired(partner) = pairingViewModel.pairingState {
             ActivePairedSessionView(
                 session: session,

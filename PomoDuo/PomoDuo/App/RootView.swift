@@ -32,6 +32,12 @@ struct RootView: View {
                 }
             }
 
+            Tab(AppTab.history.title, systemImage: AppTab.history.systemImage, value: .history) {
+                NavigationStack {
+                    SessionHistoryView()
+                }
+            }
+
             Tab(AppTab.settings.title, systemImage: AppTab.settings.systemImage, value: .settings) {
                 NavigationStack {
                     SettingsView()
