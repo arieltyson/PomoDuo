@@ -5,7 +5,7 @@
 ## App Store  : Coming Soon
 
 <kbd>
-    <img src="https://github.com/user-attachments/assets/d52270cf-f212-4a0d-8dfa-6b8c970364bf" alt="PomoDuo Hero" width="800" height="500">
+    <img src="https://github.com/user-attachments/assets/9eb2b333-4a0f-4067-964b-53966b08b1b5" alt="PomoDuo Hero" width="800" height="500">
 </kbd>
 
 ## Project Description 🎨
