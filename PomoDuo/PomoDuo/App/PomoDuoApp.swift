@@ -10,6 +10,7 @@ import SwiftData
 
 @main
 struct PomoDuoApp: App {
+    @State private var authManager = AuthManager()
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
@@ -29,6 +30,7 @@ struct PomoDuoApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(authManager)
                 .environment(notificationManager)
                 .environment(liveActivityManager)
                 .environment(focusIntentState)
@@ -38,6 +40,7 @@ struct PomoDuoApp: App {
                 .environment(appearanceManager)
                 .preferredColorScheme(appearanceManager.preferredColorScheme)
                 .task {
+                    await authManager.start()
                     await notificationManager.refreshAuthorizationStatus()
                     screenTimeManager.refreshAuthorizationStatus()
                 }

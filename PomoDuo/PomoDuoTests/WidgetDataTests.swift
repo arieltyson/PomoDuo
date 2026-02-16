@@ -9,6 +9,7 @@ import Foundation
 import Testing
 @testable import PomoDuo
 
+@MainActor
 struct FocusStatsSnapshotTests {
     @Test func emptySnapshotHasZeroValues() {
         let snapshot = FocusStatsSnapshot.empty(now: .distantPast)
@@ -25,12 +26,14 @@ struct FocusStatsSnapshotTests {
     }
 }
 
+@MainActor
 struct FocusWidgetKindTests {
     @Test func statsKindIsStable() {
         #expect(FocusWidgetKind.stats == "FocusStatsWidget")
     }
 }
 
+@MainActor
 struct WidgetDataProviderTests {
     @Test func appGroupIDIsStable() {
         #expect(WidgetDataProvider.appGroupID == StorageConfiguration.widgetAppGroupID)

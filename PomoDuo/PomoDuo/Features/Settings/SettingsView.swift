@@ -10,6 +10,7 @@ import FamilyControls
 
 /// Root view for the Settings tab.
 struct SettingsView: View {
+    @Environment(AuthManager.self) private var authManager
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(AppearanceManager.self) private var appearanceManager
 
@@ -17,6 +18,8 @@ struct SettingsView: View {
         @Bindable var bindableAppearanceManager = appearanceManager
 
         Form {
+            AccountSection(authManager: authManager)
+
             Section("Focus") {
                 NavigationLink {
                     TimerSettingsView()
@@ -75,7 +78,97 @@ struct SettingsView: View {
                 }
             }
         }
+        .alert("Account Error", isPresented: authErrorIsPresented) {
+            Button("OK") {
+                authManager.clearError()
+            }
+        } message: {
+            if let authError = authManager.authError {
+                Text(authError)
+            }
+        }
         .navigationTitle("Settings")
+    }
+
+    private var authErrorIsPresented: Binding<Bool> {
+        Binding(
+            get: { authManager.authError != nil },
+            set: { isPresented in
+                if !isPresented {
+                    authManager.clearError()
+                }
+            }
+        )
+    }
+}
+
+private struct AccountSection: View {
+    let authManager: AuthManager
+
+    var body: some View {
+        Section {
+            if let currentUser = authManager.currentUser {
+                SignedInAccountRow(user: currentUser)
+
+                Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") {
+                    Task {
+                        await authManager.signOut()
+                    }
+                }
+                .disabled(authManager.isLoading)
+                .accessibilityHint("Signs out of the current account.")
+            } else if authManager.isLoading {
+                HStack {
+                    ProgressView()
+                    Text("Signing in…")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Button("Sign In as Guest", systemImage: "person.crop.circle.badge.plus") {
+                    Task {
+                        await authManager.signInAnonymously()
+                    }
+                }
+                .accessibilityHint("Creates a local guest account.")
+            }
+        } header: {
+            Text("Account")
+        } footer: {
+            if let currentUser = authManager.currentUser, currentUser.isAnonymous {
+                Text("You are signed in as a guest. This is the default identity until full cloud auth is added.")
+            }
+        }
+    }
+}
+
+private struct SignedInAccountRow: View {
+    let user: AuthUser
+
+    var body: some View {
+        HStack {
+            Image(systemName: user.isAnonymous ? "person.crop.circle.dashed" : "person.crop.circle.fill")
+                .font(.title2)
+                .foregroundStyle(user.isAnonymous ? .secondary : AppColors.lavender)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading) {
+                Text(user.displayName)
+                    .font(.subheadline)
+                    .bold()
+                Text(user.isAnonymous ? "Guest" : "Signed In")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Text(String(user.id.prefix(8)))
+                .font(.caption2)
+                .monospaced()
+                .foregroundStyle(.tertiary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Signed in as \(user.displayName)")
     }
 }
 
