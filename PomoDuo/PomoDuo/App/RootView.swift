@@ -11,7 +11,9 @@ import SwiftUI
 ///
 /// On iOS 26, the native Tab API renders with the system's Liquid Glass look.
 struct RootView: View {
+    @Environment(AuthManager.self) private var authManager
     @Environment(OnboardingManager.self) private var onboardingManager
+    @Environment(SessionManager.self) private var sessionManager
 
     @State private var selectedTab = AppTab.timer
     @State private var isShowingOnboarding = false
@@ -39,6 +41,9 @@ struct RootView: View {
         .tint(AppColors.lavender)
         .task {
             isShowingOnboarding = !onboardingManager.hasCompletedOnboarding
+        }
+        .task(id: authManager.currentUserID) {
+            sessionManager.setCurrentUserID(authManager.currentUserID)
         }
         .onChange(of: onboardingManager.hasCompletedOnboarding) { _, hasCompleted in
             isShowingOnboarding = !hasCompleted

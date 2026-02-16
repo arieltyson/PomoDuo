@@ -108,15 +108,11 @@ private struct AccountSection: View {
     var body: some View {
         Section {
             if let currentUser = authManager.currentUser {
-                SignedInAccountRow(user: currentUser)
-
-                Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") {
-                    Task {
-                        await authManager.signOut()
-                    }
+                NavigationLink {
+                    AccountView(authManager: authManager)
+                } label: {
+                    SignedInAccountRow(user: currentUser)
                 }
-                .disabled(authManager.isLoading)
-                .accessibilityHint("Signs out of the current account.")
             } else if authManager.isLoading {
                 HStack {
                     ProgressView()
@@ -135,7 +131,7 @@ private struct AccountSection: View {
             Text("Account")
         } footer: {
             if let currentUser = authManager.currentUser, currentUser.isAnonymous {
-                Text("You are signed in as a guest. This is the default identity until full cloud auth is added.")
+                Text("You are signed in as a guest. Tap to manage your account.")
             }
         }
     }
@@ -169,6 +165,7 @@ private struct SignedInAccountRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Signed in as \(user.displayName)")
+        .accessibilityHint("Tap to manage your account.")
     }
 }
 

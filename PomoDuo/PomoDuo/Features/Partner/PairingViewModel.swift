@@ -112,6 +112,18 @@ final class PairingViewModel {
         pairingState = .unpaired
     }
 
+    /// Clears local pairing UI state without performing remote mutations.
+    ///
+    /// Used when auth identity changes or signs out, so stale pairing data
+    /// does not leak into the next account session.
+    func resetForSignedOut() {
+        waitTask?.cancel()
+        waitTask = nil
+        pairingState = .unpaired
+        codeInput = ""
+        codeInputIsInvalid = false
+    }
+
     private func waitForPartner(using code: PairCode) {
         waitTask?.cancel()
 

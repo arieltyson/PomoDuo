@@ -71,6 +71,22 @@ final class SessionManager {
         }
     }
 
+    /// Updates the identity context used for session operations.
+    ///
+    /// Clears local session state whenever the identity changes to avoid
+    /// carrying partner session data across different authenticated users.
+    func setCurrentUserID(_ userID: String?) {
+        let previousUserID = currentUserID
+        currentUserID = userID
+
+        guard previousUserID != userID else {
+            return
+        }
+
+        currentSession = nil
+        lastError = nil
+    }
+
     /// Partner B accepts the session request.
     func acceptSession() async {
         guard let session = currentSession else { return }

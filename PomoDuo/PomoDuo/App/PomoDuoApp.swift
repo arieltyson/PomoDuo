@@ -11,6 +11,7 @@ import SwiftData
 @main
 struct PomoDuoApp: App {
     @State private var authManager = AuthManager()
+    @State private var sessionManager = SessionManager()
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
@@ -31,6 +32,7 @@ struct PomoDuoApp: App {
         WindowGroup {
             RootView()
                 .environment(authManager)
+                .environment(sessionManager)
                 .environment(notificationManager)
                 .environment(liveActivityManager)
                 .environment(focusIntentState)
