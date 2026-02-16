@@ -5,7 +5,7 @@
 ## App Store  : Coming Soon
 
 <kbd>
-    <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="PomoDuo Hero" width="800" height="500">
+    <img src="https://github.com/user-attachments/assets/d52270cf-f212-4a0d-8dfa-6b8c970364bf" alt="PomoDuo Hero" width="800" height="500">
 </kbd>
 
 ## Project Description 🎨
@@ -44,30 +44,29 @@ The app combines Apple's Screen Time API stack (`FamilyControls`, `ManagedSettin
 
 Coming soon
 
-
 ## Screenshots:
 
 <div style="display: flex; justify-content: center; align-items: center;">
     <kbd>
-        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="Dashboard" width="200">
+        <img src="https://github.com/user-attachments/assets/fb0db5ff-5407-4b2f-a89a-fb50052b9403" alt="Dashboard" width="200">
     </kbd>
     <kbd>
-        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="Pairing Flow" width="200">
+        <img src="https://github.com/user-attachments/assets/7e0c9d67-fa4f-44ad-8a3a-31bc8c48b741" alt="Pairing Flow" width="200">
     </kbd>
     <kbd>
-        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="Active Session" width="200">
+        <img src="https://github.com/user-attachments/assets/6b97e32c-12e9-4c21-9d7b-e6810374fec3" alt="Active Session" width="200">
     </kbd>
 </div>
 
 <div style="display: flex; justify-content: center; align-items: center;">
     <kbd>
-        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="App Selection" width="200">
+        <img src="https://github.com/user-attachments/assets/8eef357b-ee5c-4368-b435-874475d99d2c" alt="App Selection" width="200">
     </kbd>
     <kbd>
-        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="Live Activity" width="200">
+        <img src="https://github.com/user-attachments/assets/ba0c6124-2d94-413c-9759-d0ed2fa47509" alt="Live Activity" width="200">
     </kbd>
     <kbd>
-        <img src="https://github.com/user-attachments/assets/58b51430-3e01-4f65-8ebe-42073c89d4ff" alt="History View" width="200">
+        <img src="https://github.com/user-attachments/assets/4d45b4bb-f794-4189-882c-159522325e1b" alt="History View" width="200">
     </kbd>
 </div>
 
