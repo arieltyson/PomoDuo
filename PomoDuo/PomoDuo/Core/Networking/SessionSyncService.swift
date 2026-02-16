@@ -9,7 +9,7 @@ import Foundation
 
 /// Abstracts the real-time sync layer so the app logic is backend-agnostic.
 /// Firebase, CloudKit, or a mock can all conform to this.
-protocol SessionSyncService: Sendable {
+protocol SessionSyncService: Actor, Sendable {
     /// Writes a session state transition to the remote backend.
     func writeSession(_ session: StudySession) async throws
 

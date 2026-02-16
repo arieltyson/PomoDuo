@@ -144,6 +144,22 @@ final class SessionManager {
         await syncAndEnforce()
     }
 
+    /// Clears the current session and related side effects.
+    ///
+    /// Use this to dismiss completed or cancelled sessions and return
+    /// the UI to the idle pairing state.
+    func clearSession() async {
+        if let sessionID = currentSession?.id {
+            try? await syncService?.deleteSession(sessionID)
+        }
+
+        try? await restrictionService?.removeRestrictions()
+        try? await notificationService?.cancelPendingNotifications()
+
+        currentSession = nil
+        lastError = nil
+    }
+
     // MARK: - Remote Sync Handling
 
     /// Call this when a remote session update arrives from the sync layer.

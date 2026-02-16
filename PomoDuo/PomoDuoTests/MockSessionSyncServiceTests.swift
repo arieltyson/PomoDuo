@@ -10,6 +10,7 @@ import Testing
 @testable import PomoDuo
 
 @Suite("MockSessionSyncService")
+@MainActor
 struct MockSessionSyncServiceTests {
     private func makeSession(
         id: String = UUID().uuidString,

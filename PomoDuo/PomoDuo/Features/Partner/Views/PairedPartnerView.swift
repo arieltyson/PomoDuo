@@ -10,6 +10,7 @@ import SwiftUI
 /// Screen shown once a partner has connected successfully.
 struct PairedPartnerView: View {
     let partner: PartnerProfile
+    let sessionViewModel: PartnerSessionViewModel
     let onUnpair: () -> Void
 
     @State private var showUnpairConfirmation = false
@@ -32,10 +33,13 @@ struct PairedPartnerView: View {
 
             VStack {
                 Button("Start Session", systemImage: "play.fill") {
-                    // Session start wiring arrives in a later phase.
+                    Task {
+                        await sessionViewModel.startSession(with: partner)
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AppColors.lavender)
+                .disabled(sessionViewModel.isStartingSession)
 
                 Button("Disconnect", systemImage: "person.badge.minus", role: .destructive) {
                     showUnpairConfirmation = true
