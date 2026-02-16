@@ -17,10 +17,20 @@ final class SessionHistoryViewModel {
     private(set) var allTimeSessionCount = 0
     private(set) var currentStreak = 0
 
-    func refresh(from sessions: [CompletedSession]) {
-        computeAllTime(from: sessions)
-        computeWeekly(from: sessions)
-        computeStreak(from: sessions)
+    func refresh(from sessions: [CompletedSession], userID: String? = nil) {
+        let filteredSessions = scopedSessions(from: sessions, userID: userID)
+        computeAllTime(from: filteredSessions)
+        computeWeekly(from: filteredSessions)
+        computeStreak(from: filteredSessions)
+    }
+
+    /// Returns sessions visible for the provided identity.
+    ///
+    /// When `userID` is non-nil, includes sessions belonging to that user and
+    /// legacy sessions with `nil` `userID`.
+    func scopedSessions(from sessions: [CompletedSession], userID: String?) -> [CompletedSession] {
+        guard let userID else { return sessions }
+        return sessions.filter { $0.userID == nil || $0.userID == userID }
     }
 
     private func computeAllTime(from sessions: [CompletedSession]) {

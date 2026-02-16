@@ -11,7 +11,7 @@ import SwiftData
 @main
 struct PomoDuoApp: App {
     @State private var authManager = AuthManager()
-    @State private var sessionManager = SessionManager()
+    @State private var sessionManager: SessionManager
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
@@ -25,6 +25,11 @@ struct PomoDuoApp: App {
         _screenTimeManager = State(initialValue: screenTimeManager)
         _restrictionCoordinator = State(
             initialValue: RestrictionCoordinator(screenTimeManager: screenTimeManager)
+        )
+
+        let syncService = MockSessionSyncService()
+        _sessionManager = State(
+            initialValue: SessionManager(syncService: syncService)
         )
     }
 

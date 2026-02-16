@@ -12,6 +12,7 @@ import SwiftData
 struct TimerView: View {
     @Query private var configurations: [TimerConfiguration]
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthManager.self) private var authManager
     @Environment(NotificationManager.self) private var notificationManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(FocusIntentState.self) private var focusIntentState
@@ -281,7 +282,8 @@ struct TimerView: View {
             focusDuration: configuration.focusDuration,
             roundNumber: currentRound,
             totalRounds: configuration.roundsBeforeLongBreak,
-            sessionType: .solo
+            sessionType: .solo,
+            userID: authManager.currentUserID
         )
 
         modelContext.insert(session)
@@ -297,10 +299,15 @@ struct TimerView: View {
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
-        let todaySessions = sessions.filter { calendar.isDate($0.dayBucket, inSameDayAs: today) }
+        let scopedSessions = sessionsForCurrentUser(from: sessions)
+        let todaySessions = scopedSessions.filter { calendar.isDate($0.dayBucket, inSameDayAs: today) }
         let todayMinutes = todaySessions.reduce(0) { $0 + $1.focusMinutes }
         let todaySessionCount = todaySessions.count
-        let currentStreak = streakCount(from: sessions.map(\.dayBucket), calendar: calendar, today: today)
+        let currentStreak = streakCount(
+            from: scopedSessions.map(\.dayBucket),
+            calendar: calendar,
+            today: today
+        )
 
         WidgetDataProvider.update(
             todayMinutes: todayMinutes,
@@ -308,6 +315,11 @@ struct TimerView: View {
             currentStreak: currentStreak
         )
         WidgetDataProvider.reloadWidget()
+    }
+
+    private func sessionsForCurrentUser(from sessions: [CompletedSession]) -> [CompletedSession] {
+        guard let userID = authManager.currentUserID else { return sessions }
+        return sessions.filter { $0.userID == nil || $0.userID == userID }
     }
 
     private func streakCount(from dayBuckets: [Date], calendar: Calendar, today: Date) -> Int {

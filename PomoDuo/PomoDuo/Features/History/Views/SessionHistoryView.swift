@@ -13,20 +13,32 @@ struct SessionHistoryView: View {
     @Query(sort: \CompletedSession.startedAt, order: .reverse)
     private var sessions: [CompletedSession]
 
+    @Environment(AuthManager.self) private var authManager
     @State private var viewModel = SessionHistoryViewModel()
+
+    private var filteredSessions: [CompletedSession] {
+        viewModel.scopedSessions(from: sessions, userID: authManager.currentUserID)
+    }
 
     var body: some View {
         Group {
-            if sessions.isEmpty {
+            if filteredSessions.isEmpty {
                 EmptyHistoryView()
             } else {
-                SessionHistoryListView(sessions: sessions, viewModel: viewModel)
+                SessionHistoryListView(sessions: filteredSessions, viewModel: viewModel)
             }
         }
         .navigationTitle("History")
         .task(id: sessions.count) {
-            viewModel.refresh(from: sessions)
+            refreshHistory()
         }
+        .task(id: authManager.currentUserID) {
+            refreshHistory()
+        }
+    }
+
+    private func refreshHistory() {
+        viewModel.refresh(from: sessions, userID: authManager.currentUserID)
     }
 }
 

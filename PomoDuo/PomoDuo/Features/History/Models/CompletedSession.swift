@@ -35,12 +35,18 @@ final class CompletedSession {
     /// Local start-of-day bucket for efficient chart grouping.
     var dayBucket: Date = CompletedSession.startOfToday()
 
+    /// The authenticated user who completed the round.
+    ///
+    /// `nil` for sessions recorded before user attribution existed.
+    var userID: String?
+
     init(
         startedAt: Date = .now,
         focusDuration: TimeInterval,
         roundNumber: Int,
         totalRounds: Int,
-        sessionType: SessionType = .solo
+        sessionType: SessionType = .solo,
+        userID: String? = nil
     ) {
         self.startedAt = startedAt
         self.focusDuration = focusDuration
@@ -48,6 +54,7 @@ final class CompletedSession {
         self.totalRounds = totalRounds
         self.sessionType = sessionType
         self.dayBucket = Self.startOfDay(for: startedAt)
+        self.userID = userID
     }
 
     static func startOfDay(for date: Date) -> Date {
