@@ -9,6 +9,8 @@ import SwiftData
 import SwiftUI
 
 /// Displays focus history, weekly charting, and aggregate stats.
+///
+/// A segmented picker filters the list and chart by session type.
 struct SessionHistoryView: View {
     @Query(sort: \CompletedSession.startedAt, order: .reverse)
     private var sessions: [CompletedSession]
@@ -16,16 +18,25 @@ struct SessionHistoryView: View {
     @Environment(AuthManager.self) private var authManager
     @State private var viewModel = SessionHistoryViewModel()
 
-    private var filteredSessions: [CompletedSession] {
+    /// User-scoped sessions before type filtering.
+    private var scopedSessions: [CompletedSession] {
         viewModel.scopedSessions(from: sessions, userID: authManager.currentUserID)
+    }
+
+    /// Final display list after type filtering.
+    private var displaySessions: [CompletedSession] {
+        viewModel.filteredSessions(from: scopedSessions)
     }
 
     var body: some View {
         Group {
-            if filteredSessions.isEmpty {
+            if scopedSessions.isEmpty {
                 EmptyHistoryView()
             } else {
-                SessionHistoryListView(sessions: filteredSessions, viewModel: viewModel)
+                SessionHistoryListView(
+                    displaySessions: displaySessions,
+                    viewModel: viewModel
+                )
             }
         }
         .navigationTitle("History")
@@ -42,6 +53,8 @@ struct SessionHistoryView: View {
     }
 }
 
+// MARK: - Empty State
+
 private struct EmptyHistoryView: View {
     var body: some View {
         ContentUnavailableView {
@@ -52,28 +65,47 @@ private struct EmptyHistoryView: View {
     }
 }
 
+// MARK: - List
+
 private struct SessionHistoryListView: View {
-    let sessions: [CompletedSession]
-    let viewModel: SessionHistoryViewModel
+    let displaySessions: [CompletedSession]
+    @Bindable var viewModel: SessionHistoryViewModel
 
     var body: some View {
         List {
             StatsSection(viewModel: viewModel)
 
             Section("This Week") {
-                FocusStreakChartView(summaries: viewModel.weeklySummaries)
-                    .frame(height: 160)
-                    .listRowInsets(.init(top: 8, leading: 0, bottom: 8, trailing: 0))
+                FocusStreakChartView(
+                    summaries: viewModel.weeklySummaries,
+                    filter: viewModel.activeFilter
+                )
+                .frame(height: 160)
+                .listRowInsets(.init(top: 8, leading: 0, bottom: 8, trailing: 0))
             }
 
-            Section("Recent Sessions") {
-                ForEach(sessions.prefix(50)) { session in
-                    SessionRowView(session: session)
+            Section {
+                SessionFilterPicker(selection: $viewModel.activeFilter)
+                    .listRowInsets(.init())
+                    .listRowBackground(Color.clear)
+            }
+
+            if displaySessions.isEmpty {
+                Section {
+                    FilteredEmptyStateView(filter: viewModel.activeFilter)
+                }
+            } else {
+                Section("Recent Sessions") {
+                    ForEach(displaySessions.prefix(50)) { session in
+                        SessionRowView(session: session)
+                    }
                 }
             }
         }
     }
 }
+
+// MARK: - Stats
 
 private struct StatsSection: View {
     let viewModel: SessionHistoryViewModel
@@ -104,7 +136,43 @@ private struct StatsSection: View {
             }
             .listRowInsets(.init())
             .listRowBackground(Color.clear)
+
+            if viewModel.pairedSessionCount > 0 {
+                PairedStatsRow(viewModel: viewModel)
+            }
         }
+    }
+}
+
+/// Solo/paired contribution row beneath primary stats cards.
+private struct PairedStatsRow: View {
+    let viewModel: SessionHistoryViewModel
+
+    var body: some View {
+        HStack {
+            Label {
+                Text("\(viewModel.soloFocusMinutes) min solo")
+                    .font(.caption)
+            } icon: {
+                Image(systemName: "person.fill")
+                    .foregroundStyle(AppColors.lavender)
+            }
+
+            Spacer()
+
+            Label {
+                Text("\(viewModel.pairedFocusMinutes) min paired")
+                    .font(.caption)
+            } icon: {
+                Image(systemName: "person.2.fill")
+                    .foregroundStyle(AppColors.lilac)
+            }
+        }
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "\(viewModel.soloFocusMinutes) minutes solo, \(viewModel.pairedFocusMinutes) minutes paired"
+        )
     }
 }
 
@@ -135,5 +203,70 @@ private struct StatCard: View {
         .clipShape(.rect(cornerRadius: 12))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title): \(value) \(unit)")
+    }
+}
+
+// MARK: - Filter Picker
+
+private struct SessionFilterPicker: View {
+    @Binding var selection: SessionTypeFilter
+
+    var body: some View {
+        Picker("Session Type", selection: $selection) {
+            ForEach(SessionTypeFilter.allCases) { filter in
+                Text(filter.title)
+                    .tag(filter)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal)
+        .accessibilityHint("Filters history by all, solo, or paired sessions.")
+    }
+}
+
+// MARK: - Filtered Empty State
+
+private struct FilteredEmptyStateView: View {
+    let filter: SessionTypeFilter
+
+    var body: some View {
+        ContentUnavailableView {
+            Label(emptyTitle, systemImage: emptySymbol)
+        } description: {
+            Text(emptyDescription)
+        }
+    }
+
+    private var emptyTitle: String {
+        switch filter {
+        case .all:
+            "No Sessions"
+        case .solo:
+            "No Solo Sessions"
+        case .paired:
+            "No Paired Sessions"
+        }
+    }
+
+    private var emptySymbol: String {
+        switch filter {
+        case .all:
+            "clock.arrow.circlepath"
+        case .solo:
+            "person.fill"
+        case .paired:
+            "person.2.fill"
+        }
+    }
+
+    private var emptyDescription: String {
+        switch filter {
+        case .all:
+            "Complete a focus round and it will appear here."
+        case .solo:
+            "Start a solo focus session from the Focus tab."
+        case .paired:
+            "Start a paired session with your study partner."
+        }
     }
 }
