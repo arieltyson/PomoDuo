@@ -37,7 +37,7 @@ struct AccountView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                Section("Display Name") {
+                Section {
                     TextField("Display Name", text: $viewModel.editingDisplayName)
                         .textContentType(.name)
                         .autocorrectionDisabled()
@@ -65,6 +65,8 @@ struct AccountView: View {
                             .disabled(viewModel.nameValidationError != nil || viewModel.isSaving)
                         }
                     }
+                } header: {
+                    Text("Display Name")
                 } footer: {
                     Text("This name is visible to your partner during paired sessions.")
                 }
