@@ -18,7 +18,7 @@ struct ConnectionStatusBanner: View {
                 .background(.orange.gradient, in: .rect(cornerRadius: 8))
                 .padding(.horizontal)
                 .transition(.move(edge: .top).combined(with: .opacity))
-                .accessibilityAddTraits(.isStatusElement)
+                .accessibilityAddTraits(.updatesFrequently)
         }
     }
 }
