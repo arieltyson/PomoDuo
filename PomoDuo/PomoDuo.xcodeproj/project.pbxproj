@@ -50,12 +50,20 @@
 			);
 			target = AF8695F22F411D5600388170 /* PomoDuoUITests */;
 		};
+		AF2205702F45C0AA009763BD /* Exceptions for "PomoDuo" folder in "PomoDuo" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AF8695DB2F411D5500388170 /* PomoDuo */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AF8695DE2F411D5500388170 /* PomoDuo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				AF2205702F45C0AA009763BD /* Exceptions for "PomoDuo" folder in "PomoDuo" target */,
 				AF2205662F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoTests" target */,
 				AF2205672F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoUITests" target */,
 			);
@@ -438,6 +446,7 @@
 				DEVELOPMENT_TEAM = 2MPMKAF986;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PomoDuo/Info.plist;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -473,6 +482,7 @@
 				DEVELOPMENT_TEAM = 2MPMKAF986;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PomoDuo/Info.plist;
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
