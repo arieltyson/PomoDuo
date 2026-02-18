@@ -18,11 +18,11 @@
  * and push documents accumulate harmlessly until the function is deployed.
  */
 
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
-const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
-const { getMessaging } = require("firebase-admin/messaging");
-const { logger } = require("firebase-functions");
+const {onDocumentCreated} = require("firebase-functions/v2/firestore");
+const {initializeApp} = require("firebase-admin/app");
+const {getFirestore} = require("firebase-admin/firestore");
+const {getMessaging} = require("firebase-admin/messaging");
+const {logger} = require("firebase-functions");
 
 initializeApp();
 
@@ -44,95 +44,95 @@ initializeApp();
  *   3. Deletes the processed document to prevent re-delivery
  */
 exports.deliverPushNotification = onDocumentCreated(
-  "pushNotifications/{docId}",
-  async (event) => {
-    const snapshot = event.data;
-    if (!snapshot) {
-      logger.warn("No data in push notification document.");
-      return;
-    }
-
-    const pushData = snapshot.data();
-    const { targetUserID, title, body, category, data: payload } = pushData;
-
-    if (!targetUserID || !title || !body) {
-      logger.error("Push document missing required fields.", { pushData });
-      await snapshot.ref.delete();
-      return;
-    }
-
-    // Look up the target user's FCM token.
-    const db = getFirestore();
-    const userDoc = await db.collection("users").doc(targetUserID).get();
-
-    if (!userDoc.exists) {
-      logger.warn(`No user document found for ${targetUserID}.`);
-      await snapshot.ref.delete();
-      return;
-    }
-
-    const fcmToken = userDoc.data().fcmToken;
-    if (!fcmToken) {
-      logger.warn(`No FCM token for user ${targetUserID}.`);
-      await snapshot.ref.delete();
-      return;
-    }
-
-    // Build and send the FCM message.
-    const message = {
-      token: fcmToken,
-      notification: {
-        title,
-        body,
-      },
-      apns: {
-        headers: {
-          "apns-priority": "10",
-        },
-        payload: {
-          aps: {
-            "interruption-level": "time-sensitive",
-            sound: "default",
-            category: category || "DEFAULT",
-            "content-available": 1,
-          },
-          ...Object.fromEntries(
-            Object.entries(payload || {}).map(([k, v]) => [k, String(v)])
-          ),
-        },
-      },
-      data: {
-        category: category || "DEFAULT",
-        ...(payload || {}),
-      },
-    };
-
-    try {
-      await getMessaging().send(message);
-      logger.info(
-        `Push delivered to ${targetUserID} (category: ${category}).`
-      );
-    } catch (error) {
-      // If the token is invalid or unregistered, clean it up.
-      if (
-        error.code === "messaging/registration-token-not-registered" ||
-        error.code === "messaging/invalid-registration-token"
-      ) {
-        logger.warn(
-          `Stale FCM token for ${targetUserID} - removing from user doc.`
-        );
-        await db.collection("users").doc(targetUserID).update({
-          fcmToken: null,
-          tokenUpdatedAt: null,
-        });
-      } else {
-        logger.error("FCM send failed.", { error: error.message });
+    "pushNotifications/{docId}",
+    async (event) => {
+      const snapshot = event.data;
+      if (!snapshot) {
+        logger.warn("No data in push notification document.");
+        return;
       }
-    }
 
-    // Always delete the processed document to avoid re-delivery.
-    await snapshot.ref.delete();
-  }
+      const pushData = snapshot.data();
+      const {targetUserID, title, body, category, data: payload} = pushData;
+
+      if (!targetUserID || !title || !body) {
+        logger.error("Push document missing required fields.", {pushData});
+        await snapshot.ref.delete();
+        return;
+      }
+
+      // Look up the target user's FCM token.
+      const db = getFirestore();
+      const userDoc = await db.collection("users").doc(targetUserID).get();
+
+      if (!userDoc.exists) {
+        logger.warn(`No user document found for ${targetUserID}.`);
+        await snapshot.ref.delete();
+        return;
+      }
+
+      const fcmToken = userDoc.data().fcmToken;
+      if (!fcmToken) {
+        logger.warn(`No FCM token for user ${targetUserID}.`);
+        await snapshot.ref.delete();
+        return;
+      }
+
+      // Build and send the FCM message.
+      const message = {
+        token: fcmToken,
+        notification: {
+          title,
+          body,
+        },
+        apns: {
+          headers: {
+            "apns-priority": "10",
+          },
+          payload: {
+            aps: {
+              "interruption-level": "time-sensitive",
+              "sound": "default",
+              "category": category || "DEFAULT",
+              "content-available": 1,
+            },
+            ...Object.fromEntries(
+                Object.entries(payload || {}).map(([k, v]) => [k, String(v)]),
+            ),
+          },
+        },
+        data: {
+          category: category || "DEFAULT",
+          ...(payload || {}),
+        },
+      };
+
+      try {
+        await getMessaging().send(message);
+        logger.info(
+            `Push delivered to ${targetUserID} (category: ${category}).`,
+        );
+      } catch (error) {
+      // If the token is invalid or unregistered, clean it up.
+        if (
+          error.code === "messaging/registration-token-not-registered" ||
+        error.code === "messaging/invalid-registration-token"
+        ) {
+          logger.warn(
+              `Stale FCM token for ${targetUserID} - removing from user doc.`,
+          );
+          await db.collection("users").doc(targetUserID).update({
+            fcmToken: null,
+            tokenUpdatedAt: null,
+          });
+        } else {
+          logger.error("FCM send failed.", {error: error.message});
+        }
+      }
+
+      // Always delete the processed document to avoid re-delivery.
+      await snapshot.ref.delete();
+    },
 );
 
 /**
