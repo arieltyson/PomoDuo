@@ -16,6 +16,8 @@
 		AF56365B2F4683710067D4DE /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF56365A2F4683710067D4DE /* ManagedSettings.framework */; };
 		AF56365D2F4683710067D4DE /* ManagedSettingsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF56365C2F4683710067D4DE /* ManagedSettingsUI.framework */; };
 		AF5636652F4683710067D4DE /* PomoDuoShieldExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AF5636592F4683710067D4DE /* PomoDuoShieldExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AF5636702F4684A00067D4DE /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF56366F2F4684A00067D4DE /* DeviceActivity.framework */; };
+		AF5636782F4684A10067D4DE /* PomoDuoMonitorExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AF56366E2F4684A00067D4DE /* PomoDuoMonitorExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +34,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = AF5636582F4683710067D4DE;
 			remoteInfo = PomoDuoShield;
+		};
+		AF5636762F4684A10067D4DE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AF8695D42F411D5500388170 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AF56366D2F4684A00067D4DE;
+			remoteInfo = PomoDuoMonitor;
 		};
 		AF8695EA2F411D5600388170 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -58,6 +67,7 @@
 			files = (
 				AF1471322F465CC800BB4819 /* PomoDuoWidgetExtension.appex in Embed Foundation Extensions */,
 				AF5636652F4683710067D4DE /* PomoDuoShieldExtension.appex in Embed Foundation Extensions */,
+				AF5636782F4684A10067D4DE /* PomoDuoMonitorExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -71,6 +81,8 @@
 		AF5636592F4683710067D4DE /* PomoDuoShieldExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PomoDuoShieldExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF56365A2F4683710067D4DE /* ManagedSettings.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettings.framework; path = System/Library/Frameworks/ManagedSettings.framework; sourceTree = SDKROOT; };
 		AF56365C2F4683710067D4DE /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = SDKROOT; };
+		AF56366E2F4684A00067D4DE /* PomoDuoMonitorExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PomoDuoMonitorExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF56366F2F4684A00067D4DE /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = System/Library/Frameworks/DeviceActivity.framework; sourceTree = SDKROOT; };
 		AF8695DC2F411D5500388170 /* PomoDuo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PomoDuo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8695E92F411D5600388170 /* PomoDuoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8695F32F411D5600388170 /* PomoDuoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -119,6 +131,13 @@
 			);
 			target = AF5636582F4683710067D4DE /* PomoDuoShieldExtension */;
 		};
+		AF56367C2F4684A10067D4DE /* Exceptions for "PomoDuoMonitor" folder in "PomoDuoMonitorExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AF56366D2F4684A00067D4DE /* PomoDuoMonitorExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -136,6 +155,14 @@
 				AF5636692F4683710067D4DE /* Exceptions for "PomoDuoShield" folder in "PomoDuoShieldExtension" target */,
 			);
 			path = PomoDuoShield;
+			sourceTree = "<group>";
+		};
+		AF5636712F4684A00067D4DE /* PomoDuoMonitor */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AF56367C2F4684A10067D4DE /* Exceptions for "PomoDuoMonitor" folder in "PomoDuoMonitorExtension" target */,
+			);
+			path = PomoDuoMonitor;
 			sourceTree = "<group>";
 		};
 		AF8695DE2F411D5500388170 /* PomoDuo */ = {
@@ -180,6 +207,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AF56366B2F4684A00067D4DE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF5636702F4684A00067D4DE /* DeviceActivity.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AF8695D92F411D5500388170 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -214,6 +249,7 @@
 				AF1471242F465CC600BB4819 /* SwiftUI.framework */,
 				AF56365A2F4683710067D4DE /* ManagedSettings.framework */,
 				AF56365C2F4683710067D4DE /* ManagedSettingsUI.framework */,
+				AF56366F2F4684A00067D4DE /* DeviceActivity.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -226,6 +262,7 @@
 				AF8695F62F411D5600388170 /* PomoDuoUITests */,
 				AF1471262F465CC600BB4819 /* PomoDuoWidgetExtension */,
 				AF56365E2F4683710067D4DE /* PomoDuoShield */,
+				AF5636712F4684A00067D4DE /* PomoDuoMonitor */,
 				AF1471212F465CC600BB4819 /* Frameworks */,
 				AF8695DD2F411D5500388170 /* Products */,
 			);
@@ -239,6 +276,7 @@
 				AF8695F32F411D5600388170 /* PomoDuoUITests.xctest */,
 				AF1471202F465CC600BB4819 /* PomoDuoWidgetExtension.appex */,
 				AF5636592F4683710067D4DE /* PomoDuoShieldExtension.appex */,
+				AF56366E2F4684A00067D4DE /* PomoDuoMonitorExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -290,6 +328,28 @@
 			productReference = AF5636592F4683710067D4DE /* PomoDuoShieldExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		AF56366D2F4684A00067D4DE /* PomoDuoMonitorExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF5636792F4684A10067D4DE /* Build configuration list for PBXNativeTarget "PomoDuoMonitorExtension" */;
+			buildPhases = (
+				AF56366A2F4684A00067D4DE /* Sources */,
+				AF56366B2F4684A00067D4DE /* Frameworks */,
+				AF56366C2F4684A00067D4DE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AF5636712F4684A00067D4DE /* PomoDuoMonitor */,
+			);
+			name = PomoDuoMonitorExtension;
+			packageProductDependencies = (
+			);
+			productName = PomoDuoMonitor;
+			productReference = AF56366E2F4684A00067D4DE /* PomoDuoMonitorExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		AF8695DB2F411D5500388170 /* PomoDuo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AF8695FD2F411D5600388170 /* Build configuration list for PBXNativeTarget "PomoDuo" */;
@@ -304,6 +364,7 @@
 			dependencies = (
 				AF1471312F465CC800BB4819 /* PBXTargetDependency */,
 				AF5636642F4683710067D4DE /* PBXTargetDependency */,
+				AF5636772F4684A10067D4DE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AF8695DE2F411D5500388170 /* PomoDuo */,
@@ -380,6 +441,9 @@
 					AF5636582F4683710067D4DE = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					AF56366D2F4684A00067D4DE = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					AF8695DB2F411D5500388170 = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -415,6 +479,7 @@
 				AF8695F22F411D5600388170 /* PomoDuoUITests */,
 				AF14711F2F465CC600BB4819 /* PomoDuoWidgetExtension */,
 				AF5636582F4683710067D4DE /* PomoDuoShieldExtension */,
+				AF56366D2F4684A00067D4DE /* PomoDuoMonitorExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -428,6 +493,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AF5636572F4683710067D4DE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF56366C2F4684A00067D4DE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -472,6 +544,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AF56366A2F4684A00067D4DE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AF8695D82F411D5500388170 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -505,6 +584,11 @@
 			isa = PBXTargetDependency;
 			target = AF5636582F4683710067D4DE /* PomoDuoShieldExtension */;
 			targetProxy = AF5636632F4683710067D4DE /* PBXContainerItemProxy */;
+		};
+		AF5636772F4684A10067D4DE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AF56366D2F4684A00067D4DE /* PomoDuoMonitorExtension */;
+			targetProxy = AF5636762F4684A10067D4DE /* PBXContainerItemProxy */;
 		};
 		AF8695EB2F411D5600388170 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -628,6 +712,64 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.arieljtyson.PomoDuo.PomoDuoShield;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		AF56367A2F4684A10067D4DE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PomoDuoMonitor/PomoDuoMonitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MPMKAF986;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PomoDuoMonitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PomoDuoMonitor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arieljtyson.PomoDuo.PomoDuoMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AF56367B2F4684A10067D4DE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PomoDuoMonitor/PomoDuoMonitor.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MPMKAF986;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PomoDuoMonitor/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PomoDuoMonitor;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arieljtyson.PomoDuo.PomoDuoMonitor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -933,6 +1075,15 @@
 			buildConfigurations = (
 				AF5636662F4683710067D4DE /* Debug */,
 				AF5636672F4683710067D4DE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AF5636792F4684A10067D4DE /* Build configuration list for PBXNativeTarget "PomoDuoMonitorExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF56367A2F4684A10067D4DE /* Debug */,
+				AF56367B2F4684A10067D4DE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
