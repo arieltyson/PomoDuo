@@ -10,6 +10,7 @@ struct PomoDuoApp: App {
     @State private var sessionManager: SessionManager
     @State private var sessionObserver: SessionObserver
     @State private var fcmTokenManager: FCMTokenManager
+    @State private var connectionMonitor = ConnectionMonitor()
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
@@ -42,7 +43,21 @@ struct PomoDuoApp: App {
             )
         )
 
-        let sessionManager = SessionManager(syncService: syncService)
+        // The restriction and notification services are shared between
+        // SessionManager (for paired sessions) and the solo timer flow.
+        // Both paths target the same ManagedSettingsStore and notification
+        // center, so the last writer wins — which is correct because solo
+        // and paired sessions are mutually exclusive.
+        let restrictionService = ManagedSettingsRestrictionService(
+            screenTimeManager: screenTimeManager
+        )
+        let notificationService = LocalNotificationService()
+
+        let sessionManager = SessionManager(
+            syncService: syncService,
+            restrictionService: restrictionService,
+            notificationService: notificationService
+        )
         _sessionManager = State(initialValue: sessionManager)
         _sessionObserver = State(
             initialValue: SessionObserver(
@@ -59,6 +74,7 @@ struct PomoDuoApp: App {
                 .environment(sessionManager)
                 .environment(sessionObserver)
                 .environment(fcmTokenManager)
+                .environment(connectionMonitor)
                 .environment(notificationManager)
                 .environment(liveActivityManager)
                 .environment(focusIntentState)
