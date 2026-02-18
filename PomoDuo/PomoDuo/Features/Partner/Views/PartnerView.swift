@@ -98,6 +98,15 @@ private struct PairingFlowContent: View {
     @Binding var isShowingCodeSheet: Bool
 
     var body: some View {
+        VStack(spacing: 0) {
+            ConnectionStatusBanner()
+
+            pairingContent
+        }
+    }
+
+    @ViewBuilder
+    private var pairingContent: some View {
         switch viewModel.pairingState {
         case .unpaired:
             UnpairedView(
