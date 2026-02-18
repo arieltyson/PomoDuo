@@ -1,10 +1,3 @@
-//
-//  AuthManager.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Observation
 
@@ -87,14 +80,19 @@ final class AuthManager {
         }
 
         do {
-            let user = try await authService.signIn(email: email, password: password)
+            let user = try await authService.signIn(
+                email: email,
+                password: password
+            )
             authState = .signedIn(user)
         } catch {
             authError = "Sign-in failed: \(error.localizedDescription)"
         }
     }
 
-    func createAccount(email: String, password: String, displayName: String) async {
+    func createAccount(email: String, password: String, displayName: String)
+        async
+    {
         isLoading = true
         authError = nil
         defer {
@@ -109,7 +107,8 @@ final class AuthManager {
             )
             authState = .signedIn(user)
         } catch {
-            authError = "Could not create account: \(error.localizedDescription)"
+            authError =
+                "Could not create account: \(error.localizedDescription)"
         }
     }
 
@@ -135,7 +134,8 @@ final class AuthManager {
             try await authService.deleteAccount()
             authState = .signedOut
         } catch {
-            authError = "Could not delete account: \(error.localizedDescription)"
+            authError =
+                "Could not delete account: \(error.localizedDescription)"
         }
     }
 

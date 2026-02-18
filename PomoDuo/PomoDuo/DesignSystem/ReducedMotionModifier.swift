@@ -1,10 +1,3 @@
-//
-//  ReducedMotionModifier.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// A view modifier that respects the Reduce Motion accessibility setting.
@@ -30,10 +23,12 @@ extension View {
         reduced: Animation = .default.speed(2),
         value: V
     ) -> some View {
-        modifier(ReducedMotionModifier(
-            value: value,
-            standardAnimation: standard,
-            reducedAnimation: reduced
-        ))
+        modifier(
+            ReducedMotionModifier(
+                value: value,
+                standardAnimation: standard,
+                reducedAnimation: reduced
+            )
+        )
     }
 }

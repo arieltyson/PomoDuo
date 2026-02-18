@@ -1,10 +1,3 @@
-//
-//  ManagedSettingsRestrictionService.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import FamilyControls
 import ManagedSettings
 
@@ -39,7 +32,8 @@ final class ManagedSettingsRestrictionService: RestrictionService {
         }
 
         store.shield.applications = appTokens.isEmpty ? nil : appTokens
-        store.shield.applicationCategories = categoryTokens.isEmpty ? nil : .specific(categoryTokens)
+        store.shield.applicationCategories =
+            categoryTokens.isEmpty ? nil : .specific(categoryTokens)
     }
 
     func removeRestrictions() async throws {

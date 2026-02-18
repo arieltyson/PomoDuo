@@ -1,10 +1,3 @@
-//
-//  AccessibilityAnnouncer.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Posts VoiceOver announcements for important timer state changes.
@@ -45,11 +38,19 @@ enum AccessibilityAnnouncer {
     // MARK: - Paired Timer
 
     static func announcePairedSessionStarted(partnerName: String) {
-        post("Paired session started with \(partnerName). Waiting for partner to accept.")
+        post(
+            "Paired session started with \(partnerName). Waiting for partner to accept."
+        )
     }
 
-    static func announcePairedFocusBegan(round: Int, totalRounds: Int, partnerName: String) {
-        post("Paired focus began with \(partnerName). Round \(round) of \(totalRounds).")
+    static func announcePairedFocusBegan(
+        round: Int,
+        totalRounds: Int,
+        partnerName: String
+    ) {
+        post(
+            "Paired focus began with \(partnerName). Round \(round) of \(totalRounds)."
+        )
     }
 
     static func announcePairedPause() {

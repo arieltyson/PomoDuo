@@ -1,10 +1,3 @@
-//
-//  MockSessionSyncService.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 
 /// In-memory ``SessionSyncService`` used for local development and tests.
@@ -15,7 +8,8 @@ actor MockSessionSyncService: SessionSyncService {
     private let simulatedDelay: Duration
 
     private var sessionsByID: [String: StudySession] = [:]
-    private var listenersBySessionID: [String: [UUID: AsyncStream<StudySession>.Continuation]] = [:]
+    private var listenersBySessionID:
+        [String: [UUID: AsyncStream<StudySession>.Continuation]] = [:]
 
     init(simulatedDelay: Duration = .zero) {
         self.simulatedDelay = simulatedDelay
@@ -36,7 +30,10 @@ actor MockSessionSyncService: SessionSyncService {
             continuation.onTermination = { [weak self] _ in
                 guard let self else { return }
                 Task {
-                    await self.detach(listenerID: listenerID, sessionID: sessionID)
+                    await self.detach(
+                        listenerID: listenerID,
+                        sessionID: sessionID
+                    )
                 }
             }
         }
@@ -55,7 +52,9 @@ actor MockSessionSyncService: SessionSyncService {
 
         sessionsByID.removeValue(forKey: sessionID)
 
-        guard let listeners = listenersBySessionID.removeValue(forKey: sessionID) else {
+        guard
+            let listeners = listenersBySessionID.removeValue(forKey: sessionID)
+        else {
             return
         }
 

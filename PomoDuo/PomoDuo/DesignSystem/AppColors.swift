@@ -1,10 +1,3 @@
-//
-//  AppColors.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// PomoDuo's brand and semantic color system.

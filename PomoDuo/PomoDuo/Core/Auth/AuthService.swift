@@ -1,10 +1,3 @@
-//
-//  AuthService.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 
 /// Typed auth errors shared by auth service implementations.
@@ -40,7 +33,8 @@ protocol AuthService: Sendable {
     func signIn(email: String, password: String) async throws -> AuthUser
 
     /// Creates a new account.
-    func createAccount(email: String, password: String, displayName: String) async throws -> AuthUser
+    func createAccount(email: String, password: String, displayName: String)
+        async throws -> AuthUser
 
     /// Signs out the active user.
     func signOut() async throws

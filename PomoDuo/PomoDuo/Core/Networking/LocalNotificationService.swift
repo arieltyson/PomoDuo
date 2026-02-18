@@ -1,10 +1,3 @@
-//
-//  LocalNotificationService.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import UserNotifications
 
@@ -30,7 +23,9 @@ actor LocalNotificationService: LocalNotificationManaging {
     @discardableResult
     func requestAuthorization() async -> Bool {
         do {
-            return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            return try await center.requestAuthorization(options: [
+                .alert, .sound, .badge,
+            ])
         } catch {
             return false
         }
@@ -40,14 +35,22 @@ actor LocalNotificationService: LocalNotificationManaging {
         await center.notificationSettings().authorizationStatus
     }
 
-    func sendSessionRequest(to partnerID: String, from senderName: String) async throws {}
+    func sendSessionRequest(to partnerID: String, from senderName: String)
+        async throws
+    {}
 
-    func sendPauseNotification(to partnerID: String, pausedBy name: String) async throws {}
+    func sendPauseNotification(to partnerID: String, pausedBy name: String)
+        async throws
+    {}
 
     func sendResumeNotification(to partnerID: String) async throws {}
 
-    func scheduleTimerEndNotification(at date: Date, message: String) async throws {
-        center.removePendingNotificationRequests(withIdentifiers: [Self.timerEndRequestID])
+    func scheduleTimerEndNotification(at date: Date, message: String)
+        async throws
+    {
+        center.removePendingNotificationRequests(withIdentifiers: [
+            Self.timerEndRequestID
+        ])
 
         let content = UNMutableNotificationContent()
         content.title = "PomoDuo"
@@ -57,7 +60,10 @@ actor LocalNotificationService: LocalNotificationManaging {
         content.interruptionLevel = .timeSensitive
 
         let interval = max(1, date.timeIntervalSinceNow)
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: interval,
+            repeats: false
+        )
         let request = UNNotificationRequest(
             identifier: Self.timerEndRequestID,
             content: content,
@@ -68,6 +74,8 @@ actor LocalNotificationService: LocalNotificationManaging {
     }
 
     func cancelPendingNotifications() async throws {
-        center.removePendingNotificationRequests(withIdentifiers: [Self.timerEndRequestID])
+        center.removePendingNotificationRequests(withIdentifiers: [
+            Self.timerEndRequestID
+        ])
     }
 }

@@ -1,10 +1,3 @@
-//
-//  RestrictionService.swift
-//  PomoDuo
-//
-//  Created by Ariel Tyson on 2/14/26.
-//
-
 import Foundation
 
 /// Abstracts app restriction behavior so the session logic

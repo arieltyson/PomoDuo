@@ -1,10 +1,3 @@
-//
-//  SessionSyncService.swift
-//  PomoDuo
-//
-//  Created by Ariel Tyson on 2/14/26.
-//
-
 import Foundation
 
 /// Abstracts the real-time sync layer so the app logic is backend-agnostic.

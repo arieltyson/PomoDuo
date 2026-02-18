@@ -1,10 +1,3 @@
-//
-//  NotificationManager.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Observation
 import UserNotifications
@@ -29,7 +22,9 @@ final class NotificationManager {
     /// Reads the current system authorization status without prompting.
     func refreshAuthorizationStatus() async {
         let status = await service.authorizationStatus()
-        isAuthorized = status == .authorized || status == .provisional || status == .ephemeral
+        isAuthorized =
+            status == .authorized || status == .provisional
+            || status == .ephemeral
         hasCheckedAuthorization = true
     }
 
@@ -45,7 +40,10 @@ final class NotificationManager {
         guard isAuthorized else { return }
 
         do {
-            try await service.scheduleTimerEndNotification(at: endDate, message: message)
+            try await service.scheduleTimerEndNotification(
+                at: endDate,
+                message: message
+            )
         } catch {
             // Scheduling is best-effort and should not disrupt timer flow.
         }

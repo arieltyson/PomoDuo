@@ -1,10 +1,3 @@
-//
-//  MockRestrictionService.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// Test-friendly restriction service with call tracking and injectable errors.

@@ -1,10 +1,3 @@
-//
-//  MockPairingService.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// Local mock implementation used until Firebase sync is integrated.

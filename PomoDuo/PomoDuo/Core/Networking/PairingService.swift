@@ -1,10 +1,3 @@
-//
-//  PairingService.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// Backend abstraction for partner pairing operations.

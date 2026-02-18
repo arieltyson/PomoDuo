@@ -1,10 +1,3 @@
-//
-//  AuthUser.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 
 /// Lightweight authenticated identity used throughout the app.

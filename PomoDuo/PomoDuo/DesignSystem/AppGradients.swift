@@ -1,10 +1,3 @@
-//
-//  AppGradients.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Reusable gradient styles for the app shell and timer presentation.
@@ -34,7 +27,7 @@ enum AppGradients {
         colors: [
             AppColors.breakTint,
             AppColors.breakTint.opacity(0.65),
-            AppColors.breakTint
+            AppColors.breakTint,
         ],
         center: .center
     )

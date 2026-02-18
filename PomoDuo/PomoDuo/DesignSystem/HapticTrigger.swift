@@ -1,10 +1,3 @@
-//
-//  HapticTrigger.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// A small state value used as the `.sensoryFeedback` trigger in SwiftUI.

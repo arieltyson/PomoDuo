@@ -1,10 +1,3 @@
-//
-//  RestrictionCoordinator.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Observation
 
 /// Coordinates restriction enforcement for the solo timer lifecycle.
@@ -28,13 +21,18 @@ final class RestrictionCoordinator {
         restrictionService: (any RestrictionService)? = nil,
         canRestrictEvaluator: (@MainActor () -> Bool)? = nil
     ) {
-        self.restrictionService = restrictionService
-            ?? ManagedSettingsRestrictionService(screenTimeManager: screenTimeManager)
+        self.restrictionService =
+            restrictionService
+            ?? ManagedSettingsRestrictionService(
+                screenTimeManager: screenTimeManager
+            )
 
-        self.canRestrictEvaluator = canRestrictEvaluator ?? { [weak screenTimeManager] in
-            guard let screenTimeManager else { return false }
-            return screenTimeManager.isAuthorized && screenTimeManager.hasSelectedApps
-        }
+        self.canRestrictEvaluator =
+            canRestrictEvaluator ?? { [weak screenTimeManager] in
+                guard let screenTimeManager else { return false }
+                return screenTimeManager.isAuthorized
+                    && screenTimeManager.hasSelectedApps
+            }
     }
 
     /// Whether restrictions can currently be enforced.

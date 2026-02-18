@@ -1,10 +1,3 @@
-//
-//  MockAuthService.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 
 /// Local, persistence-backed auth service used until Firebase is integrated.
@@ -34,10 +27,14 @@ final class MockAuthService: AuthService {
             return nil
         }
 
-        let displayName = userDefaults.string(forKey: Keys.displayName) ?? "Focus Friend"
+        let displayName =
+            userDefaults.string(forKey: Keys.displayName) ?? "Focus Friend"
         let isAnonymous = userDefaults.bool(forKey: Keys.isAnonymous)
         let createdAtEpoch = userDefaults.double(forKey: Keys.createdAt)
-        let createdAt = Date(timeIntervalSince1970: createdAtEpoch == 0 ? Date.now.timeIntervalSince1970 : createdAtEpoch)
+        let createdAt = Date(
+            timeIntervalSince1970: createdAtEpoch == 0
+                ? Date.now.timeIntervalSince1970 : createdAtEpoch
+        )
 
         return AuthUser(
             id: id,
@@ -70,7 +67,9 @@ final class MockAuthService: AuthService {
     func signIn(email: String, password: String) async throws -> AuthUser {
         try await Task.sleep(for: simulatedDelay)
 
-        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        let normalizedEmail = email.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).localizedLowercase
         guard normalizedEmail.contains("@") else {
             throw AuthServiceError.invalidEmail
         }
@@ -78,7 +77,9 @@ final class MockAuthService: AuthService {
             throw AuthServiceError.invalidCredentials
         }
 
-        let defaultName = normalizedEmail.split(separator: "@").first.map(String.init) ?? "Focus Friend"
+        let defaultName =
+            normalizedEmail.split(separator: "@").first.map(String.init)
+            ?? "Focus Friend"
         let user = AuthUser(
             id: "mock-email-\(sanitizedIdentifier(from: normalizedEmail))",
             displayName: defaultName,
@@ -91,11 +92,17 @@ final class MockAuthService: AuthService {
         return user
     }
 
-    func createAccount(email: String, password: String, displayName: String) async throws -> AuthUser {
+    func createAccount(email: String, password: String, displayName: String)
+        async throws -> AuthUser
+    {
         try await Task.sleep(for: simulatedDelay)
 
-        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
-        let normalizedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedEmail = email.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).localizedLowercase
+        let normalizedName = displayName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
         guard normalizedEmail.contains("@") else {
             throw AuthServiceError.invalidEmail
         }
@@ -135,7 +142,9 @@ final class MockAuthService: AuthService {
             throw AuthServiceError.notAuthenticated
         }
 
-        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedName = name.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
         guard !normalizedName.isEmpty else {
             throw AuthServiceError.emptyDisplayName
         }
@@ -174,7 +183,10 @@ final class MockAuthService: AuthService {
         userDefaults.set(user.id, forKey: Keys.userID)
         userDefaults.set(user.displayName, forKey: Keys.displayName)
         userDefaults.set(user.isAnonymous, forKey: Keys.isAnonymous)
-        userDefaults.set(user.createdAt.timeIntervalSince1970, forKey: Keys.createdAt)
+        userDefaults.set(
+            user.createdAt.timeIntervalSince1970,
+            forKey: Keys.createdAt
+        )
     }
 
     private func clearPersistedUser() {

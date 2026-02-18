@@ -1,14 +1,7 @@
-//
-//  ScreenTimeManager.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import FamilyControls
+import Foundation
 import ManagedSettings
 import Observation
-import Foundation
 
 /// Coordinates Screen Time authorization and selected apps/categories to block.
 @MainActor
@@ -52,7 +45,9 @@ final class ScreenTimeManager {
         authorizationError = nil
 
         do {
-            try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+            try await AuthorizationCenter.shared.requestAuthorization(
+                for: .individual
+            )
         } catch {
             authorizationError = Self.userFacingMessage(for: error)
         }
@@ -73,14 +68,21 @@ final class ScreenTimeManager {
     }
 
     private func persistSelection() {
-        guard let data = try? JSONEncoder().encode(activitySelection) else { return }
+        guard let data = try? JSONEncoder().encode(activitySelection) else {
+            return
+        }
         UserDefaults.standard.set(data, forKey: Self.selectionDefaultsKey)
     }
 
     private func restoreSelection() {
         guard
-            let data = UserDefaults.standard.data(forKey: Self.selectionDefaultsKey),
-            let selection = try? JSONDecoder().decode(FamilyActivitySelection.self, from: data)
+            let data = UserDefaults.standard.data(
+                forKey: Self.selectionDefaultsKey
+            ),
+            let selection = try? JSONDecoder().decode(
+                FamilyActivitySelection.self,
+                from: data
+            )
         else {
             return
         }
@@ -105,7 +107,8 @@ final class ScreenTimeManager {
         }
 
         if nsError.domain.localizedStandardContains("familycontrols") {
-            return "Could not enable app blocking. Confirm the Family Controls capability is enabled for the app target."
+            return
+                "Could not enable app blocking. Confirm the Family Controls capability is enabled for the app target."
         }
 
         return "Could not enable app blocking: \(error.localizedDescription)"

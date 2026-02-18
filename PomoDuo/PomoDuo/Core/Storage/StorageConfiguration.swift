@@ -1,10 +1,3 @@
-//
-//  StorageConfiguration.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import SwiftData
 
@@ -16,7 +9,7 @@ enum StorageConfiguration {
     /// All SwiftData model types used by PomoDuo.
     static let modelTypes: [any PersistentModel.Type] = [
         TimerConfiguration.self,
-        CompletedSession.self
+        CompletedSession.self,
     ]
 
     /// All SwiftData model types used by PomoDuo.
