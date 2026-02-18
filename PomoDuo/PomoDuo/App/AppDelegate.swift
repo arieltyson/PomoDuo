@@ -1,5 +1,6 @@
 import OSLog
 import UIKit
+import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
 
@@ -14,6 +15,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
+
         Messaging.messaging().delegate = self
         UNUserNotificationCenter.current().delegate = self
 

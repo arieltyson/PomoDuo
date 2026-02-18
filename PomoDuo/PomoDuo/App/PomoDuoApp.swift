@@ -9,7 +9,7 @@ struct PomoDuoApp: App {
     @State private var authManager: AuthManager
     @State private var sessionManager: SessionManager
     @State private var sessionObserver: SessionObserver
-    @State private var fcmTokenManager = FCMTokenManager()
+    @State private var fcmTokenManager: FCMTokenManager
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
@@ -20,11 +20,14 @@ struct PomoDuoApp: App {
     private let pairingService: any PairingService
 
     init() {
-        FirebaseApp.configure()
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
 
         let authService = FirebaseAuthService()
         let pairingService = FirebasePairingService()
         let syncService = FirebaseSessionSyncService()
+        _fcmTokenManager = State(initialValue: FCMTokenManager())
 
         _authManager = State(
             initialValue: AuthManager(authService: authService)
