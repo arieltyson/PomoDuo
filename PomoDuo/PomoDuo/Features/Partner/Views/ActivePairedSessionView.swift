@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Active paired-session surface shown in the Partner tab.
 ///
-/// Integrates with persistence, Live Activity, haptics, and accessibility.
+/// Integrates with persistence, Live Activity, haptics, accessibility,
+/// Screen Time restrictions, and network connectivity status.
 struct ActivePairedSessionView: View {
     let session: StudySession
     let partner: PartnerProfile
@@ -12,13 +13,16 @@ struct ActivePairedSessionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthManager.self) private var authManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
+    @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
 
     @State private var haptic = HapticTrigger()
     @State private var focusStartedAt: Date?
     @State private var hasAnnouncedRequestState = false
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
+            ConnectionStatusBanner()
+
             PartnerBannerView(partner: partner)
 
             Spacer()
@@ -34,15 +38,22 @@ struct ActivePairedSessionView: View {
 
             Spacer()
 
-            PairedSessionControls(
-                session: session,
-                viewModel: viewModel
-            )
+            VStack {
+                PairedSessionControls(
+                    session: session,
+                    viewModel: viewModel
+                )
+
+                if restrictionCoordinator.isRestricting {
+                    PairedBlockingIndicatorView()
+                }
+            }
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sensoryFeedback(haptic.feedback, trigger: haptic)
         .animation(.default, value: session.state)
+        .animation(.default, value: restrictionCoordinator.isRestricting)
         .alert(
             "Session Error",
             isPresented: sessionErrorIsPresented
@@ -91,6 +102,9 @@ struct ActivePairedSessionView: View {
         case .focus:
             focusStartedAt = session.startTime
             startLiveActivityForFocus(isPaused: session.isPaused)
+            if !session.isPaused {
+                restrictionCoordinator.enforceFocusRestrictions()
+            }
         default:
             break
         }
@@ -106,6 +120,7 @@ struct ActivePairedSessionView: View {
             focusStartedAt = session.startTime
             haptic.fire(.start)
             startLiveActivityForFocus(isPaused: session.isPaused)
+            restrictionCoordinator.enforceFocusRestrictions()
             AccessibilityAnnouncer.announcePairedFocusBegan(
                 round: session.currentRound,
                 totalRounds: session.totalRounds,
@@ -116,18 +131,21 @@ struct ActivePairedSessionView: View {
             recordCompletedFocusRound()
             haptic.fire(.phaseChange)
             updateLiveActivityForBreak(isLong: false)
+            restrictionCoordinator.liftRestrictions()
             AccessibilityAnnouncer.announcePairedBreak(isLong: false)
 
         case (.focus, .longBreak):
             recordCompletedFocusRound()
             haptic.fire(.phaseChange)
             updateLiveActivityForBreak(isLong: true)
+            restrictionCoordinator.liftRestrictions()
             AccessibilityAnnouncer.announcePairedBreak(isLong: true)
 
         case (.shortBreak, .focus), (.longBreak, .focus):
             focusStartedAt = session.startTime
             haptic.fire(.start)
             startLiveActivityForFocus(isPaused: session.isPaused)
+            restrictionCoordinator.enforceFocusRestrictions()
             AccessibilityAnnouncer.announcePairedFocusBegan(
                 round: session.currentRound,
                 totalRounds: session.totalRounds,
@@ -137,6 +155,7 @@ struct ActivePairedSessionView: View {
         case (.focus, .completed):
             haptic.fire(.complete)
             liveActivityManager.end()
+            restrictionCoordinator.liftRestrictions()
             AccessibilityAnnouncer.announcePairedSessionCompleted()
 
         case (.longBreak, .completed):
@@ -151,6 +170,7 @@ struct ActivePairedSessionView: View {
             (.completed, .idle):
             haptic.fire(.stop)
             liveActivityManager.end()
+            restrictionCoordinator.forceRemoveRestrictions()
             AccessibilityAnnouncer.announcePairedSessionEnded()
 
         default:
@@ -164,10 +184,12 @@ struct ActivePairedSessionView: View {
         if !wasPaused && isPaused {
             haptic.fire(.pause)
             updateLiveActivityPaused(true)
+            restrictionCoordinator.liftRestrictions()
             AccessibilityAnnouncer.announcePairedPause()
         } else if wasPaused && !isPaused {
             haptic.fire(.resume)
             updateLiveActivityPaused(false)
+            restrictionCoordinator.enforceFocusRestrictions()
             AccessibilityAnnouncer.announcePairedResume()
         }
     }
@@ -296,6 +318,21 @@ struct ActivePairedSessionView: View {
             targetEndDate: session.targetEndDate,
             isPaused: isPaused
         )
+    }
+}
+
+// MARK: - Subviews
+
+private struct PairedBlockingIndicatorView: View {
+    var body: some View {
+        Label("Apps Blocked", systemImage: "shield.fill")
+            .font(.caption2)
+            .foregroundStyle(AppColors.lavender)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(AppColors.lavender.opacity(0.14), in: .capsule)
+            .accessibilityLabel("App blocking is active")
+            .transition(.opacity)
     }
 }
 
