@@ -2,8 +2,6 @@ import ActivityKit
 import Foundation
 
 /// Shared ActivityKit attributes for the PomoDuo timer Live Activity.
-///
-/// Add this file to both the app target and widget extension target.
 struct TimerActivityAttributes: ActivityAttributes {
     /// The timer phase shown in the Live Activity.
     enum Phase: String, Codable, Hashable, Sendable {

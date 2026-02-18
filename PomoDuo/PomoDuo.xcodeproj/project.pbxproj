@@ -7,12 +7,22 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AF1471232F465CC600BB4819 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF1471222F465CC600BB4819 /* WidgetKit.framework */; };
+		AF1471252F465CC600BB4819 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF1471242F465CC600BB4819 /* SwiftUI.framework */; };
+		AF1471322F465CC800BB4819 /* PomoDuoWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AF1471202F465CC600BB4819 /* PomoDuoWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AF22056A2F45B526009763BD /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = AF2205692F45B526009763BD /* FirebaseAuth */; };
 		AF22056C2F45B526009763BD /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = AF22056B2F45B526009763BD /* FirebaseFirestore */; };
 		AF22056E2F45B526009763BD /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = AF22056D2F45B526009763BD /* FirebaseMessaging */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		AF1471302F465CC800BB4819 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AF8695D42F411D5500388170 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AF14711F2F465CC600BB4819;
+			remoteInfo = PomoDuoWidgetExtensionExtension;
+		};
 		AF8695EA2F411D5600388170 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AF8695D42F411D5500388170 /* Project object */;
@@ -29,13 +39,44 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		AF1471372F465CC800BB4819 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AF1471322F465CC800BB4819 /* PomoDuoWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		AF1471202F465CC600BB4819 /* PomoDuoWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PomoDuoWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF1471222F465CC600BB4819 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		AF1471242F465CC600BB4819 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		AF8695DC2F411D5500388170 /* PomoDuo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PomoDuo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8695E92F411D5600388170 /* PomoDuoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8695F32F411D5600388170 /* PomoDuoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AF1471362F465CC800BB4819 /* Exceptions for "PomoDuoWidgetExtension" folder in "PomoDuoWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AF14711F2F465CC600BB4819 /* PomoDuoWidgetExtension */;
+		};
+		AF1471492F465E0800BB4819 /* Exceptions for "PomoDuo" folder in "PomoDuoWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Features/Timer/Models/TimerActivityAttributes.swift,
+			);
+			target = AF14711F2F465CC600BB4819 /* PomoDuoWidgetExtension */;
+		};
 		AF2205662F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -60,12 +101,21 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		AF1471262F465CC600BB4819 /* PomoDuoWidgetExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AF1471362F465CC800BB4819 /* Exceptions for "PomoDuoWidgetExtension" folder in "PomoDuoWidgetExtension" target */,
+			);
+			path = PomoDuoWidgetExtension;
+			sourceTree = "<group>";
+		};
 		AF8695DE2F411D5500388170 /* PomoDuo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				AF2205702F45C0AA009763BD /* Exceptions for "PomoDuo" folder in "PomoDuo" target */,
 				AF2205662F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoTests" target */,
 				AF2205672F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoUITests" target */,
+				AF1471492F465E0800BB4819 /* Exceptions for "PomoDuo" folder in "PomoDuoWidgetExtension" target */,
 			);
 			path = PomoDuo;
 			sourceTree = "<group>";
@@ -83,6 +133,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		AF14711D2F465CC600BB4819 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AF1471252F465CC600BB4819 /* SwiftUI.framework in Frameworks */,
+				AF1471232F465CC600BB4819 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AF8695D92F411D5500388170 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -110,12 +169,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AF1471212F465CC600BB4819 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AF1471222F465CC600BB4819 /* WidgetKit.framework */,
+				AF1471242F465CC600BB4819 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		AF8695D32F411D5500388170 = {
 			isa = PBXGroup;
 			children = (
 				AF8695DE2F411D5500388170 /* PomoDuo */,
 				AF8695EC2F411D5600388170 /* PomoDuoTests */,
 				AF8695F62F411D5600388170 /* PomoDuoUITests */,
+				AF1471262F465CC600BB4819 /* PomoDuoWidgetExtension */,
+				AF1471212F465CC600BB4819 /* Frameworks */,
 				AF8695DD2F411D5500388170 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -126,6 +196,7 @@
 				AF8695DC2F411D5500388170 /* PomoDuo.app */,
 				AF8695E92F411D5600388170 /* PomoDuoTests.xctest */,
 				AF8695F32F411D5600388170 /* PomoDuoUITests.xctest */,
+				AF1471202F465CC600BB4819 /* PomoDuoWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -133,6 +204,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AF14711F2F465CC600BB4819 /* PomoDuoWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AF1471332F465CC800BB4819 /* Build configuration list for PBXNativeTarget "PomoDuoWidgetExtension" */;
+			buildPhases = (
+				AF14711C2F465CC600BB4819 /* Sources */,
+				AF14711D2F465CC600BB4819 /* Frameworks */,
+				AF14711E2F465CC600BB4819 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AF1471262F465CC600BB4819 /* PomoDuoWidgetExtension */,
+			);
+			name = PomoDuoWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = PomoDuoWidgetExtensionExtension;
+			productReference = AF1471202F465CC600BB4819 /* PomoDuoWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		AF8695DB2F411D5500388170 /* PomoDuo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AF8695FD2F411D5600388170 /* Build configuration list for PBXNativeTarget "PomoDuo" */;
@@ -140,10 +233,12 @@
 				AF8695D82F411D5500388170 /* Sources */,
 				AF8695D92F411D5500388170 /* Frameworks */,
 				AF8695DA2F411D5500388170 /* Resources */,
+				AF1471372F465CC800BB4819 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AF1471312F465CC800BB4819 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				AF8695DE2F411D5500388170 /* PomoDuo */,
@@ -214,6 +309,9 @@
 				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
+					AF14711F2F465CC600BB4819 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					AF8695DB2F411D5500388170 = {
 						CreatedOnToolsVersion = 26.2;
 					};
@@ -247,11 +345,19 @@
 				AF8695DB2F411D5500388170 /* PomoDuo */,
 				AF8695E82F411D5600388170 /* PomoDuoTests */,
 				AF8695F22F411D5600388170 /* PomoDuoUITests */,
+				AF14711F2F465CC600BB4819 /* PomoDuoWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		AF14711E2F465CC600BB4819 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AF8695DA2F411D5500388170 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -276,6 +382,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AF14711C2F465CC600BB4819 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AF8695D82F411D5500388170 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -300,6 +413,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AF1471312F465CC800BB4819 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AF14711F2F465CC600BB4819 /* PomoDuoWidgetExtension */;
+			targetProxy = AF1471302F465CC800BB4819 /* PBXContainerItemProxy */;
+		};
 		AF8695EB2F411D5600388170 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AF8695DB2F411D5500388170 /* PomoDuo */;
@@ -313,6 +431,68 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		AF1471342F465CC800BB4819 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = PomoDuoWidgetExtension/PomoDuoWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MPMKAF986;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PomoDuoWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PomoDuoWidgetExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arieljtyson.PomoDuo.PomoDuoWidgetExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AF1471352F465CC800BB4819 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = PomoDuoWidgetExtension/PomoDuoWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2MPMKAF986;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PomoDuoWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PomoDuoWidgetExtension;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arieljtyson.PomoDuo.PomoDuoWidgetExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		AF8695FB2F411D5600388170 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -593,6 +773,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AF1471332F465CC800BB4819 /* Build configuration list for PBXNativeTarget "PomoDuoWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF1471342F465CC800BB4819 /* Debug */,
+				AF1471352F465CC800BB4819 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		AF8695D72F411D5500388170 /* Build configuration list for PBXProject "PomoDuo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -1,10 +1,3 @@
-//
-//  PomoDuoWidgetBundle.swift
-//  PomoDuoWidgetExtension
-//
-//  Created by Codex on 2/15/26.
-//
-
 import WidgetKit
 
 @main

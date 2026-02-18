@@ -1,10 +1,3 @@
-//
-//  WidgetDataReader.swift
-//  PomoDuoWidgetExtension
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 enum WidgetDataReader {
@@ -18,13 +11,17 @@ enum WidgetDataReader {
         static let dayBucket = "widget.today.dayBucket"
     }
 
-    static func readSnapshot(now: Date = .now, calendar: Calendar = .current) -> WidgetFocusStatsSnapshot {
+    static func readSnapshot(now: Date = .now, calendar: Calendar = .current)
+        -> WidgetFocusStatsSnapshot
+    {
         guard let defaults = UserDefaults(suiteName: appGroupID) else {
             return .empty(now: now)
         }
 
         let today = calendar.startOfDay(for: now)
-        let storedDay = Date(timeIntervalSince1970: defaults.double(forKey: Keys.dayBucket))
+        let storedDay = Date(
+            timeIntervalSince1970: defaults.double(forKey: Keys.dayBucket)
+        )
 
         guard calendar.isDate(storedDay, inSameDayAs: today) else {
             return .empty(now: now)
@@ -34,7 +31,9 @@ enum WidgetDataReader {
             todayMinutes: defaults.integer(forKey: Keys.todayMinutes),
             todaySessionCount: defaults.integer(forKey: Keys.todaySessionCount),
             currentStreak: defaults.integer(forKey: Keys.currentStreak),
-            lastUpdated: Date(timeIntervalSince1970: defaults.double(forKey: Keys.lastUpdated))
+            lastUpdated: Date(
+                timeIntervalSince1970: defaults.double(forKey: Keys.lastUpdated)
+            )
         )
     }
 }
@@ -46,11 +45,21 @@ struct WidgetFocusStatsSnapshot: Sendable {
     let lastUpdated: Date
 
     static func empty(now: Date = .now) -> WidgetFocusStatsSnapshot {
-        WidgetFocusStatsSnapshot(todayMinutes: 0, todaySessionCount: 0, currentStreak: 0, lastUpdated: now)
+        WidgetFocusStatsSnapshot(
+            todayMinutes: 0,
+            todaySessionCount: 0,
+            currentStreak: 0,
+            lastUpdated: now
+        )
     }
 
     static var preview: WidgetFocusStatsSnapshot {
-        WidgetFocusStatsSnapshot(todayMinutes: 75, todaySessionCount: 3, currentStreak: 5, lastUpdated: .now)
+        WidgetFocusStatsSnapshot(
+            todayMinutes: 75,
+            todaySessionCount: 3,
+            currentStreak: 5,
+            lastUpdated: .now
+        )
     }
 }
 

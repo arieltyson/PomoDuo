@@ -1,10 +1,3 @@
-//
-//  FocusStatsWidget.swift
-//  PomoDuoWidgetExtension
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 import WidgetKit
 
@@ -13,14 +6,21 @@ struct FocusStatsTimelineProvider: TimelineProvider {
         FocusStatsEntry(date: .now, snapshot: .preview)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (FocusStatsEntry) -> Void) {
-        let snapshot = context.isPreview
+    func getSnapshot(
+        in context: Context,
+        completion: @escaping (FocusStatsEntry) -> Void
+    ) {
+        let snapshot =
+            context.isPreview
             ? WidgetFocusStatsSnapshot.preview
             : WidgetDataReader.readSnapshot()
         completion(FocusStatsEntry(date: .now, snapshot: snapshot))
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<FocusStatsEntry>) -> Void) {
+    func getTimeline(
+        in context: Context,
+        completion: @escaping (Timeline<FocusStatsEntry>) -> Void
+    ) {
         let snapshot = WidgetDataReader.readSnapshot()
         let entry = FocusStatsEntry(date: .now, snapshot: snapshot)
 
@@ -41,7 +41,8 @@ struct FocusStatsWidget: Widget {
     let kind = WidgetKindID.focusStats
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: FocusStatsTimelineProvider()) { entry in
+        StaticConfiguration(kind: kind, provider: FocusStatsTimelineProvider())
+        { entry in
             FocusStatsEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
@@ -82,7 +83,10 @@ private struct FocusStatsSmallWidget: View {
 
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(WidgetPalette.lavender, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .stroke(
+                        WidgetPalette.lavender,
+                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                    )
                     .rotationEffect(.degrees(-90))
 
                 VStack(spacing: 2) {
@@ -98,9 +102,12 @@ private struct FocusStatsSmallWidget: View {
             }
 
             if snapshot.currentStreak > 0 {
-                Label("\(snapshot.currentStreak) day streak", systemImage: "flame.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
+                Label(
+                    "\(snapshot.currentStreak) day streak",
+                    systemImage: "flame.fill"
+                )
+                .font(.caption2)
+                .foregroundStyle(.orange)
             }
         }
         .padding(6)
@@ -124,7 +131,10 @@ private struct FocusStatsMediumWidget: View {
 
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(WidgetPalette.lavender, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                    .stroke(
+                        WidgetPalette.lavender,
+                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                    )
                     .rotationEffect(.degrees(-90))
 
                 VStack(spacing: 2) {
@@ -142,9 +152,25 @@ private struct FocusStatsMediumWidget: View {
             .aspectRatio(1, contentMode: .fit)
 
             VStack(alignment: .leading) {
-                FocusStatsMetricRow(icon: "brain.head.profile.fill", title: "Sessions", value: "\(snapshot.todaySessionCount)", tint: WidgetPalette.lavender)
-                FocusStatsMetricRow(icon: "flame.fill", title: "Streak", value: snapshot.currentStreak > 0 ? "\(snapshot.currentStreak) days" : "Start one!", tint: .orange)
-                FocusStatsMetricRow(icon: "target", title: "Goal", value: "\(goalMinutes) min", tint: WidgetPalette.success)
+                FocusStatsMetricRow(
+                    icon: "brain.head.profile.fill",
+                    title: "Sessions",
+                    value: "\(snapshot.todaySessionCount)",
+                    tint: WidgetPalette.lavender
+                )
+                FocusStatsMetricRow(
+                    icon: "flame.fill",
+                    title: "Streak",
+                    value: snapshot.currentStreak > 0
+                        ? "\(snapshot.currentStreak) days" : "Start one!",
+                    tint: .orange
+                )
+                FocusStatsMetricRow(
+                    icon: "target",
+                    title: "Goal",
+                    value: "\(goalMinutes) min",
+                    tint: WidgetPalette.success
+                )
             }
         }
         .padding(4)

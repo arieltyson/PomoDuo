@@ -1,10 +1,3 @@
-//
-//  PomoDuoLiveActivity.swift
-//  PomoDuoWidgetExtension
-//
-//  Created by Codex on 2/15/26.
-//
-
 import ActivityKit
 import SwiftUI
 import WidgetKit
@@ -17,7 +10,10 @@ struct PomoDuoLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    ExpandedPhaseIcon(phase: context.state.phase, isPaused: context.state.isPaused)
+                    ExpandedPhaseIcon(
+                        phase: context.state.phase,
+                        isPaused: context.state.isPaused
+                    )
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
@@ -25,10 +21,13 @@ struct PomoDuoLiveActivity: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.state.isPaused ? "Paused" : context.state.phase.label)
-                        .font(.headline)
-                        .bold()
-                        .foregroundStyle(.white)
+                    Text(
+                        context.state.isPaused
+                            ? "Paused" : context.state.phase.label
+                    )
+                    .font(.headline)
+                    .bold()
+                    .foregroundStyle(.white)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
@@ -40,9 +39,11 @@ struct PomoDuoLiveActivity: Widget {
 
                         Spacer()
 
-                        Text("Round \(context.state.currentRound) of \(context.attributes.totalRounds)")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.72))
+                        Text(
+                            "Round \(context.state.currentRound) of \(context.attributes.totalRounds)"
+                        )
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.72))
                     }
                 }
             } compactLeading: {
@@ -57,7 +58,9 @@ struct PomoDuoLiveActivity: Widget {
         }
     }
 
-    private func compactIconName(for state: TimerActivityAttributes.ContentState) -> String {
+    private func compactIconName(
+        for state: TimerActivityAttributes.ContentState
+    ) -> String {
         if state.isPaused {
             return "pause.circle.fill"
         }
@@ -72,7 +75,9 @@ struct PomoDuoLiveActivity: Widget {
         }
     }
 
-    private func compactTint(for state: TimerActivityAttributes.ContentState) -> Color {
+    private func compactTint(for state: TimerActivityAttributes.ContentState)
+        -> Color
+    {
         if state.isPaused {
             return .orange
         }
@@ -86,16 +91,24 @@ private struct LockScreenBanner: View {
 
     var body: some View {
         HStack {
-            ExpandedPhaseIcon(phase: context.state.phase, isPaused: context.state.isPaused)
+            ExpandedPhaseIcon(
+                phase: context.state.phase,
+                isPaused: context.state.isPaused
+            )
 
             VStack(alignment: .leading) {
-                Text(context.state.isPaused ? "Paused" : context.state.phase.label)
-                    .font(.headline)
-                    .bold()
+                Text(
+                    context.state.isPaused
+                        ? "Paused" : context.state.phase.label
+                )
+                .font(.headline)
+                .bold()
 
-                Text("Round \(context.state.currentRound) of \(context.attributes.totalRounds)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "Round \(context.state.currentRound) of \(context.attributes.totalRounds)"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -103,7 +116,10 @@ private struct LockScreenBanner: View {
             ExpandedCountdownLabel(state: context.state)
         }
         .padding()
-        .activityBackgroundTint(context.state.phase.isBreak ? .teal.opacity(0.15) : .purple.opacity(0.15))
+        .activityBackgroundTint(
+            context.state.phase.isBreak
+                ? .teal.opacity(0.15) : .purple.opacity(0.15)
+        )
     }
 }
 
@@ -134,11 +150,14 @@ private struct ExpandedCountdownLabel: View {
             Image(systemName: "pause.fill")
                 .foregroundStyle(.orange)
         } else {
-            Text(timerInterval: Date.now...state.targetEndDate, countsDown: true)
-                .font(.headline)
-                .bold()
-                .monospacedDigit()
-                .foregroundStyle(.white)
+            Text(
+                timerInterval: Date.now...state.targetEndDate,
+                countsDown: true
+            )
+            .font(.headline)
+            .bold()
+            .monospacedDigit()
+            .foregroundStyle(.white)
         }
     }
 }
@@ -152,11 +171,14 @@ private struct CompactCountdownLabel: View {
                 .font(.caption)
                 .foregroundStyle(.orange)
         } else {
-            Text(timerInterval: Date.now...state.targetEndDate, countsDown: true)
-                .font(.caption)
-                .bold()
-                .monospacedDigit()
-                .foregroundStyle(.white)
+            Text(
+                timerInterval: Date.now...state.targetEndDate,
+                countsDown: true
+            )
+            .font(.caption)
+            .bold()
+            .monospacedDigit()
+            .foregroundStyle(.white)
         }
     }
 }
@@ -170,10 +192,13 @@ private struct MinimalCountdownLabel: View {
                 .font(.caption2)
                 .foregroundStyle(.orange)
         } else {
-            Text(timerInterval: Date.now...state.targetEndDate, countsDown: true)
-                .font(.caption2)
-                .monospacedDigit()
-                .foregroundStyle(.white)
+            Text(
+                timerInterval: Date.now...state.targetEndDate,
+                countsDown: true
+            )
+            .font(.caption2)
+            .monospacedDigit()
+            .foregroundStyle(.white)
         }
     }
 }
