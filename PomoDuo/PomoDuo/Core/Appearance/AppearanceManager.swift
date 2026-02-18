@@ -1,10 +1,3 @@
-//
-//  AppearanceManager.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Observation
 import SwiftUI
@@ -17,7 +10,10 @@ final class AppearanceManager {
 
     var selectedAppearance: AppAppearance {
         didSet {
-            userDefaults.set(selectedAppearance.rawValue, forKey: Self.storageKey)
+            userDefaults.set(
+                selectedAppearance.rawValue,
+                forKey: Self.storageKey
+            )
         }
     }
 
@@ -31,7 +27,8 @@ final class AppearanceManager {
         self.userDefaults = userDefaults
 
         if let rawValue = userDefaults.string(forKey: Self.storageKey),
-           let persisted = AppAppearance(rawValue: rawValue) {
+            let persisted = AppAppearance(rawValue: rawValue)
+        {
             selectedAppearance = persisted
         } else {
             selectedAppearance = .system
