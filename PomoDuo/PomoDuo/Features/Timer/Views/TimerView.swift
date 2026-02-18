@@ -1,12 +1,5 @@
-//
-//  TimerView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 /// Main solo timer screen.
 struct TimerView: View {
@@ -29,10 +22,16 @@ struct TimerView: View {
         Group {
             if let activeConfiguration {
                 TimerCanvasView(
-                    phaseName: phaseName(for: phase, isRunning: viewModel.isRunning, isComplete: viewModel.isComplete),
+                    phaseName: phaseName(
+                        for: phase,
+                        isRunning: viewModel.isRunning,
+                        isComplete: viewModel.isComplete
+                    ),
                     currentRound: currentRound,
                     totalRounds: activeConfiguration.roundsBeforeLongBreak,
-                    remainingProgress: remainingProgress(from: viewModel.currentTick),
+                    remainingProgress: remainingProgress(
+                        from: viewModel.currentTick
+                    ),
                     timeString: timeString(
                         currentTick: viewModel.currentTick,
                         phase: phase,
@@ -77,8 +76,9 @@ struct TimerView: View {
 
     private func consumePendingFocusRequest() {
         guard focusIntentState.consumeStartFocusRequest(),
-              !viewModel.isRunning,
-              let configuration = activeConfiguration else {
+            !viewModel.isRunning,
+            let configuration = activeConfiguration
+        else {
             return
         }
 
@@ -104,7 +104,9 @@ struct TimerView: View {
         viewModel.startFocus(with: configuration)
         haptic.fire(.start)
 
-        let targetEndDate = Date.now.addingTimeInterval(configuration.focusDuration)
+        let targetEndDate = Date.now.addingTimeInterval(
+            configuration.focusDuration
+        )
         liveActivityManager.start(
             phase: .focus,
             currentRound: currentRound,
@@ -139,7 +141,10 @@ struct TimerView: View {
     }
 
     private func resumeTimer() {
-        let remainingSeconds = max(0, viewModel.currentTick?.remainingSeconds ?? 0)
+        let remainingSeconds = max(
+            0,
+            viewModel.currentTick?.remainingSeconds ?? 0
+        )
         viewModel.unpause()
         haptic.fire(.resume)
 
@@ -156,7 +161,8 @@ struct TimerView: View {
             isPaused: false
         )
 
-        let message = phase.isBreak
+        let message =
+            phase.isBreak
             ? "Break's over! Ready to focus? 📚"
             : "Focus session complete! Time for a break. 🎉"
         scheduleNotification(duration: remainingSeconds, message: message)
@@ -186,7 +192,9 @@ struct TimerView: View {
                 phase = .longBreak
                 viewModel.startLongBreak(with: configuration)
 
-                let targetEndDate = Date.now.addingTimeInterval(configuration.longBreakDuration)
+                let targetEndDate = Date.now.addingTimeInterval(
+                    configuration.longBreakDuration
+                )
                 liveActivityManager.start(
                     phase: .longBreak,
                     currentRound: currentRound,
@@ -203,7 +211,9 @@ struct TimerView: View {
                 phase = .shortBreak
                 viewModel.startShortBreak(with: configuration)
 
-                let targetEndDate = Date.now.addingTimeInterval(configuration.shortBreakDuration)
+                let targetEndDate = Date.now.addingTimeInterval(
+                    configuration.shortBreakDuration
+                )
                 liveActivityManager.start(
                     phase: .shortBreak,
                     currentRound: currentRound,
@@ -223,7 +233,9 @@ struct TimerView: View {
             focusStartedAt = .now
             viewModel.startFocus(with: configuration)
 
-            let targetEndDate = Date.now.addingTimeInterval(configuration.focusDuration)
+            let targetEndDate = Date.now.addingTimeInterval(
+                configuration.focusDuration
+            )
             liveActivityManager.start(
                 phase: .focus,
                 currentRound: currentRound,
@@ -248,7 +260,9 @@ struct TimerView: View {
             focusStartedAt = .now
             viewModel.startFocus(with: configuration)
 
-            let targetEndDate = Date.now.addingTimeInterval(configuration.focusDuration)
+            let targetEndDate = Date.now.addingTimeInterval(
+                configuration.focusDuration
+            )
             liveActivityManager.start(
                 phase: .focus,
                 currentRound: currentRound,
@@ -272,8 +286,9 @@ struct TimerView: View {
 
     private func recordCompletedFocusIfNeeded() {
         guard phase == .focus,
-              let configuration = activeConfiguration,
-              let startedAt = focusStartedAt else {
+            let configuration = activeConfiguration,
+            let startedAt = focusStartedAt
+        else {
             return
         }
 
@@ -300,7 +315,9 @@ struct TimerView: View {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         let scopedSessions = sessionsForCurrentUser(from: sessions)
-        let todaySessions = scopedSessions.filter { calendar.isDate($0.dayBucket, inSameDayAs: today) }
+        let todaySessions = scopedSessions.filter {
+            calendar.isDate($0.dayBucket, inSameDayAs: today)
+        }
         let todayMinutes = todaySessions.reduce(0) { $0 + $1.focusMinutes }
         let todaySessionCount = todaySessions.count
         let currentStreak = streakCount(
@@ -317,19 +334,31 @@ struct TimerView: View {
         WidgetDataProvider.reloadWidget()
     }
 
-    private func sessionsForCurrentUser(from sessions: [CompletedSession]) -> [CompletedSession] {
+    private func sessionsForCurrentUser(from sessions: [CompletedSession])
+        -> [CompletedSession]
+    {
         guard let userID = authManager.currentUserID else { return sessions }
         return sessions.filter { $0.userID == nil || $0.userID == userID }
     }
 
-    private func streakCount(from dayBuckets: [Date], calendar: Calendar, today: Date) -> Int {
+    private func streakCount(
+        from dayBuckets: [Date],
+        calendar: Calendar,
+        today: Date
+    ) -> Int {
         let activeDays = Set(dayBuckets.map { calendar.startOfDay(for: $0) })
         var cursor = today
         var streak = 0
 
         while activeDays.contains(cursor) {
             streak += 1
-            guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+            guard
+                let previous = calendar.date(
+                    byAdding: .day,
+                    value: -1,
+                    to: cursor
+                )
+            else {
                 break
             }
             cursor = previous
@@ -340,14 +369,19 @@ struct TimerView: View {
 
     private func scheduleNotification(duration: TimeInterval, message: String) {
         Task {
-            if !notificationManager.hasCheckedAuthorization || !notificationManager.isAuthorized {
+            if !notificationManager.hasCheckedAuthorization
+                || !notificationManager.isAuthorized
+            {
                 await notificationManager.requestPermission()
             }
 
             guard notificationManager.isAuthorized else { return }
 
             let endDate = Date.now.addingTimeInterval(max(1, duration))
-            await notificationManager.scheduleTimerEnd(at: endDate, message: message)
+            await notificationManager.scheduleTimerEnd(
+                at: endDate,
+                message: message
+            )
         }
     }
 
@@ -357,7 +391,11 @@ struct TimerView: View {
         }
     }
 
-    private func phaseName(for phase: TimerPhase, isRunning: Bool, isComplete: Bool) -> String {
+    private func phaseName(
+        for phase: TimerPhase,
+        isRunning: Bool,
+        isComplete: Bool
+    ) -> String {
         if !isRunning && !isComplete && phase == .idle {
             return "Ready"
         }
@@ -380,7 +418,10 @@ struct TimerView: View {
         return idleTimeString(for: phase, configuration: configuration)
     }
 
-    private func idleTimeString(for phase: TimerPhase, configuration: TimerConfiguration) -> String {
+    private func idleTimeString(
+        for phase: TimerPhase,
+        configuration: TimerConfiguration
+    ) -> String {
         switch phase {
         case .idle, .focus:
             return formattedClock(configuration.focusDuration)
@@ -395,8 +436,10 @@ struct TimerView: View {
         let seconds = max(0, Int(duration))
         let minutesPart = seconds / 60
         let secondsPart = seconds % 60
-        let minutesText = minutesPart < 10 ? "0\(minutesPart)" : "\(minutesPart)"
-        let secondsText = secondsPart < 10 ? "0\(secondsPart)" : "\(secondsPart)"
+        let minutesText =
+            minutesPart < 10 ? "0\(minutesPart)" : "\(minutesPart)"
+        let secondsText =
+            secondsPart < 10 ? "0\(secondsPart)" : "\(secondsPart)"
         return "\(minutesText):\(secondsText)"
     }
 }

@@ -1,10 +1,3 @@
-//
-//  TimerConfiguration.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import SwiftData
 
@@ -39,13 +32,19 @@ final class TimerConfiguration {
 
 extension TimerConfiguration {
     /// Preset durations (in seconds) for focus periods.
-    static let focusPresets: [TimeInterval] = [15, 20, 25, 30, 45, 60].map { TimeInterval($0 * 60) }
+    static let focusPresets: [TimeInterval] = [15, 20, 25, 30, 45, 60].map {
+        TimeInterval($0 * 60)
+    }
 
     /// Preset durations (in seconds) for short breaks.
-    static let shortBreakPresets: [TimeInterval] = [3, 5, 10].map { TimeInterval($0 * 60) }
+    static let shortBreakPresets: [TimeInterval] = [3, 5, 10].map {
+        TimeInterval($0 * 60)
+    }
 
     /// Preset durations (in seconds) for long breaks.
-    static let longBreakPresets: [TimeInterval] = [10, 15, 20, 30].map { TimeInterval($0 * 60) }
+    static let longBreakPresets: [TimeInterval] = [10, 15, 20, 30].map {
+        TimeInterval($0 * 60)
+    }
 
     /// Preset round-count options before a long break.
     static let roundPresets: [Int] = [2, 3, 4, 5, 6]

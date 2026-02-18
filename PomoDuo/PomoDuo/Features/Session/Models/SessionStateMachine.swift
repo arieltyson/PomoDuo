@@ -1,10 +1,3 @@
-//
-//  SessionStateMachine.swift
-//  PomoDuo
-//
-//  Created by Ariel Tyson on 2/14/26.
-//
-
 import Foundation
 
 /// A pure, stateless engine that computes the next `StudySession` for a given event.
@@ -17,7 +10,7 @@ enum SessionStateMachine {
 
         var description: String {
             switch self {
-            case let .invalidTransition(from, event):
+            case .invalidTransition(let from, let event):
                 "Invalid transition: cannot apply '\(event)' from '\(from.rawValue)' state"
             }
         }
@@ -29,7 +22,9 @@ enum SessionStateMachine {
     ///   - session: The current session state.
     /// - Returns: A new `StudySession` with the transition applied.
     /// - Throws: `TransitionError` if the event is not valid for the current state.
-    static func apply(_ event: SessionEvent, to session: StudySession) throws -> StudySession {
+    static func apply(_ event: SessionEvent, to session: StudySession) throws
+        -> StudySession
+    {
         var next = session
 
         switch (session.state, event) {
@@ -61,7 +56,10 @@ enum SessionStateMachine {
 
         case (.focus, .resumed):
             guard session.isPaused else {
-                throw TransitionError.invalidTransition(from: session.state, event: "resumed (not paused)")
+                throw TransitionError.invalidTransition(
+                    from: session.state,
+                    event: "resumed (not paused)"
+                )
             }
 
             next.isPaused = false
@@ -72,7 +70,10 @@ enum SessionStateMachine {
 
         case (.focus, .breakBegan):
             guard !session.isPaused else {
-                throw TransitionError.invalidTransition(from: session.state, event: "breakBegan (still paused)")
+                throw TransitionError.invalidTransition(
+                    from: session.state,
+                    event: "breakBegan (still paused)"
+                )
             }
             let isLongBreak = session.currentRound >= session.totalRounds
             next.state = isLongBreak ? .longBreak : .shortBreak
@@ -103,7 +104,10 @@ enum SessionStateMachine {
         // MARK: - Invalid
 
         default:
-            throw TransitionError.invalidTransition(from: session.state, event: "\(event)")
+            throw TransitionError.invalidTransition(
+                from: session.state,
+                event: "\(event)"
+            )
         }
 
         return next

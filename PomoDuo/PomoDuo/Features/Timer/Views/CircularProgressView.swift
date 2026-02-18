@@ -1,10 +1,3 @@
-//
-//  CircularProgressView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Circular progress component for the active countdown.
@@ -24,16 +17,24 @@ struct CircularProgressView: View {
             Circle()
                 .stroke(
                     AppColors.paleViolet.opacity(0.26),
-                    style: StrokeStyle(lineWidth: ringLineWidth, lineCap: .round)
+                    style: StrokeStyle(
+                        lineWidth: ringLineWidth,
+                        lineCap: .round
+                    )
                 )
 
             Circle()
                 .trim(from: 0, to: max(0, min(1, remainingProgress)))
                 .stroke(
-                    style: StrokeStyle(lineWidth: ringLineWidth, lineCap: .round)
+                    style: StrokeStyle(
+                        lineWidth: ringLineWidth,
+                        lineCap: .round
+                    )
                 )
                 .rotationEffect(.degrees(-90))
-                .foregroundStyle(isBreak ? AppGradients.breakRing : AppGradients.focusRing)
+                .foregroundStyle(
+                    isBreak ? AppGradients.breakRing : AppGradients.focusRing
+                )
                 .animation(
                     reduceMotion ? .none : .easeInOut(duration: 0.7),
                     value: remainingProgress

@@ -1,12 +1,5 @@
-//
-//  TimerSettingsView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 /// Allows users to customize Pomodoro durations and round count.
 struct TimerSettingsView: View {

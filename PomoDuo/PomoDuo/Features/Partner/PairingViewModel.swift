@@ -1,10 +1,3 @@
-//
-//  PairingViewModel.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Observation
 
@@ -51,7 +44,9 @@ final class PairingViewModel {
         do {
             let isPublished = try await pairingService.publishCode(code)
             guard isPublished else {
-                pairingState = .error("Unable to publish a pairing code right now.")
+                pairingState = .error(
+                    "Unable to publish a pairing code right now."
+                )
                 return
             }
 
@@ -87,7 +82,9 @@ final class PairingViewModel {
                 pairingState = .error("No partner was found with that code.")
             }
         } catch {
-            pairingState = .error("Could not connect right now. Please try again.")
+            pairingState = .error(
+                "Could not connect right now. Please try again."
+            )
         }
     }
 

@@ -1,10 +1,3 @@
-//
-//  PomodoroTimer.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// An actor that manages a Pomodoro countdown using `ContinuousClock`.
@@ -53,7 +46,9 @@ actor PomodoroTimer {
     /// Starts streaming ticks using an externally-provided target end date.
     ///
     /// Useful when joining or restoring an already-running session.
-    func resume(targetEndDate: Date, totalDuration: TimeInterval) -> AsyncStream<TimerTick> {
+    func resume(targetEndDate: Date, totalDuration: TimeInterval)
+        -> AsyncStream<TimerTick>
+    {
         stop()
 
         self.targetEndDate = targetEndDate

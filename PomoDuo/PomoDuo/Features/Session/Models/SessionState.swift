@@ -1,10 +1,3 @@
-//
-//  SessionState.swift
-//  PomoDuo
-//
-//  Created by Ariel Tyson on 2/14/26.
-//
-
 import Foundation
 
 /// Every possible state of a shared PomoDuo study session.

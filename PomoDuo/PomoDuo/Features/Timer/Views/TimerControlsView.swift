@@ -1,10 +1,3 @@
-//
-//  TimerControlsView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Adaptive timer controls for idle, active, and completed states.
@@ -37,9 +30,18 @@ struct TimerControlsView: View {
                 IdleControls(onStart: onStart)
             }
         }
-        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: isRunning)
-        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: isPaused)
-        .animation(reduceMotion ? .none : .easeInOut(duration: 0.3), value: isComplete)
+        .animation(
+            reduceMotion ? .none : .easeInOut(duration: 0.3),
+            value: isRunning
+        )
+        .animation(
+            reduceMotion ? .none : .easeInOut(duration: 0.3),
+            value: isPaused
+        )
+        .animation(
+            reduceMotion ? .none : .easeInOut(duration: 0.3),
+            value: isComplete
+        )
     }
 }
 
@@ -65,7 +67,9 @@ private struct ActiveControls: View {
     var body: some View {
         HStack {
             Button("Stop", systemImage: "stop.fill", action: onStop)
-                .buttonStyle(SecondaryControlButtonStyle(tint: AppColors.stopTint))
+                .buttonStyle(
+                    SecondaryControlButtonStyle(tint: AppColors.stopTint)
+                )
                 .accessibilityHint("Ends the session and resets the timer.")
 
             if isPaused {
@@ -83,7 +87,9 @@ private struct ActiveControls: View {
             }
 
             Button("Skip", systemImage: "forward.fill", action: onSkip)
-                .buttonStyle(SecondaryControlButtonStyle(tint: AppColors.lavender))
+                .buttonStyle(
+                    SecondaryControlButtonStyle(tint: AppColors.lavender)
+                )
                 .accessibilityHint("Skips to the next phase.")
         }
     }

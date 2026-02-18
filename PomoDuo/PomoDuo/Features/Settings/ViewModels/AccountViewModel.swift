@@ -1,10 +1,3 @@
-//
-//  AccountViewModel.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Observation
 
@@ -39,20 +32,25 @@ final class AccountViewModel {
             return false
         }
 
-        let trimmedName = editingDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = editingDisplayName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
         return !trimmedName.isEmpty && trimmedName != user.displayName
     }
 
     /// Current validation error for display name editing.
     var nameValidationError: String? {
-        let trimmedName = editingDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = editingDisplayName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
 
         if trimmedName.isEmpty && !editingDisplayName.isEmpty {
             return "Display name cannot be blank."
         }
 
         if trimmedName.count > Self.maximumDisplayNameLength {
-            return "Display name must be \(Self.maximumDisplayNameLength) characters or fewer."
+            return
+                "Display name must be \(Self.maximumDisplayNameLength) characters or fewer."
         }
 
         return nil
@@ -64,7 +62,9 @@ final class AccountViewModel {
             return
         }
 
-        let trimmedName = editingDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = editingDisplayName.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
         guard !trimmedName.isEmpty else {
             return
         }

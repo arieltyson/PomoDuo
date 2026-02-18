@@ -1,10 +1,3 @@
-//
-//  LiveActivityManager.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import ActivityKit
 import Foundation
 import Observation

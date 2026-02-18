@@ -1,10 +1,3 @@
-//
-//  AppBlockingView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import FamilyControls
 import SwiftUI
 
@@ -23,7 +16,9 @@ struct AppBlockingView: View {
                     onPickApps: { isPickerPresented = true }
                 )
             } else {
-                UnauthorizedAppBlockingContent(screenTimeManager: screenTimeManager)
+                UnauthorizedAppBlockingContent(
+                    screenTimeManager: screenTimeManager
+                )
             }
         }
         .navigationTitle("App Blocking")
@@ -72,10 +67,12 @@ private struct UnauthorizedAppBlockingContent: View {
                     .font(.headline)
                     .padding(.top, 8)
 
-                Text("During focus sessions, selected apps can be automatically blocked with Screen Time.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                Text(
+                    "During focus sessions, selected apps can be automatically blocked with Screen Time."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
 
                 Button {
                     Task {
@@ -93,7 +90,9 @@ private struct UnauthorizedAppBlockingContent: View {
                 .tint(AppColors.lavender)
                 .controlSize(.large)
                 .padding(.top, 8)
-                .accessibilityHint("Requests Screen Time authorization for app blocking.")
+                .accessibilityHint(
+                    "Requests Screen Time authorization for app blocking."
+                )
                 .disabled(screenTimeManager.isRequestingAuthorization)
             }
             .frame(maxWidth: .infinity)
@@ -106,9 +105,11 @@ private struct UnauthorizedAppBlockingContent: View {
                     .foregroundStyle(.orange)
                     .accessibilityHidden(true)
 
-                Text("If authorization does not appear, enable the Family Controls capability in Xcode Signing & Capabilities.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "If authorization does not appear, enable the Family Controls capability in Xcode Signing & Capabilities."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
         }
@@ -133,13 +134,21 @@ private struct AuthorizedAppBlockingContent: View {
         }
 
         Section("Blocked Apps") {
-            Button("Choose Apps to Block", systemImage: "plus.app", action: onPickApps)
-                .accessibilityHint("Opens Apple's app picker.")
+            Button(
+                "Choose Apps to Block",
+                systemImage: "plus.app",
+                action: onPickApps
+            )
+            .accessibilityHint("Opens Apple's app picker.")
 
             if screenTimeManager.hasSelectedApps {
                 BlockSelectionSummary(screenTimeManager: screenTimeManager)
 
-                Button("Clear Selection", systemImage: "trash", role: .destructive) {
+                Button(
+                    "Clear Selection",
+                    systemImage: "trash",
+                    role: .destructive
+                ) {
                     screenTimeManager.clearSelection()
                 }
                 .accessibilityHint("Removes all blocked app selections.")
@@ -170,8 +179,10 @@ private struct BlockSelectionSummary: View {
     let screenTimeManager: ScreenTimeManager
 
     var body: some View {
-        let appCount = screenTimeManager.activitySelection.applicationTokens.count
-        let categoryCount = screenTimeManager.activitySelection.categoryTokens.count
+        let appCount = screenTimeManager.activitySelection.applicationTokens
+            .count
+        let categoryCount = screenTimeManager.activitySelection.categoryTokens
+            .count
 
         VStack(alignment: .leading) {
             if appCount > 0 {
@@ -180,14 +191,17 @@ private struct BlockSelectionSummary: View {
             }
 
             if categoryCount > 0 {
-                let categoryWord = categoryCount == 1 ? "category" : "categories"
+                let categoryWord =
+                    categoryCount == 1 ? "category" : "categories"
                 Text("\(categoryCount) \(categoryWord) selected")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(summaryLabel(appCount: appCount, categoryCount: categoryCount))
+        .accessibilityLabel(
+            summaryLabel(appCount: appCount, categoryCount: categoryCount)
+        )
     }
 
     private func summaryLabel(appCount: Int, categoryCount: Int) -> String {

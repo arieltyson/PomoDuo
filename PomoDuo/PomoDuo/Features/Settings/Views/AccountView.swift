@@ -1,10 +1,3 @@
-//
-//  AccountView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import SwiftUI
 
 /// Detail screen for account profile and identity actions.
@@ -13,7 +6,9 @@ struct AccountView: View {
     @State private var viewModel: AccountViewModel
 
     init(authManager: AuthManager) {
-        _viewModel = State(initialValue: AccountViewModel(authManager: authManager))
+        _viewModel = State(
+            initialValue: AccountViewModel(authManager: authManager)
+        )
     }
 
     var body: some View {
@@ -21,10 +16,16 @@ struct AccountView: View {
             if let user = viewModel.authManager.currentUser {
                 Section {
                     VStack {
-                        Image(systemName: user.isAnonymous ? "person.crop.circle.dashed" : "person.crop.circle.fill")
-                            .font(.largeTitle)
-                            .foregroundStyle(user.isAnonymous ? .secondary : AppColors.lavender)
-                            .accessibilityHidden(true)
+                        Image(
+                            systemName: user.isAnonymous
+                                ? "person.crop.circle.dashed"
+                                : "person.crop.circle.fill"
+                        )
+                        .font(.largeTitle)
+                        .foregroundStyle(
+                            user.isAnonymous ? .secondary : AppColors.lavender
+                        )
+                        .accessibilityHidden(true)
 
                         Text(user.displayName)
                             .font(.title3)
@@ -38,10 +39,13 @@ struct AccountView: View {
                 }
 
                 Section {
-                    TextField("Display Name", text: $viewModel.editingDisplayName)
-                        .textContentType(.name)
-                        .autocorrectionDisabled()
-                        .accessibilityHint("Name shown to your study partner.")
+                    TextField(
+                        "Display Name",
+                        text: $viewModel.editingDisplayName
+                    )
+                    .textContentType(.name)
+                    .autocorrectionDisabled()
+                    .accessibilityHint("Name shown to your study partner.")
 
                     if let validationError = viewModel.nameValidationError {
                         Text(validationError)
@@ -62,13 +66,18 @@ struct AccountView: View {
                                     await viewModel.saveDisplayName()
                                 }
                             }
-                            .disabled(viewModel.nameValidationError != nil || viewModel.isSaving)
+                            .disabled(
+                                viewModel.nameValidationError != nil
+                                    || viewModel.isSaving
+                            )
                         }
                     }
                 } header: {
                     Text("Display Name")
                 } footer: {
-                    Text("This name is visible to your partner during paired sessions.")
+                    Text(
+                        "This name is visible to your partner during paired sessions."
+                    )
                 }
 
                 Section("Account") {
@@ -89,7 +98,10 @@ struct AccountView: View {
                 }
 
                 Section {
-                    Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") {
+                    Button(
+                        "Sign Out",
+                        systemImage: "rectangle.portrait.and.arrow.right"
+                    ) {
                         Task {
                             await viewModel.signOut()
                             dismiss()
@@ -99,17 +111,26 @@ struct AccountView: View {
                 }
 
                 Section {
-                    Button("Delete Account", systemImage: "trash", role: .destructive) {
+                    Button(
+                        "Delete Account",
+                        systemImage: "trash",
+                        role: .destructive
+                    ) {
                         viewModel.isShowingDeleteConfirmation = true
                     }
                     .disabled(viewModel.isSaving)
                 } footer: {
-                    Text("Deleting your account removes your profile identity from this device.")
+                    Text(
+                        "Deleting your account removes your profile identity from this device."
+                    )
                 }
             } else {
                 Section {
                     ContentUnavailableView {
-                        Label("No Account", systemImage: "person.crop.circle.badge.xmark")
+                        Label(
+                            "No Account",
+                            systemImage: "person.crop.circle.badge.xmark"
+                        )
                     } description: {
                         Text("Sign in to manage your account details.")
                     }

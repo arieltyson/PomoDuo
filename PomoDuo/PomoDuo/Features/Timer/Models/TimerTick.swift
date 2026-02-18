@@ -1,10 +1,3 @@
-//
-//  TimerTick.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// A snapshot of timer state emitted on each tick for the UI to render.
@@ -36,8 +29,8 @@ struct TimerTick: Sendable, Equatable {
     }
 }
 
-private extension Double {
-    func clamped(to range: ClosedRange<Double>) -> Double {
+extension Double {
+    fileprivate func clamped(to range: ClosedRange<Double>) -> Double {
         min(max(self, range.lowerBound), range.upperBound)
     }
 }

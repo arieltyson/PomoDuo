@@ -1,10 +1,3 @@
-//
-//  RoundIndicatorView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Dot indicator for completed/current/upcoming focus rounds.
@@ -47,7 +40,10 @@ private struct RoundDot: View {
     var body: some View {
         Circle()
             .fill(dotColor)
-            .frame(width: state == .current ? 10 : 8, height: state == .current ? 10 : 8)
+            .frame(
+                width: state == .current ? 10 : 8,
+                height: state == .current ? 10 : 8
+            )
             .scaleEffect(state == .current ? 1.2 : 1)
             .animation(
                 reduceMotion ? .none : .bouncy(duration: 0.35),

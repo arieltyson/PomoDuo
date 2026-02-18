@@ -1,10 +1,3 @@
-//
-//  SessionManager.swift
-//  PomoDuo
-//
-//  Created by Ariel Tyson on 2/14/26.
-//
-
 import Foundation
 import Observation
 
@@ -46,7 +39,11 @@ final class SessionManager {
     // MARK: - Intent Methods
 
     /// Initiates a new session request to the partner.
-    func requestSession(partnerID: String, duration: TimeInterval = 25 * 60, totalRounds: Int = 4) async {
+    func requestSession(
+        partnerID: String,
+        duration: TimeInterval = 25 * 60,
+        totalRounds: Int = 4
+    ) async {
         guard let userID = currentUserID else { return }
 
         let session = StudySession(
@@ -67,7 +64,10 @@ final class SessionManager {
 
         if let currentSession {
             _ = try? await syncService?.createSession(currentSession)
-            try? await notificationService?.sendSessionRequest(to: partnerID, from: userID)
+            try? await notificationService?.sendSessionRequest(
+                to: partnerID,
+                from: userID
+            )
         }
     }
 
@@ -103,12 +103,17 @@ final class SessionManager {
 
     /// Pauses the active focus session.
     func pause() async {
-        guard let session = currentSession, let userID = currentUserID else { return }
+        guard let session = currentSession, let userID = currentUserID else {
+            return
+        }
         applyEvent(.paused(by: userID), to: session)
         await syncAndEnforce()
 
         if let partnerID = session.partnerID(for: userID) {
-            try? await notificationService?.sendPauseNotification(to: partnerID, pausedBy: userID)
+            try? await notificationService?.sendPauseNotification(
+                to: partnerID,
+                pausedBy: userID
+            )
         }
     }
 
@@ -118,8 +123,12 @@ final class SessionManager {
         applyEvent(.resumed, to: session)
         await syncAndEnforce()
 
-        if let userID = currentUserID, let partnerID = session.partnerID(for: userID) {
-            try? await notificationService?.sendResumeNotification(to: partnerID)
+        if let userID = currentUserID,
+            let partnerID = session.partnerID(for: userID)
+        {
+            try? await notificationService?.sendResumeNotification(
+                to: partnerID
+            )
         }
     }
 

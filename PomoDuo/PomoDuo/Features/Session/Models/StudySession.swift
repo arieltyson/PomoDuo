@@ -1,10 +1,3 @@
-//
-//  StudySession.swift
-//  PomoDuo
-//
-//  Created by Ariel Tyson on 2/14/26.
-//
-
 import Foundation
 
 /// The shared source of truth for a PomoDuo study session.

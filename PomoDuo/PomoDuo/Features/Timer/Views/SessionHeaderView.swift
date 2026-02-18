@@ -1,10 +1,3 @@
-//
-//  SessionHeaderView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Top banner showing session phase and round status.
@@ -43,7 +36,9 @@ struct SessionHeaderView: View {
         .frame(maxWidth: .infinity)
         .background(AppGradients.banner)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(phaseName), round \(currentRound) of \(totalRounds)")
+        .accessibilityLabel(
+            "\(phaseName), round \(currentRound) of \(totalRounds)"
+        )
         .accessibilityAddTraits(.isHeader)
     }
 

@@ -1,10 +1,3 @@
-//
-//  SettingsView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import FamilyControls
 import SwiftUI
 
@@ -36,7 +29,9 @@ struct SettingsView: View {
                         HStack {
                             Text("App Blocking")
                             Spacer()
-                            AppBlockingStatusBadge(screenTimeManager: screenTimeManager)
+                            AppBlockingStatusBadge(
+                                screenTimeManager: screenTimeManager
+                            )
                         }
                     } icon: {
                         Image(systemName: "hourglass")
@@ -45,14 +40,19 @@ struct SettingsView: View {
             }
 
             Section("Appearance") {
-                Picker("Appearance", selection: $bindableAppearanceManager.selectedAppearance) {
+                Picker(
+                    "Appearance",
+                    selection: $bindableAppearanceManager.selectedAppearance
+                ) {
                     ForEach(AppAppearance.allCases) { appearance in
                         Text(appearance.title)
                             .tag(appearance)
                     }
                 }
                 .pickerStyle(.segmented)
-                .accessibilityHint("Sets app appearance to system, light, or dark.")
+                .accessibilityHint(
+                    "Sets app appearance to system, light, or dark."
+                )
 
                 Text(appearanceManager.selectedAppearance.detailText)
                     .font(.caption)
@@ -114,7 +114,10 @@ private struct AccountSection: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                Button("Sign In as Guest", systemImage: "person.crop.circle.badge.plus") {
+                Button(
+                    "Sign In as Guest",
+                    systemImage: "person.crop.circle.badge.plus"
+                ) {
                     Task {
                         await authManager.signInAnonymously()
                     }
@@ -124,8 +127,12 @@ private struct AccountSection: View {
         } header: {
             Text("Account")
         } footer: {
-            if let currentUser = authManager.currentUser, currentUser.isAnonymous {
-                Text("You are signed in as a guest. Tap to manage your account.")
+            if let currentUser = authManager.currentUser,
+                currentUser.isAnonymous
+            {
+                Text(
+                    "You are signed in as a guest. Tap to manage your account."
+                )
             }
         }
     }
@@ -136,10 +143,13 @@ private struct SignedInAccountRow: View {
 
     var body: some View {
         HStack {
-            Image(systemName: user.isAnonymous ? "person.crop.circle.dashed" : "person.crop.circle.fill")
-                .font(.title2)
-                .foregroundStyle(user.isAnonymous ? .secondary : AppColors.lavender)
-                .accessibilityHidden(true)
+            Image(
+                systemName: user.isAnonymous
+                    ? "person.crop.circle.dashed" : "person.crop.circle.fill"
+            )
+            .font(.title2)
+            .foregroundStyle(user.isAnonymous ? .secondary : AppColors.lavender)
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading) {
                 Text(user.displayName)
@@ -169,7 +179,8 @@ private struct AppBlockingStatusBadge: View {
 
     var body: some View {
         if screenTimeManager.isAuthorized && screenTimeManager.hasSelectedApps {
-            let blockedCount = screenTimeManager.activitySelection.applicationTokens.count
+            let blockedCount =
+                screenTimeManager.activitySelection.applicationTokens.count
                 + screenTimeManager.activitySelection.categoryTokens.count
             Text("\(blockedCount)")
                 .font(.caption2)
