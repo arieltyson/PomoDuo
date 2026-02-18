@@ -4,7 +4,8 @@ import SwiftUI
 /// Active paired-session surface shown in the Partner tab.
 ///
 /// Integrates with persistence, Live Activity, haptics, accessibility,
-/// Screen Time restrictions, and network connectivity status.
+/// Screen Time restrictions, network connectivity status, heartbeat
+/// monitoring, and partner presence indicators.
 struct ActivePairedSessionView: View {
     let session: StudySession
     let partner: PartnerProfile
@@ -14,6 +15,7 @@ struct ActivePairedSessionView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
+    @Environment(HeartbeatManager.self) private var heartbeatManager
 
     @State private var haptic = HapticTrigger()
     @State private var focusStartedAt: Date?
@@ -23,7 +25,10 @@ struct ActivePairedSessionView: View {
         VStack(spacing: 0) {
             ConnectionStatusBanner()
 
-            PartnerBannerView(partner: partner)
+            PartnerBannerView(
+                partner: partner,
+                isPartnerActive: heartbeatManager.isPartnerActive
+            )
 
             Spacer()
 
@@ -54,6 +59,7 @@ struct ActivePairedSessionView: View {
         .sensoryFeedback(haptic.feedback, trigger: haptic)
         .animation(.default, value: session.state)
         .animation(.default, value: restrictionCoordinator.isRestricting)
+        .animation(.default, value: heartbeatManager.isPartnerActive)
         .alert(
             "Session Error",
             isPresented: sessionErrorIsPresented
@@ -321,23 +327,11 @@ struct ActivePairedSessionView: View {
     }
 }
 
-// MARK: - Subviews
-
-private struct PairedBlockingIndicatorView: View {
-    var body: some View {
-        Label("Apps Blocked", systemImage: "shield.fill")
-            .font(.caption2)
-            .foregroundStyle(AppColors.lavender)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(AppColors.lavender.opacity(0.14), in: .capsule)
-            .accessibilityLabel("App blocking is active")
-            .transition(.opacity)
-    }
-}
+// MARK: - Partner Banner with Live Status
 
 private struct PartnerBannerView: View {
     let partner: PartnerProfile
+    let isPartnerActive: Bool
 
     var body: some View {
         HStack {
@@ -354,9 +348,7 @@ private struct PartnerBannerView: View {
 
             Spacer()
 
-            Image(systemName: "person.2.fill")
-                .foregroundStyle(AppColors.lavender)
-                .accessibilityHidden(true)
+            PartnerPresenceIndicator(isActive: isPartnerActive)
         }
         .padding()
         .background(
@@ -365,7 +357,74 @@ private struct PartnerBannerView: View {
         )
         .padding(.horizontal)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Studying with \(partner.displayName)")
+        .accessibilityLabel(
+            "Studying with \(partner.displayName), \(isPartnerActive ? "active" : "may be offline")"
+        )
+    }
+}
+
+/// Real-time partner presence dot with pulse animation.
+///
+/// Green pulsing dot when the partner's heartbeat is recent;
+/// static orange dot when the partner may be offline.
+private struct PartnerPresenceIndicator: View {
+    let isActive: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(isActive ? .green : .orange)
+                .frame(width: 10, height: 10)
+                .overlay {
+                    if isActive && !reduceMotion {
+                        PulsingRing()
+                    }
+                }
+
+            Text(isActive ? "Active" : "Offline?")
+                .font(.caption2)
+                .foregroundStyle(isActive ? .green : .orange)
+        }
+        .animation(.easeInOut(duration: 0.4), value: isActive)
+    }
+}
+
+/// Subtle repeating pulse ring that radiates outward from the
+/// presence dot while the partner is active.
+private struct PulsingRing: View {
+    @State private var isPulsing = false
+
+    var body: some View {
+        Circle()
+            .stroke(Color.green.opacity(0.4), lineWidth: 2)
+            .frame(width: 18, height: 18)
+            .scaleEffect(isPulsing ? 1.3 : 1.0)
+            .opacity(isPulsing ? 0.0 : 0.6)
+            .task {
+                withAnimation(
+                    .easeInOut(duration: 1.5)
+                        .repeatForever(autoreverses: false)
+                ) {
+                    isPulsing = true
+                }
+            }
+    }
+}
+
+// MARK: - Subviews
+
+private struct PairedBlockingIndicatorView: View {
+    var body: some View {
+        Label("Apps Blocked", systemImage: "shield.fill")
+            .font(.caption2)
+            .foregroundStyle(AppColors.lavender)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(AppColors.lavender.opacity(0.14), in: .capsule)
+            .accessibilityLabel("App blocking is active")
+            .transition(.opacity)
     }
 }
 

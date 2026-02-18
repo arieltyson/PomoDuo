@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Pairing codes: anyone authenticated can create, read, and delete
+    match /pairingCodes/{code} {
+      allow read, create, delete: if request.auth != null;
+    }
+
+    // Partnerships: only the two partners can read/write
+    match /partnerships/{partnershipId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid in resource.data.members;
+      allow create: if request.auth != null;
+    }
+
+    // Sessions: only the two partners can read/write
+    match /sessions/{sessionId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid in resource.data.members;
+      allow create: if request.auth != null;
+    }
+
+    // Users: each user can only read/write their own document
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // Push notifications: any authenticated user can create.
+    // The Cloud Function handles delivery and deletion.
+    // Users can read/delete their own outgoing requests but
+    // cannot read notifications targeting others.
+    match /pushNotifications/{docId} {
+      allow create: if request.auth != null;
+      // Cloud Function deletes after processing; no client reads needed.
+      allow read, delete: if false;
+    }
+  }
+}

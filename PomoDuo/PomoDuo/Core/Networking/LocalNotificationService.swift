@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import UserNotifications
 
 /// Notification-specific operations used by the UI notification manager.
@@ -10,15 +11,34 @@ protocol LocalNotificationManaging: NotificationService {
     func authorizationStatus() async -> UNAuthorizationStatus
 }
 
-/// Local notification implementation backed by `UNUserNotificationCenter`.
+/// Combined local + remote notification service.
 ///
-/// Remote push methods are intentionally no-ops for now and will be
-/// implemented when the Firebase sync layer is added.
+/// Local operations (timer-end scheduling, cancellation) are handled
+/// directly via `UNUserNotificationCenter`.
+///
+/// Remote operations (session request, pause, resume) delegate to
+/// ``PushNotificationSender``, which writes push notification requests
+/// to Firestore for a Cloud Function to deliver via FCM.
+///
+/// If no `PushNotificationSender` is provided (e.g., in tests or
+/// before Firebase is configured), remote methods are graceful no-ops.
 actor LocalNotificationService: LocalNotificationManaging {
+    nonisolated private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.arieljtyson.PomoDuo",
+        category: "LocalNotificationService"
+    )
+
     nonisolated private static let timerEndCategoryID = "TIMER_END"
     nonisolated private static let timerEndRequestID = "pomoduo.timer.end"
 
     private let center = UNUserNotificationCenter.current()
+    private let pushSender: PushNotificationSender?
+
+    init(pushSender: PushNotificationSender? = nil) {
+        self.pushSender = pushSender
+    }
+
+    // MARK: - Authorization
 
     @discardableResult
     func requestAuthorization() async -> Bool {
@@ -35,15 +55,58 @@ actor LocalNotificationService: LocalNotificationManaging {
         await center.notificationSettings().authorizationStatus
     }
 
+    // MARK: - Remote Push (via Firestore -> Cloud Function -> FCM)
+
     func sendSessionRequest(to partnerID: String, from senderName: String)
         async throws
-    {}
+    {
+        guard let pushSender else {
+            Self.logger.debug("Push sender unavailable - skipping session request push.")
+            return
+        }
+
+        try await pushSender.sendPush(
+            to: partnerID,
+            title: "Focus Session Request",
+            body: "\(senderName) wants to focus with you!",
+            category: .sessionRequest,
+            payload: ["action": "session_request"]
+        )
+    }
 
     func sendPauseNotification(to partnerID: String, pausedBy name: String)
         async throws
-    {}
+    {
+        guard let pushSender else {
+            Self.logger.debug("Push sender unavailable - skipping pause push.")
+            return
+        }
 
-    func sendResumeNotification(to partnerID: String) async throws {}
+        try await pushSender.sendPush(
+            to: partnerID,
+            title: "Session Paused",
+            body: "\(name) paused the session.",
+            category: .sessionPaused,
+            payload: ["action": "session_paused"]
+        )
+    }
+
+    func sendResumeNotification(to partnerID: String) async throws {
+        guard let pushSender else {
+            Self.logger.debug("Push sender unavailable - skipping resume push.")
+            return
+        }
+
+        try await pushSender.sendPush(
+            to: partnerID,
+            title: "Session Resumed",
+            body: "Your focus session is back on!",
+            category: .sessionResumed,
+            payload: ["action": "session_resumed"]
+        )
+    }
+
+    // MARK: - Local Notifications
 
     func scheduleTimerEndNotification(at date: Date, message: String)
         async throws

@@ -9,6 +9,7 @@ struct RootView: View {
     @Environment(SessionManager.self) private var sessionManager
     @Environment(SessionObserver.self) private var sessionObserver
     @Environment(FCMTokenManager.self) private var fcmTokenManager
+    @Environment(HeartbeatManager.self) private var heartbeatManager
 
     @State private var selectedTab = AppTab.timer
     @State private var isShowingOnboarding = false
@@ -63,6 +64,7 @@ struct RootView: View {
         .tint(AppColors.lavender)
         .task {
             isShowingOnboarding = !onboardingManager.hasCompletedOnboarding
+            manageHeartbeat(for: sessionManager.currentSession)
         }
         .task(id: authManager.currentUserID) {
             let userID = authManager.currentUserID
@@ -74,12 +76,23 @@ struct RootView: View {
             } else {
                 sessionObserver.stopObserving()
                 fcmTokenManager.stopObserving()
+                heartbeatManager.stopBeating()
             }
+        }
+        .onChange(of: sessionManager.currentSession) { _, session in
+            manageHeartbeat(for: session)
         }
         .onChange(of: onboardingManager.hasCompletedOnboarding) {
             _,
             hasCompleted in
             isShowingOnboarding = !hasCompleted
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .didTapPartnerNotification
+            )
+        ) { _ in
+            selectedTab = .partner
         }
         .fullScreenCover(isPresented: $isShowingOnboarding) {
             OnboardingView(
@@ -92,4 +105,39 @@ struct RootView: View {
             )
         }
     }
+
+    // MARK: - Heartbeat Lifecycle
+
+    /// Starts the heartbeat when a paired session is active,
+    /// stops it when the session ends or clears.
+    private func manageHeartbeat(for session: StudySession?) {
+        guard let session,
+            let userID = authManager.currentUserID,
+            let partnerID = session.partnerID(for: userID),
+            session.state != .idle,
+            session.state != .completed
+        else {
+            heartbeatManager.stopBeating()
+            return
+        }
+
+        heartbeatManager.startBeating(
+            sessionID: session.id,
+            userID: userID,
+            partnerID: partnerID,
+            onPartnerStale: { [sessionManager] in
+                await sessionManager.completeSession()
+            }
+        )
+    }
+}
+
+// MARK: - Deep-Link Notification
+
+extension Notification.Name {
+    /// Posted by ``AppDelegate`` when the user taps a partner-related
+    /// push notification, signaling ``RootView`` to switch to the Partner tab.
+    static let didTapPartnerNotification = Notification.Name(
+        "didTapPartnerNotification"
+    )
 }
