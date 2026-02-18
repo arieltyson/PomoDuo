@@ -6,6 +6,7 @@ struct SettingsView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(AppearanceManager.self) private var appearanceManager
+    @Environment(NotificationManager.self) private var notificationManager
 
     var body: some View {
         @Bindable var bindableAppearanceManager = appearanceManager
@@ -61,14 +62,19 @@ struct SettingsView: View {
 
             Section("Preferences") {
                 NavigationLink {
-                    ContentUnavailableView {
-                        Label("Notifications", systemImage: "bell.fill")
-                    } description: {
-                        Text("Notification preferences are coming soon.")
-                    }
-                    .navigationTitle("Notifications")
+                    NotificationPreferencesView()
                 } label: {
-                    Label("Notifications", systemImage: "bell.fill")
+                    Label {
+                        HStack {
+                            Text("Notifications")
+                            Spacer()
+                            NotificationStatusBadge(
+                                notificationManager: notificationManager
+                            )
+                        }
+                    } icon: {
+                        Image(systemName: "bell.fill")
+                    }
                 }
             }
         }
@@ -95,6 +101,8 @@ struct SettingsView: View {
         )
     }
 }
+
+// MARK: - Subviews
 
 private struct AccountSection: View {
     let authManager: AuthManager
@@ -195,6 +203,24 @@ private struct AppBlockingStatusBadge: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("App blocking authorized, no apps selected")
+        }
+    }
+}
+
+private struct NotificationStatusBadge: View {
+    let notificationManager: NotificationManager
+
+    var body: some View {
+        if notificationManager.isAuthorized {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(AppColors.success)
+                .accessibilityLabel("Notifications enabled")
+        } else if notificationManager.hasCheckedAuthorization {
+            Text("Off")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Notifications disabled")
         }
     }
 }
