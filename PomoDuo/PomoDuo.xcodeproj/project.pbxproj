@@ -29,9 +29,30 @@
 		AF8695F32F411D5600388170 /* PomoDuoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AF2205662F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"GoogleService-Info.plist",
+			);
+			target = AF8695E82F411D5600388170 /* PomoDuoTests */;
+		};
+		AF2205672F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"GoogleService-Info.plist",
+			);
+			target = AF8695F22F411D5600388170 /* PomoDuoUITests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AF8695DE2F411D5500388170 /* PomoDuo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AF2205662F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoTests" target */,
+				AF2205672F45B0BE009763BD /* Exceptions for "PomoDuo" folder in "PomoDuoUITests" target */,
+			);
 			path = PomoDuo;
 			sourceTree = "<group>";
 		};
