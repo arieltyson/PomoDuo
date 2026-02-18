@@ -1,10 +1,3 @@
-//
-//  AppAppearance.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// User-selectable app-wide appearance preference.

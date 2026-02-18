@@ -1,10 +1,3 @@
-//
-//  PomoDuoApp.swift
-//  PomoDuo
-//
-//  Created by Ariel Tyson on 14/2/26.
-//
-
 import SwiftUI
 import SwiftData
 

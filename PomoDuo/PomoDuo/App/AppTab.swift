@@ -1,10 +1,3 @@
-//
-//  AppTab.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// Tabs available in PomoDuo's root navigation.

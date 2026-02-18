@@ -1,10 +1,3 @@
-//
-//  RootView.swift
-//  PomoDuo
-//
-//  Created by Ariel Tyson on 2/14/26.
-//
-
 import SwiftUI
 
 /// Root app shell using a bottom tab bar.
