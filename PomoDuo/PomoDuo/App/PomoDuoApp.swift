@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import FirebaseCore
 
 @main
 struct PomoDuoApp: App {
@@ -14,6 +15,8 @@ struct PomoDuoApp: App {
     @State private var appearanceManager = AppearanceManager()
 
     init() {
+        FirebaseApp.configure()
+        
         let screenTimeManager = ScreenTimeManager()
         _screenTimeManager = State(initialValue: screenTimeManager)
         _restrictionCoordinator = State(
