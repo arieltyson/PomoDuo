@@ -172,9 +172,22 @@ final class SessionManager {
     // MARK: - Remote Sync Handling
 
     /// Call this when a remote session update arrives from the sync layer.
-    func handleRemoteUpdate(_ remoteSession: StudySession) {
+    ///
+    /// In addition to updating local state, this enforces local-only side
+    /// effects (restrictions + notifications) without writing back to the
+    /// backend, which avoids remote write loops between paired devices.
+    func handleRemoteUpdate(_ remoteSession: StudySession) async {
+        let previousState = currentSession?.state
+        let wasPaused = currentSession?.isPaused ?? false
+
         currentSession = remoteSession
         lastError = nil
+
+        await enforceLocalSideEffects(
+            for: remoteSession,
+            previousState: previousState,
+            wasPaused: wasPaused
+        )
     }
 
     // MARK: - Private
@@ -198,7 +211,32 @@ final class SessionManager {
         // Sync to backend.
         try? await syncService?.writeSession(session)
 
-        // Enforce or remove restrictions based on state.
+        // Enforce local restrictions/notifications for this transition.
+        await enforceRestrictions(for: session)
+    }
+
+    /// Applies local side effects for a remote update.
+    ///
+    /// This avoids duplicate calls when Firestore emits the same session state
+    /// repeatedly while still reacting to meaningful changes.
+    private func enforceLocalSideEffects(
+        for session: StudySession,
+        previousState: SessionState?,
+        wasPaused: Bool
+    ) async {
+        let stateChanged = previousState != session.state
+        let pauseToggled = wasPaused != session.isPaused
+
+        guard stateChanged || pauseToggled else {
+            return
+        }
+
+        await enforceRestrictions(for: session)
+    }
+
+    /// Shared side-effect enforcement used by both local transitions and
+    /// remote updates.
+    private func enforceRestrictions(for session: StudySession) async {
         switch session.state {
         case .focus where !session.isPaused:
             try? await restrictionService?.applyRestrictions()
@@ -206,6 +244,9 @@ final class SessionManager {
                 at: session.targetEndDate,
                 message: "Focus session complete! Time for a break."
             )
+        case .focus where session.isPaused:
+            try? await restrictionService?.removeRestrictions()
+            try? await notificationService?.cancelPendingNotifications()
         case .shortBreak, .longBreak:
             try? await restrictionService?.removeRestrictions()
             try? await notificationService?.scheduleTimerEndNotification(

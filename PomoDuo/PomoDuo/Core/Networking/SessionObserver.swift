@@ -61,7 +61,7 @@ final class SessionObserver {
                     )
 
                     self.startSessionListener(for: session.id)
-                    self.sessionManager.handleRemoteUpdate(session)
+                    await self.sessionManager.handleRemoteUpdate(session)
                 } else {
                     Self.logger.debug("No active session found.")
 
@@ -105,7 +105,7 @@ final class SessionObserver {
         sessionListenerTask = Task { @MainActor [weak self, syncService] in
             for await session in await syncService.sessionStream(for: sessionID) {
                 guard let self, !Task.isCancelled else { return }
-                self.sessionManager.handleRemoteUpdate(session)
+                await self.sessionManager.handleRemoteUpdate(session)
             }
 
             guard let self, !Task.isCancelled else { return }

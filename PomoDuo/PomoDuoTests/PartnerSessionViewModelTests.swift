@@ -70,7 +70,7 @@ struct PartnerSessionViewModelTests {
             currentRound: 1,
             totalRounds: 4
         )
-        manager.handleRemoteUpdate(incoming)
+        await manager.handleRemoteUpdate(incoming)
 
         #expect(viewModel.isIncomingRequest)
         #expect(!viewModel.isWaitingForAcceptance)
@@ -81,7 +81,7 @@ struct PartnerSessionViewModelTests {
         let manager = makeSessionManager()
         let viewModel = makeViewModel(manager: manager)
 
-        manager.handleRemoteUpdate(
+        await manager.handleRemoteUpdate(
             StudySession(
                 id: "incoming-accept",
                 partnerA: "partner-1",
@@ -108,7 +108,7 @@ struct PartnerSessionViewModelTests {
         let manager = makeSessionManager()
         let viewModel = makeViewModel(manager: manager)
 
-        manager.handleRemoteUpdate(
+        await manager.handleRemoteUpdate(
             StudySession(
                 id: "incoming-decline",
                 partnerA: "partner-1",
@@ -141,6 +141,23 @@ struct PartnerSessionViewModelTests {
         #expect(viewModel.isWaitingForAcceptance)
         #expect(viewModel.activeSession?.state == .requesting)
         #expect(!viewModel.isStartingSession)
+    }
+
+    @Test("startSession honors provided duration and rounds")
+    func startSessionHonorsProvidedConfiguration() async {
+        let manager = makeSessionManager()
+        let viewModel = makeViewModel(manager: manager)
+        let configuredDuration = TimeInterval(45 * 60)
+        let configuredRounds = 6
+
+        await viewModel.startSession(
+            with: testPartner,
+            duration: configuredDuration,
+            totalRounds: configuredRounds
+        )
+
+        #expect(viewModel.activeSession?.duration == configuredDuration)
+        #expect(viewModel.activeSession?.totalRounds == configuredRounds)
     }
 
     @Test("startSession requires an authenticated user")
