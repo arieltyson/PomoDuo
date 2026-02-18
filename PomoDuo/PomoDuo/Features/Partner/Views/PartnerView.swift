@@ -9,9 +9,15 @@ struct PartnerView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(SessionManager.self) private var sessionManager
 
-    @State private var pairingViewModel = PairingViewModel()
+    @State private var pairingViewModel: PairingViewModel
     @State private var sessionViewModel: PartnerSessionViewModel?
     @State private var isShowingCodeSheet = false
+
+    init(pairingService: any PairingService = MockPairingService()) {
+        _pairingViewModel = State(
+            initialValue: PairingViewModel(pairingService: pairingService)
+        )
+    }
 
     var body: some View {
         Group {

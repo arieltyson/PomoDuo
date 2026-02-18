@@ -4,7 +4,9 @@ import FirebaseCore
 
 @main
 struct PomoDuoApp: App {
-    @State private var authManager = AuthManager()
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
+    @State private var authManager: AuthManager
     @State private var sessionManager: SessionManager
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
@@ -13,17 +15,26 @@ struct PomoDuoApp: App {
     @State private var restrictionCoordinator: RestrictionCoordinator
     @State private var onboardingManager = OnboardingManager()
     @State private var appearanceManager = AppearanceManager()
+    private let pairingService: any PairingService
 
     init() {
         FirebaseApp.configure()
-        
+
+        let authService = FirebaseAuthService()
+        let pairingService = FirebasePairingService()
+        let syncService = FirebaseSessionSyncService()
+
+        _authManager = State(
+            initialValue: AuthManager(authService: authService)
+        )
+        self.pairingService = pairingService
+
         let screenTimeManager = ScreenTimeManager()
         _screenTimeManager = State(initialValue: screenTimeManager)
         _restrictionCoordinator = State(
             initialValue: RestrictionCoordinator(screenTimeManager: screenTimeManager)
         )
 
-        let syncService = MockSessionSyncService()
         _sessionManager = State(
             initialValue: SessionManager(syncService: syncService)
         )
@@ -31,7 +42,7 @@ struct PomoDuoApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView(pairingService: pairingService)
                 .environment(authManager)
                 .environment(sessionManager)
                 .environment(notificationManager)

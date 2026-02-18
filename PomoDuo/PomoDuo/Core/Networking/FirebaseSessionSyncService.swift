@@ -1,0 +1,171 @@
+import Foundation
+@preconcurrency import FirebaseFirestore
+
+/// Firestore-backed real-time sync implementation for paired sessions.
+actor FirebaseSessionSyncService: SessionSyncService {
+    private enum Collections {
+        static let sessions = "sessions"
+    }
+
+    private enum Fields {
+        static let id = "id"
+        static let partnerA = "partnerA"
+        static let partnerB = "partnerB"
+        static let members = "members"
+        static let state = "state"
+        static let startTime = "startTime"
+        static let targetEndDate = "targetEndDate"
+        static let duration = "duration"
+        static let isPaused = "isPaused"
+        static let pausedBy = "pausedBy"
+        static let currentRound = "currentRound"
+        static let totalRounds = "totalRounds"
+        static let updatedAt = "updatedAt"
+    }
+
+    private let database: Firestore
+
+    init(database: Firestore = Firestore.firestore()) {
+        self.database = database
+    }
+
+    func writeSession(_ session: StudySession) async throws {
+        try await sessionReference(for: session.id).setData(
+            encodeSession(session),
+            merge: true
+        )
+    }
+
+    func sessionStream(for sessionID: String) -> AsyncStream<StudySession> {
+        let reference = sessionReference(for: sessionID)
+
+        return AsyncStream { continuation in
+            let listener = reference.addSnapshotListener { snapshot, error in
+                if error != nil {
+                    continuation.finish()
+                    return
+                }
+
+                guard let snapshot else {
+                    continuation.finish()
+                    return
+                }
+
+                guard snapshot.exists else {
+                    continuation.finish()
+                    return
+                }
+
+                guard let session = Self.decodeSession(from: snapshot) else {
+                    return
+                }
+
+                continuation.yield(session)
+            }
+
+            continuation.onTermination = { _ in
+                listener.remove()
+            }
+        }
+    }
+
+    func createSession(_ session: StudySession) async throws -> String {
+        try await sessionReference(for: session.id).setData(
+            encodeSession(session),
+            merge: false
+        )
+        return session.id
+    }
+
+    func deleteSession(_ sessionID: String) async throws {
+        try await sessionReference(for: sessionID).delete()
+    }
+
+    private func sessionReference(for sessionID: String) -> DocumentReference {
+        database.collection(Collections.sessions).document(sessionID)
+    }
+
+    private func encodeSession(_ session: StudySession) -> [String: Any] {
+        var data: [String: Any] = [
+            Fields.id: session.id,
+            Fields.partnerA: session.partnerA,
+            Fields.partnerB: session.partnerB,
+            Fields.members: [session.partnerA, session.partnerB],
+            Fields.state: session.state.rawValue,
+            Fields.startTime: session.startTime,
+            Fields.targetEndDate: session.targetEndDate,
+            Fields.duration: session.duration,
+            Fields.isPaused: session.isPaused,
+            Fields.currentRound: session.currentRound,
+            Fields.totalRounds: session.totalRounds,
+            Fields.updatedAt: FieldValue.serverTimestamp(),
+        ]
+
+        if let pausedBy = session.pausedBy {
+            data[Fields.pausedBy] = pausedBy
+        } else {
+            data[Fields.pausedBy] = NSNull()
+        }
+
+        return data
+    }
+
+    private static func decodeSession(from snapshot: DocumentSnapshot) -> StudySession? {
+        guard
+            let data = snapshot.data(),
+            let id = data[Fields.id] as? String,
+            let partnerA = data[Fields.partnerA] as? String,
+            let partnerB = data[Fields.partnerB] as? String,
+            let rawState = data[Fields.state] as? String,
+            let state = SessionState(rawValue: rawState),
+            let startTimeTimestamp = data[Fields.startTime] as? Timestamp,
+            let targetEndTimestamp = data[Fields.targetEndDate] as? Timestamp,
+            let duration = doubleValue(for: data[Fields.duration]),
+            let isPaused = data[Fields.isPaused] as? Bool,
+            let currentRound = integerValue(for: data[Fields.currentRound]),
+            let totalRounds = integerValue(for: data[Fields.totalRounds])
+        else {
+            return nil
+        }
+
+        let pausedBy = data[Fields.pausedBy] as? String
+
+        return StudySession(
+            id: id,
+            partnerA: partnerA,
+            partnerB: partnerB,
+            state: state,
+            startTime: startTimeTimestamp.dateValue(),
+            targetEndDate: targetEndTimestamp.dateValue(),
+            duration: duration,
+            isPaused: isPaused,
+            pausedBy: pausedBy,
+            currentRound: currentRound,
+            totalRounds: totalRounds
+        )
+    }
+
+    private static func integerValue(for value: Any?) -> Int? {
+        if let int = value as? Int {
+            return int
+        }
+
+        if let number = value as? NSNumber {
+            return number.intValue
+        }
+
+        return nil
+    }
+
+    private static func doubleValue(for value: Any?) -> Double? {
+        if let double = value as? Double {
+            return double
+        }
+
+        if let number = value as? NSNumber {
+            return number.doubleValue
+        }
+
+        return nil
+    }
+}

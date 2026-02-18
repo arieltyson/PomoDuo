@@ -10,6 +10,11 @@ struct RootView: View {
 
     @State private var selectedTab = AppTab.timer
     @State private var isShowingOnboarding = false
+    private let pairingService: any PairingService
+
+    init(pairingService: any PairingService = MockPairingService()) {
+        self.pairingService = pairingService
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -21,7 +26,7 @@ struct RootView: View {
 
             Tab(AppTab.partner.title, systemImage: AppTab.partner.systemImage, value: .partner) {
                 NavigationStack {
-                    PartnerView()
+                    PartnerView(pairingService: pairingService)
                 }
             }
 
