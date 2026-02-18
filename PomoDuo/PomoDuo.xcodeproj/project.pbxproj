@@ -668,7 +668,7 @@
 		AF5636662F4683710067D4DE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PomoDuoShield/PomoDuoShield.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PomoDuoShield/PomoDuoShieldExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2MPMKAF986;
@@ -697,7 +697,7 @@
 		AF5636672F4683710067D4DE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PomoDuoShield/PomoDuoShield.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PomoDuoShield/PomoDuoShieldExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2MPMKAF986;
@@ -726,7 +726,7 @@
 		AF56367A2F4684A10067D4DE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PomoDuoMonitor/PomoDuoMonitor.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PomoDuoMonitor/PomoDuoMonitorExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2MPMKAF986;
@@ -755,7 +755,7 @@
 		AF56367B2F4684A10067D4DE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PomoDuoMonitor/PomoDuoMonitor.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PomoDuoMonitor/PomoDuoMonitorExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2MPMKAF986;
