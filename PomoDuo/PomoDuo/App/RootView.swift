@@ -20,25 +20,41 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab(AppTab.timer.title, systemImage: AppTab.timer.systemImage, value: .timer) {
+            Tab(
+                AppTab.timer.title,
+                systemImage: AppTab.timer.systemImage,
+                value: .timer
+            ) {
                 NavigationStack {
                     TimerView()
                 }
             }
 
-            Tab(AppTab.partner.title, systemImage: AppTab.partner.systemImage, value: .partner) {
+            Tab(
+                AppTab.partner.title,
+                systemImage: AppTab.partner.systemImage,
+                value: .partner
+            ) {
                 NavigationStack {
                     PartnerView(pairingService: pairingService)
                 }
             }
 
-            Tab(AppTab.history.title, systemImage: AppTab.history.systemImage, value: .history) {
+            Tab(
+                AppTab.history.title,
+                systemImage: AppTab.history.systemImage,
+                value: .history
+            ) {
                 NavigationStack {
                     SessionHistoryView()
                 }
             }
 
-            Tab(AppTab.settings.title, systemImage: AppTab.settings.systemImage, value: .settings) {
+            Tab(
+                AppTab.settings.title,
+                systemImage: AppTab.settings.systemImage,
+                value: .settings
+            ) {
                 NavigationStack {
                     SettingsView()
                 }
@@ -60,7 +76,9 @@ struct RootView: View {
                 fcmTokenManager.stopObserving()
             }
         }
-        .onChange(of: onboardingManager.hasCompletedOnboarding) { _, hasCompleted in
+        .onChange(of: onboardingManager.hasCompletedOnboarding) {
+            _,
+            hasCompleted in
             isShowingOnboarding = !hasCompleted
         }
         .fullScreenCover(isPresented: $isShowingOnboarding) {

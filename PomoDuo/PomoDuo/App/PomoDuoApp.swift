@@ -1,6 +1,6 @@
-import SwiftUI
-import SwiftData
 import FirebaseCore
+import SwiftData
+import SwiftUI
 
 @main
 struct PomoDuoApp: App {
@@ -37,7 +37,9 @@ struct PomoDuoApp: App {
         let screenTimeManager = ScreenTimeManager()
         _screenTimeManager = State(initialValue: screenTimeManager)
         _restrictionCoordinator = State(
-            initialValue: RestrictionCoordinator(screenTimeManager: screenTimeManager)
+            initialValue: RestrictionCoordinator(
+                screenTimeManager: screenTimeManager
+            )
         )
 
         let sessionManager = SessionManager(syncService: syncService)

@@ -1,7 +1,7 @@
-import OSLog
-import UIKit
 import FirebaseCore
 import FirebaseMessaging
+import OSLog
+import UIKit
 import UserNotifications
 
 @MainActor
@@ -13,7 +13,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(
         _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+        didFinishLaunchingWithOptions launchOptions: [UIApplication
+            .LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
@@ -46,7 +47,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 extension AppDelegate: MessagingDelegate {
-    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    func messaging(
+        _ messaging: Messaging,
+        didReceiveRegistrationToken fcmToken: String?
+    ) {
         guard let fcmToken else {
             return
         }
