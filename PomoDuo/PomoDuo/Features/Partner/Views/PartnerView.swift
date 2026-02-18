@@ -4,7 +4,9 @@ import SwiftUI
 ///
 /// The pairing flow requires an authenticated identity so partner actions can
 /// be attributed to a stable user ID. When a paired session is active, this
-/// view switches to ``ActivePairedSessionView``.
+/// view switches to ``ActivePairedSessionView``. If the current user received
+/// a session request from their partner, ``IncomingSessionRequestView`` is
+/// shown instead.
 struct PartnerView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(SessionManager.self) private var sessionManager
@@ -68,11 +70,18 @@ private struct SignedInPartnerContent: View {
             session.state != .idle,
             case .paired(let partner) = pairingViewModel.pairingState
         {
-            ActivePairedSessionView(
-                session: session,
-                partner: partner,
-                viewModel: sessionViewModel
-            )
+            if sessionViewModel.isIncomingRequest {
+                IncomingSessionRequestView(
+                    partner: partner,
+                    viewModel: sessionViewModel
+                )
+            } else {
+                ActivePairedSessionView(
+                    session: session,
+                    partner: partner,
+                    viewModel: sessionViewModel
+                )
+            }
         } else {
             PairingFlowContent(
                 viewModel: pairingViewModel,

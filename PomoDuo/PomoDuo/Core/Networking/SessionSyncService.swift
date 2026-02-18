@@ -14,4 +14,11 @@ protocol SessionSyncService: Actor, Sendable {
 
     /// Removes the active session document (for example, on completion).
     func deleteSession(_ sessionID: String) async throws
+
+    /// Returns a stream that emits the user's current active session, or `nil`
+    /// when no in-progress session exists.
+    ///
+    /// The sync layer watches for sessions where the given user is a member
+    /// and filters out sessions in terminal states (`.completed`, `.idle`).
+    func activeSessionStream(for userID: String) -> AsyncStream<StudySession?>
 }

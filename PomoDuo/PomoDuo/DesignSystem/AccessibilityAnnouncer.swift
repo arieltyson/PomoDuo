@@ -43,6 +43,12 @@ enum AccessibilityAnnouncer {
         )
     }
 
+    static func announceIncomingSessionRequest(partnerName: String) {
+        post(
+            "Session request from \(partnerName). Double-tap Accept to begin studying together."
+        )
+    }
+
     static func announcePairedFocusBegan(
         round: Int,
         totalRounds: Int,

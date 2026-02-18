@@ -23,6 +23,12 @@ actor FirebaseSessionSyncService: SessionSyncService {
         static let updatedAt = "updatedAt"
     }
 
+    /// Session states that indicate a session is no longer active.
+    private static let terminalStates: Set<String> = [
+        SessionState.completed.rawValue,
+        SessionState.idle.rawValue,
+    ]
+
     private let database: Firestore
 
     init(database: Firestore = Firestore.firestore()) {
@@ -79,6 +85,31 @@ actor FirebaseSessionSyncService: SessionSyncService {
 
     func deleteSession(_ sessionID: String) async throws {
         try await sessionReference(for: sessionID).delete()
+    }
+
+    func activeSessionStream(for userID: String) -> AsyncStream<StudySession?> {
+        let query = database.collection(Collections.sessions)
+            .whereField(Fields.members, arrayContains: userID)
+
+        return AsyncStream { continuation in
+            let listener = query.addSnapshotListener { snapshot, error in
+                if error != nil {
+                    continuation.yield(nil)
+                    return
+                }
+
+                let activeSession = snapshot?.documents
+                    .compactMap(Self.decodeSession(from:))
+                    .filter { !Self.terminalStates.contains($0.state.rawValue) }
+                    .max(by: { $0.startTime < $1.startTime })
+
+                continuation.yield(activeSession)
+            }
+
+            continuation.onTermination = { _ in
+                listener.remove()
+            }
+        }
     }
 
     private func sessionReference(for sessionID: String) -> DocumentReference {

@@ -7,6 +7,8 @@ struct RootView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(OnboardingManager.self) private var onboardingManager
     @Environment(SessionManager.self) private var sessionManager
+    @Environment(SessionObserver.self) private var sessionObserver
+    @Environment(FCMTokenManager.self) private var fcmTokenManager
 
     @State private var selectedTab = AppTab.timer
     @State private var isShowingOnboarding = false
@@ -47,7 +49,16 @@ struct RootView: View {
             isShowingOnboarding = !onboardingManager.hasCompletedOnboarding
         }
         .task(id: authManager.currentUserID) {
-            sessionManager.setCurrentUserID(authManager.currentUserID)
+            let userID = authManager.currentUserID
+            sessionManager.setCurrentUserID(userID)
+
+            if let userID {
+                sessionObserver.startObserving(userID: userID)
+                fcmTokenManager.startObserving(userID: userID)
+            } else {
+                sessionObserver.stopObserving()
+                fcmTokenManager.stopObserving()
+            }
         }
         .onChange(of: onboardingManager.hasCompletedOnboarding) { _, hasCompleted in
             isShowingOnboarding = !hasCompleted

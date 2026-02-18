@@ -27,13 +27,9 @@ struct PartnerSessionViewModelTests {
     }
 
     private func makeViewModel(
-        manager: SessionManager,
-        autoAcceptDelay: Duration = .seconds(60)
+        manager: SessionManager
     ) -> PartnerSessionViewModel {
-        PartnerSessionViewModel(
-            sessionManager: manager,
-            autoAcceptDelay: autoAcceptDelay
-        )
+        PartnerSessionViewModel(sessionManager: manager)
     }
 
     @Test("Initial state has no active paired session")
@@ -45,10 +41,92 @@ struct PartnerSessionViewModelTests {
         #expect(!viewModel.hasActiveSession)
         #expect(!viewModel.isStartingSession)
         #expect(!viewModel.isWaitingForAcceptance)
+        #expect(!viewModel.isIncomingRequest)
         #expect(!viewModel.isFocusing)
         #expect(!viewModel.isPaused)
         #expect(!viewModel.isOnBreak)
         #expect(!viewModel.isCompleted)
+        #expect(viewModel.sessionError == nil)
+    }
+
+    @Test("incoming request state is true only for partner B")
+    func incomingRequestState() async {
+        let manager = makeSessionManager()
+        let viewModel = makeViewModel(manager: manager)
+
+        await manager.requestSession(partnerID: "partner-1")
+        #expect(!viewModel.isIncomingRequest)
+
+        let incoming = StudySession(
+            id: "incoming-request",
+            partnerA: "partner-1",
+            partnerB: "user-1",
+            state: .requesting,
+            startTime: .now,
+            targetEndDate: .now.addingTimeInterval(25 * 60),
+            duration: 25 * 60,
+            isPaused: false,
+            pausedBy: nil,
+            currentRound: 1,
+            totalRounds: 4
+        )
+        manager.handleRemoteUpdate(incoming)
+
+        #expect(viewModel.isIncomingRequest)
+        #expect(!viewModel.isWaitingForAcceptance)
+    }
+
+    @Test("acceptIncomingSession transitions request to focus")
+    func acceptIncomingSession() async {
+        let manager = makeSessionManager()
+        let viewModel = makeViewModel(manager: manager)
+
+        manager.handleRemoteUpdate(
+            StudySession(
+                id: "incoming-accept",
+                partnerA: "partner-1",
+                partnerB: "user-1",
+                state: .requesting,
+                startTime: .now,
+                targetEndDate: .now.addingTimeInterval(25 * 60),
+                duration: 25 * 60,
+                isPaused: false,
+                pausedBy: nil,
+                currentRound: 1,
+                totalRounds: 4
+            )
+        )
+
+        await viewModel.acceptIncomingSession()
+
+        #expect(viewModel.activeSession?.state == .focus)
+        #expect(viewModel.sessionError == nil)
+    }
+
+    @Test("declineIncomingSession clears local session")
+    func declineIncomingSession() async {
+        let manager = makeSessionManager()
+        let viewModel = makeViewModel(manager: manager)
+
+        manager.handleRemoteUpdate(
+            StudySession(
+                id: "incoming-decline",
+                partnerA: "partner-1",
+                partnerB: "user-1",
+                state: .requesting,
+                startTime: .now,
+                targetEndDate: .now.addingTimeInterval(25 * 60),
+                duration: 25 * 60,
+                isPaused: false,
+                pausedBy: nil,
+                currentRound: 1,
+                totalRounds: 4
+            )
+        )
+
+        await viewModel.declineIncomingSession()
+
+        #expect(viewModel.activeSession == nil)
         #expect(viewModel.sessionError == nil)
     }
 

@@ -123,10 +123,7 @@ struct PairedSessionLifecycleTests {
     @Test("Session lifecycle reaches expected states")
     func fullFocusCycle() async {
         let manager = makeSessionManager()
-        let viewModel = PartnerSessionViewModel(
-            sessionManager: manager,
-            autoAcceptDelay: .seconds(60)
-        )
+        let viewModel = PartnerSessionViewModel(sessionManager: manager)
 
         await viewModel.startSession(with: testPartner)
         await manager.acceptSession()
@@ -145,10 +142,7 @@ struct PairedSessionLifecycleTests {
     @Test("Custom duration and round count propagate to session")
     func durationPropagation() async {
         let manager = makeSessionManager()
-        let viewModel = PartnerSessionViewModel(
-            sessionManager: manager,
-            autoAcceptDelay: .seconds(60)
-        )
+        let viewModel = PartnerSessionViewModel(sessionManager: manager)
 
         await viewModel.startSession(with: testPartner, duration: 50 * 60, totalRounds: 6)
         await manager.acceptSession()
@@ -160,10 +154,7 @@ struct PairedSessionLifecycleTests {
     @Test("Final round transitions to long break")
     func finalRoundLongBreak() async {
         let manager = makeSessionManager()
-        let viewModel = PartnerSessionViewModel(
-            sessionManager: manager,
-            autoAcceptDelay: .seconds(60)
-        )
+        let viewModel = PartnerSessionViewModel(sessionManager: manager)
 
         await viewModel.startSession(with: testPartner, totalRounds: 1)
         await manager.acceptSession()
@@ -175,10 +166,7 @@ struct PairedSessionLifecycleTests {
     @Test("Non-final round transitions to short break")
     func nonFinalRoundShortBreak() async {
         let manager = makeSessionManager()
-        let viewModel = PartnerSessionViewModel(
-            sessionManager: manager,
-            autoAcceptDelay: .seconds(60)
-        )
+        let viewModel = PartnerSessionViewModel(sessionManager: manager)
 
         await viewModel.startSession(with: testPartner, totalRounds: 4)
         await manager.acceptSession()

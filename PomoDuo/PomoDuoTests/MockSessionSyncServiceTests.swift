@@ -117,6 +117,67 @@ struct MockSessionSyncServiceTests {
         #expect(terminalValue == nil)
     }
 
+    @Test("activeSessionStream emits active session and nil for terminal state")
+    func activeSessionStreamLifecycle() async throws {
+        let service = MockSessionSyncService()
+        var session = makeSession(id: "active-session", state: .requesting)
+        _ = try await service.createSession(session)
+
+        let stream = await service.activeSessionStream(for: "user-a")
+        var iterator = stream.makeAsyncIterator()
+        let firstValue = await iterator.next() ?? nil
+        #expect(firstValue?.id == "active-session")
+
+        session.state = .completed
+        try await service.writeSession(session)
+
+        let terminalValue = await iterator.next() ?? nil
+        #expect(terminalValue == nil)
+    }
+
+    @Test("activeSessionStream ignores unrelated sessions")
+    func activeSessionStreamUserScope() async throws {
+        let service = MockSessionSyncService()
+        let stream = await service.activeSessionStream(for: "user-c")
+        var iterator = stream.makeAsyncIterator()
+
+        let initialValue = await iterator.next() ?? nil
+        #expect(initialValue == nil)
+
+        let unrelated = StudySession(
+            id: "unrelated",
+            partnerA: "user-a",
+            partnerB: "user-b",
+            state: .requesting,
+            startTime: .now,
+            targetEndDate: .now.addingTimeInterval(25 * 60),
+            duration: 25 * 60,
+            isPaused: false,
+            pausedBy: nil,
+            currentRound: 1,
+            totalRounds: 4
+        )
+        _ = try await service.createSession(unrelated)
+
+        let related = StudySession(
+            id: "related",
+            partnerA: "user-c",
+            partnerB: "user-d",
+            state: .requesting,
+            startTime: .now,
+            targetEndDate: .now.addingTimeInterval(25 * 60),
+            duration: 25 * 60,
+            isPaused: false,
+            pausedBy: nil,
+            currentRound: 1,
+            totalRounds: 4
+        )
+        _ = try await service.createSession(related)
+
+        let nextValue = await iterator.next() ?? nil
+        #expect(nextValue?.id == "related")
+    }
+
     @Test("reset clears all stored sessions")
     func resetClearsAllSessions() async throws {
         let service = MockSessionSyncService()

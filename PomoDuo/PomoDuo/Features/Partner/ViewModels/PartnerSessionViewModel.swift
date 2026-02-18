@@ -6,8 +6,6 @@ import Observation
 @Observable
 final class PartnerSessionViewModel {
     private let sessionManager: SessionManager
-    private let autoAcceptDelay: Duration
-    private var autoAcceptTask: Task<Void, Never>?
 
     /// Whether session creation is currently in progress.
     private(set) var isStartingSession = false
@@ -15,13 +13,11 @@ final class PartnerSessionViewModel {
     /// User-facing error copied from the latest state-machine transition failure.
     private(set) var sessionError: String?
 
-    init(
-        sessionManager: SessionManager,
-        autoAcceptDelay: Duration = .seconds(1.5)
-    ) {
+    init(sessionManager: SessionManager) {
         self.sessionManager = sessionManager
-        self.autoAcceptDelay = autoAcceptDelay
     }
+
+    // MARK: - Computed State
 
     var activeSession: StudySession? {
         sessionManager.currentSession
@@ -32,8 +28,25 @@ final class PartnerSessionViewModel {
         return activeSession.state != .idle && activeSession.state != .completed
     }
 
+    /// `true` when the current user is the *receiver* of a session request
+    /// (Partner B) rather than the initiator (Partner A).
+    ///
+    /// The UI uses this to show Accept/Decline buttons instead of
+    /// the "Waiting for Partner" spinner.
+    var isIncomingRequest: Bool {
+        guard let session = activeSession,
+            session.state == .requesting,
+            let userID = sessionManager.currentUserID
+        else { return false }
+        return session.partnerB == userID
+    }
+
     var isWaitingForAcceptance: Bool {
-        activeSession?.state == .requesting
+        guard let session = activeSession,
+            session.state == .requesting,
+            let userID = sessionManager.currentUserID
+        else { return false }
+        return session.partnerA == userID
     }
 
     var isFocusing: Bool {
@@ -57,6 +70,8 @@ final class PartnerSessionViewModel {
         sessionManager.lastError
     }
 
+    // MARK: - Initiator Actions (Partner A)
+
     func startSession(
         with partner: PartnerProfile,
         duration: TimeInterval = 25 * 60,
@@ -79,12 +94,34 @@ final class PartnerSessionViewModel {
         )
         syncErrorFromManager()
 
-        if isWaitingForAcceptance {
-            simulatePartnerAcceptanceForLocalDevelopment()
-        }
-
         isStartingSession = false
     }
+
+    // MARK: - Receiver Actions (Partner B)
+
+    /// Partner B accepts an incoming session request.
+    ///
+    /// This transitions the session from `.requesting` to `.focus` and
+    /// syncs the change to Firestore so Partner A's device picks it up
+    /// via ``SessionObserver``.
+    func acceptIncomingSession() async {
+        guard isIncomingRequest else { return }
+        await sessionManager.acceptSession()
+        syncErrorFromManager()
+    }
+
+    /// Partner B declines an incoming session request.
+    ///
+    /// This transitions the session to `.idle` and clears it from both
+    /// the local state and Firestore.
+    func declineIncomingSession() async {
+        guard isIncomingRequest else { return }
+        await sessionManager.declineSession()
+        await sessionManager.clearSession()
+        syncErrorFromManager()
+    }
+
+    // MARK: - Shared Session Actions
 
     func pauseSession() async {
         await sessionManager.pause()
@@ -128,33 +165,13 @@ final class PartnerSessionViewModel {
     }
 
     func reset() {
-        autoAcceptTask?.cancel()
-        autoAcceptTask = nil
         sessionError = nil
         isStartingSession = false
     }
 
+    // MARK: - Private
+
     private func syncErrorFromManager() {
         sessionError = sessionManager.lastError?.description
-    }
-
-    private func simulatePartnerAcceptanceForLocalDevelopment() {
-        autoAcceptTask?.cancel()
-
-        autoAcceptTask = Task { [weak self] in
-            guard let self else { return }
-
-            try? await Task.sleep(for: autoAcceptDelay)
-
-            guard !Task.isCancelled,
-                self.isWaitingForAcceptance
-            else {
-                return
-            }
-
-            await self.sessionManager.acceptSession()
-            self.syncErrorFromManager()
-            self.autoAcceptTask = nil
-        }
     }
 }

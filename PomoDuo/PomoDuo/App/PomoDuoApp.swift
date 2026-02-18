@@ -8,6 +8,8 @@ struct PomoDuoApp: App {
 
     @State private var authManager: AuthManager
     @State private var sessionManager: SessionManager
+    @State private var sessionObserver: SessionObserver
+    @State private var fcmTokenManager = FCMTokenManager()
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
     @State private var focusIntentState = FocusIntentState.shared
@@ -35,8 +37,13 @@ struct PomoDuoApp: App {
             initialValue: RestrictionCoordinator(screenTimeManager: screenTimeManager)
         )
 
-        _sessionManager = State(
-            initialValue: SessionManager(syncService: syncService)
+        let sessionManager = SessionManager(syncService: syncService)
+        _sessionManager = State(initialValue: sessionManager)
+        _sessionObserver = State(
+            initialValue: SessionObserver(
+                syncService: syncService,
+                sessionManager: sessionManager
+            )
         )
     }
 
@@ -45,6 +52,8 @@ struct PomoDuoApp: App {
             RootView(pairingService: pairingService)
                 .environment(authManager)
                 .environment(sessionManager)
+                .environment(sessionObserver)
+                .environment(fcmTokenManager)
                 .environment(notificationManager)
                 .environment(liveActivityManager)
                 .environment(focusIntentState)

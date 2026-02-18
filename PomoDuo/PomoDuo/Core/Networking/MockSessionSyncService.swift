@@ -10,6 +10,13 @@ actor MockSessionSyncService: SessionSyncService {
     private var sessionsByID: [String: StudySession] = [:]
     private var listenersBySessionID:
         [String: [UUID: AsyncStream<StudySession>.Continuation]] = [:]
+    private var activeSessionListeners:
+        [UUID: ActiveSessionListener] = [:]
+
+    private struct ActiveSessionListener {
+        let userID: String
+        let continuation: AsyncStream<StudySession?>.Continuation
+    }
 
     init(simulatedDelay: Duration = .zero) {
         self.simulatedDelay = simulatedDelay
@@ -20,6 +27,7 @@ actor MockSessionSyncService: SessionSyncService {
 
         sessionsByID[session.id] = session
         emit(session, sessionID: session.id)
+        emitActiveSessionUpdate(for: session)
     }
 
     func sessionStream(for sessionID: String) -> AsyncStream<StudySession> {
@@ -44,22 +52,41 @@ actor MockSessionSyncService: SessionSyncService {
 
         sessionsByID[session.id] = session
         emit(session, sessionID: session.id)
+        emitActiveSessionUpdate(for: session)
         return session.id
     }
 
     func deleteSession(_ sessionID: String) async throws {
         try await performDelayIfNeeded()
 
-        sessionsByID.removeValue(forKey: sessionID)
+        let removedSession = sessionsByID.removeValue(forKey: sessionID)
 
-        guard
-            let listeners = listenersBySessionID.removeValue(forKey: sessionID)
-        else {
-            return
+        if let listeners = listenersBySessionID.removeValue(forKey: sessionID) {
+            for continuation in listeners.values {
+                continuation.finish()
+            }
         }
 
-        for continuation in listeners.values {
-            continuation.finish()
+        if let removedSession {
+            emitActiveSessionRemoval(for: removedSession)
+        }
+    }
+
+    func activeSessionStream(for userID: String) -> AsyncStream<StudySession?> {
+        AsyncStream { continuation in
+            let listenerID = UUID()
+            attachActiveSessionListener(
+                continuation,
+                listenerID: listenerID,
+                userID: userID
+            )
+
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
+                Task {
+                    await self.detachActiveSessionListener(id: listenerID)
+                }
+            }
         }
     }
 
@@ -82,9 +109,14 @@ actor MockSessionSyncService: SessionSyncService {
             }
         }
         listenersBySessionID.removeAll()
+
+        for listener in activeSessionListeners.values {
+            listener.continuation.finish()
+        }
+        activeSessionListeners.removeAll()
     }
 
-    // MARK: - Private
+    // MARK: - Private — Session Stream
 
     private func attach(
         _ continuation: AsyncStream<StudySession>.Continuation,
@@ -115,6 +147,58 @@ actor MockSessionSyncService: SessionSyncService {
         for continuation in listeners.values {
             continuation.yield(session)
         }
+    }
+
+    // MARK: - Private — Active Session Stream
+
+    private static let terminalStates: Set<SessionState> = [
+        .completed,
+        .idle,
+    ]
+
+    private func attachActiveSessionListener(
+        _ continuation: AsyncStream<StudySession?>.Continuation,
+        listenerID: UUID,
+        userID: String
+    ) {
+        activeSessionListeners[listenerID] = ActiveSessionListener(
+            userID: userID,
+            continuation: continuation
+        )
+
+        continuation.yield(activeSession(for: userID))
+    }
+
+    private func detachActiveSessionListener(id: UUID) {
+        activeSessionListeners.removeValue(forKey: id)
+    }
+
+    private func emitActiveSessionUpdate(for session: StudySession) {
+        for listener in activeSessionListeners.values
+        where containsUser(listener.userID, in: session)
+        {
+            listener.continuation.yield(activeSession(for: listener.userID))
+        }
+    }
+
+    private func emitActiveSessionRemoval(for session: StudySession) {
+        for listener in activeSessionListeners.values
+        where containsUser(listener.userID, in: session)
+        {
+            listener.continuation.yield(activeSession(for: listener.userID))
+        }
+    }
+
+    private func activeSession(for userID: String) -> StudySession? {
+        sessionsByID.values
+            .filter { session in
+                containsUser(userID, in: session) && !Self.terminalStates.contains(session.state)
+            }
+            .max(by: { $0.startTime < $1.startTime })
+    }
+
+    private func containsUser(_ userID: String, in session: StudySession) -> Bool {
+        session.partnerA == userID || session.partnerB == userID
     }
 
     private func performDelayIfNeeded() async throws {
