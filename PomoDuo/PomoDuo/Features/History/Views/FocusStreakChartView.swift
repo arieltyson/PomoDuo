@@ -1,10 +1,3 @@
-//
-//  FocusStreakChartView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Charts
 import SwiftUI
 
@@ -26,7 +19,9 @@ struct FocusStreakChartView: View {
                         yEnd: .value("Minutes", summary.soloMinutes)
                     )
                     .foregroundStyle(soloGradient)
-                    .accessibilityLabel("\(summary.dayLabel): \(summary.soloMinutes) solo minutes")
+                    .accessibilityLabel(
+                        "\(summary.dayLabel): \(summary.soloMinutes) solo minutes"
+                    )
                 }
 
                 if summary.pairedMinutes > 0 {
@@ -36,7 +31,9 @@ struct FocusStreakChartView: View {
                         yEnd: .value("Minutes", summary.totalMinutes)
                     )
                     .foregroundStyle(pairedGradient)
-                    .accessibilityLabel("\(summary.dayLabel): \(summary.pairedMinutes) paired minutes")
+                    .accessibilityLabel(
+                        "\(summary.dayLabel): \(summary.pairedMinutes) paired minutes"
+                    )
                 }
 
                 if summary.totalMinutes > 0 {
@@ -134,19 +131,22 @@ struct FocusStreakChartView: View {
                 partial + item.totalMinutes
             }
             let activeDays = summaries.filter { $0.totalMinutes > 0 }.count
-            return "Weekly focus chart: \(totalMinutes) minutes across \(activeDays) days"
+            return
+                "Weekly focus chart: \(totalMinutes) minutes across \(activeDays) days"
         case .solo:
             let soloTotal = summaries.reduce(0) { partial, item in
                 partial + item.soloMinutes
             }
             let activeDays = summaries.filter { $0.soloMinutes > 0 }.count
-            return "Weekly solo focus chart: \(soloTotal) minutes across \(activeDays) days"
+            return
+                "Weekly solo focus chart: \(soloTotal) minutes across \(activeDays) days"
         case .paired:
             let pairedTotal = summaries.reduce(0) { partial, item in
                 partial + item.pairedMinutes
             }
             let activeDays = summaries.filter { $0.pairedMinutes > 0 }.count
-            return "Weekly paired focus chart: \(pairedTotal) minutes across \(activeDays) days"
+            return
+                "Weekly paired focus chart: \(pairedTotal) minutes across \(activeDays) days"
         }
     }
 }

@@ -1,10 +1,3 @@
-//
-//  SessionHistoryViewModel.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Observation
 
@@ -44,13 +37,17 @@ final class SessionHistoryViewModel {
     ///
     /// When `userID` is non-`nil`, includes sessions for that user and legacy
     /// sessions with `nil` user attribution.
-    func scopedSessions(from sessions: [CompletedSession], userID: String?) -> [CompletedSession] {
+    func scopedSessions(from sessions: [CompletedSession], userID: String?)
+        -> [CompletedSession]
+    {
         guard let userID else { return sessions }
         return sessions.filter { $0.userID == nil || $0.userID == userID }
     }
 
     /// Applies the current session type filter to a list.
-    func filteredSessions(from sessions: [CompletedSession]) -> [CompletedSession] {
+    func filteredSessions(from sessions: [CompletedSession])
+        -> [CompletedSession]
+    {
         switch activeFilter {
         case .all:
             sessions
@@ -96,12 +93,24 @@ final class SessionHistoryViewModel {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
 
-        var buckets: [Date: (minutes: Int, sessions: Int, soloMinutes: Int, pairedMinutes: Int)] = [:]
+        var buckets:
+            [Date: (
+                minutes: Int, sessions: Int, soloMinutes: Int,
+                pairedMinutes: Int
+            )] = [:]
         for dayOffset in 0..<7 {
-            guard let day = calendar.date(byAdding: .day, value: -dayOffset, to: today) else {
+            guard
+                let day = calendar.date(
+                    byAdding: .day,
+                    value: -dayOffset,
+                    to: today
+                )
+            else {
                 continue
             }
-            buckets[day] = (minutes: 0, sessions: 0, soloMinutes: 0, pairedMinutes: 0)
+            buckets[day] = (
+                minutes: 0, sessions: 0, soloMinutes: 0, pairedMinutes: 0
+            )
         }
 
         for session in sessions {
@@ -120,7 +129,8 @@ final class SessionHistoryViewModel {
             buckets[session.dayBucket] = bucket
         }
 
-        weeklySummaries = buckets
+        weeklySummaries =
+            buckets
             .map { day, values in
                 DailyFocusSummary(
                     day: day,
@@ -141,7 +151,13 @@ final class SessionHistoryViewModel {
         var streak = 0
         while activeDays.contains(day) {
             streak += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: day) else { break }
+            guard
+                let previousDay = calendar.date(
+                    byAdding: .day,
+                    value: -1,
+                    to: day
+                )
+            else { break }
             day = previousDay
         }
 

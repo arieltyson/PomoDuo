@@ -1,10 +1,3 @@
-//
-//  OnboardingView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// First-launch onboarding flow introducing core app capabilities.
@@ -34,7 +27,9 @@ struct OnboardingView: View {
                 Spacer()
 
                 OnboardingActionBar(
-                    primaryTitle: primaryButtonTitle(for: viewModel.currentStep),
+                    primaryTitle: primaryButtonTitle(
+                        for: viewModel.currentStep
+                    ),
                     isPrimaryDisabled: isRequestingNotificationPermission,
                     shouldShowBack: !viewModel.isFirstStep,
                     shouldShowSkip: !viewModel.isLastStep,
@@ -100,7 +95,7 @@ private struct OnboardingBackground: View {
             colors: [
                 AppColors.lilac.opacity(0.32),
                 AppColors.paleViolet.opacity(0.2),
-                .clear
+                .clear,
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -129,9 +124,11 @@ private struct OnboardingProgressHeader: View {
 
                 Spacer()
 
-                Text("\(viewModel.currentIndex + 1) of \(viewModel.steps.count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(
+                    "\(viewModel.currentIndex + 1) of \(viewModel.steps.count)"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             ProgressView(value: viewModel.progressValue)
@@ -206,9 +203,12 @@ private struct OnboardingStepStatus: View {
         switch step {
         case .notifications:
             OnboardingBadge(
-                title: isNotificationAuthorized ? "Notifications Enabled" : "Notifications Not Enabled Yet",
-                systemImage: isNotificationAuthorized ? "checkmark.circle.fill" : "bell.slash.fill",
-                tint: isNotificationAuthorized ? AppColors.success : AppColors.pauseTint
+                title: isNotificationAuthorized
+                    ? "Notifications Enabled" : "Notifications Not Enabled Yet",
+                systemImage: isNotificationAuthorized
+                    ? "checkmark.circle.fill" : "bell.slash.fill",
+                tint: isNotificationAuthorized
+                    ? AppColors.success : AppColors.pauseTint
             )
         case .appBlocking:
             OnboardingBadge(
@@ -249,12 +249,16 @@ private struct OnboardingActionBar: View {
 
     var body: some View {
         VStack {
-            Button(primaryTitle, systemImage: "arrow.right.circle.fill", action: onPrimary)
-                .buttonStyle(.borderedProminent)
-                .tint(AppColors.lavender)
-                .controlSize(.large)
-                .disabled(isPrimaryDisabled)
-                .accessibilityHint("Moves to the next onboarding step.")
+            Button(
+                primaryTitle,
+                systemImage: "arrow.right.circle.fill",
+                action: onPrimary
+            )
+            .buttonStyle(.borderedProminent)
+            .tint(AppColors.lavender)
+            .controlSize(.large)
+            .disabled(isPrimaryDisabled)
+            .accessibilityHint("Moves to the next onboarding step.")
 
             HStack {
                 if shouldShowBack {
@@ -265,9 +269,13 @@ private struct OnboardingActionBar: View {
                 Spacer()
 
                 if shouldShowSkip {
-                    Button("Skip", systemImage: "forward.end.alt", action: onSkip)
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
+                    Button(
+                        "Skip",
+                        systemImage: "forward.end.alt",
+                        action: onSkip
+                    )
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
                 }
             }
             .padding(.top, 10)

@@ -1,10 +1,3 @@
-//
-//  PartnerView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Root view for the Partner tab.
@@ -42,7 +35,9 @@ struct PartnerView: View {
         }
         .task {
             if sessionViewModel == nil {
-                sessionViewModel = PartnerSessionViewModel(sessionManager: sessionManager)
+                sessionViewModel = PartnerSessionViewModel(
+                    sessionManager: sessionManager
+                )
             }
         }
         .task(id: authManager.isSignedIn) {
@@ -64,8 +59,9 @@ private struct SignedInPartnerContent: View {
 
     var body: some View {
         if let session = sessionViewModel.activeSession,
-           session.state != .idle,
-           case let .paired(partner) = pairingViewModel.pairingState {
+            session.state != .idle,
+            case .paired(let partner) = pairingViewModel.pairingState
+        {
             ActivePairedSessionView(
                 session: session,
                 partner: partner,
@@ -99,7 +95,7 @@ private struct PairingFlowContent: View {
                     isShowingCodeSheet = true
                 }
             )
-        case let .waitingForPartner(code):
+        case .waitingForPartner(let code):
             WaitingForPartnerView(
                 code: code,
                 onCancel: {
@@ -108,7 +104,7 @@ private struct PairingFlowContent: View {
             )
         case .joining:
             JoiningView()
-        case let .paired(partner):
+        case .paired(let partner):
             PairedPartnerView(
                 partner: partner,
                 sessionViewModel: sessionViewModel,
@@ -118,7 +114,7 @@ private struct PairingFlowContent: View {
                     }
                 }
             )
-        case let .error(message):
+        case .error(let message):
             PairingErrorView(
                 message: message,
                 onRetry: {
@@ -134,11 +130,17 @@ private struct UnauthenticatedPartnerView: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label("Sign In Required", systemImage: "person.crop.circle.badge.exclamationmark")
+            Label(
+                "Sign In Required",
+                systemImage: "person.crop.circle.badge.exclamationmark"
+            )
         } description: {
             Text("Sign in to pair with a study partner.")
         } actions: {
-            Button("Sign In as Guest", systemImage: "person.crop.circle.badge.plus") {
+            Button(
+                "Sign In as Guest",
+                systemImage: "person.crop.circle.badge.plus"
+            ) {
                 Task {
                     await authManager.signInAnonymously()
                 }

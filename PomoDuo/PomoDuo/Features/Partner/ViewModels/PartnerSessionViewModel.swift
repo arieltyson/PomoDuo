@@ -1,10 +1,3 @@
-//
-//  PartnerSessionViewModel.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Observation
 
@@ -154,7 +147,8 @@ final class PartnerSessionViewModel {
             try? await Task.sleep(for: autoAcceptDelay)
 
             guard !Task.isCancelled,
-                  self.isWaitingForAcceptance else {
+                self.isWaitingForAcceptance
+            else {
                 return
             }
 

@@ -1,10 +1,3 @@
-//
-//  CodeEntrySheet.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Modal sheet used to enter a partner's pairing code.
@@ -91,7 +84,10 @@ private struct PairingCodeTextField: View {
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isInvalid ? .red : AppColors.lavender.opacity(0.5), lineWidth: 2)
+                    .stroke(
+                        isInvalid ? .red : AppColors.lavender.opacity(0.5),
+                        lineWidth: 2
+                    )
             }
             .padding(.horizontal)
             .onChange(of: codeInput) { _, newValue in
@@ -104,7 +100,8 @@ private struct PairingCodeTextField: View {
     }
 
     private func normalize(_ input: String) -> String {
-        let candidate = input
+        let candidate =
+            input
             .uppercased()
             .replacing("-", with: "")
             .replacing(" ", with: "")

@@ -1,10 +1,3 @@
-//
-//  PairingErrorView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Error presentation for recoverable pairing failures.

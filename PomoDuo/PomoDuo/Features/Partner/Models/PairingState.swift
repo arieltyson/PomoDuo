@@ -1,10 +1,3 @@
-//
-//  PairingState.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// Current state of the partner pairing flow.

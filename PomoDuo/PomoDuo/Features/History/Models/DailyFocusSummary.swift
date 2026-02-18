@@ -1,10 +1,3 @@
-//
-//  DailyFocusSummary.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// Aggregated focus metrics for a single day.

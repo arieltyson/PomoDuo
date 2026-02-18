@@ -1,10 +1,3 @@
-//
-//  WaitingForPartnerView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Screen displayed while waiting for a partner to join a generated code.
@@ -66,6 +59,8 @@ private struct PairingCodeCard: View {
         .background(AppColors.paleViolet.opacity(0.2))
         .clipShape(.rect(cornerRadius: 16))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Pairing code \(code.value.map(String.init).joined(separator: " "))")
+        .accessibilityLabel(
+            "Pairing code \(code.value.map(String.init).joined(separator: " "))"
+        )
     }
 }

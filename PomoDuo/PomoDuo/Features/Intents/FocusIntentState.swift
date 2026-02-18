@@ -1,10 +1,3 @@
-//
-//  FocusIntentState.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Observation
 
 /// Shared bridge between App Intents and the in-app timer UI.

@@ -1,10 +1,3 @@
-//
-//  StartFocusIntent.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import AppIntents
 
 /// Opens PomoDuo and requests that a focus session start.
@@ -21,6 +14,8 @@ struct StartFocusIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         FocusIntentState.shared.requestStartFocus()
-        return .result(dialog: IntentDialog("Starting a focus session in PomoDuo."))
+        return .result(
+            dialog: IntentDialog("Starting a focus session in PomoDuo.")
+        )
     }
 }

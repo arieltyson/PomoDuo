@@ -1,10 +1,3 @@
-//
-//  SessionRowView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Row representation of a completed focus session.
@@ -32,9 +25,12 @@ struct SessionRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text(session.startedAt, format: .dateTime.month(.abbreviated).day())
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                Text(
+                    session.startedAt,
+                    format: .dateTime.month(.abbreviated).day()
+                )
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
             }
         }
         .accessibilityElement(children: .combine)
@@ -43,7 +39,8 @@ struct SessionRowView: View {
 
     private var accessibilityDescription: String {
         let typeLabel = session.sessionType == .paired ? "Paired" : "Solo"
-        return "\(typeLabel) focus, \(session.focusMinutes) minutes, round \(session.roundNumber) of \(session.totalRounds)"
+        return
+            "\(typeLabel) focus, \(session.focusMinutes) minutes, round \(session.roundNumber) of \(session.totalRounds)"
     }
 }
 
@@ -51,10 +48,14 @@ private struct SessionTypeIcon: View {
     let sessionType: CompletedSession.SessionType
 
     var body: some View {
-        Image(systemName: sessionType == .paired ? "person.2.fill" : "person.fill")
-            .foregroundStyle(sessionType == .paired ? AppColors.lilac : AppColors.lavender)
-            .frame(width: 32, height: 32)
-            .background(AppColors.paleViolet.opacity(0.2))
-            .clipShape(.circle)
+        Image(
+            systemName: sessionType == .paired ? "person.2.fill" : "person.fill"
+        )
+        .foregroundStyle(
+            sessionType == .paired ? AppColors.lilac : AppColors.lavender
+        )
+        .frame(width: 32, height: 32)
+        .background(AppColors.paleViolet.opacity(0.2))
+        .clipShape(.circle)
     }
 }

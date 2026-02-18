@@ -1,10 +1,3 @@
-//
-//  JoiningView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Loading state while validating and joining a partner code.

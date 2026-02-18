@@ -1,10 +1,3 @@
-//
-//  PartnerProfile.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// Lightweight profile for a connected study partner.

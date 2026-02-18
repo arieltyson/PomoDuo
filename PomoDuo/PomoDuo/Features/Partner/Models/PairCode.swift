@@ -1,10 +1,3 @@
-//
-//  PairCode.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 
 /// A short alphanumeric code used to pair two partners.
@@ -24,7 +17,8 @@ struct PairCode: Sendable, Equatable, Hashable, Codable {
     ///
     /// Supports values with spaces or dashes (for example, `ABC-234`).
     init?(_ raw: String) {
-        let normalized = raw
+        let normalized =
+            raw
             .replacing("-", with: "")
             .replacing(" ", with: "")
             .uppercased()
@@ -33,7 +27,8 @@ struct PairCode: Sendable, Equatable, Hashable, Codable {
             return nil
         }
 
-        guard normalized.allSatisfy({ Self.allowedCharacters.contains($0) }) else {
+        guard normalized.allSatisfy({ Self.allowedCharacters.contains($0) })
+        else {
             return nil
         }
 
@@ -60,7 +55,10 @@ struct PairCode: Sendable, Equatable, Hashable, Codable {
 
     /// A display-friendly format, for example `ABC-234`.
     var displayValue: String {
-        let splitIndex = value.index(value.startIndex, offsetBy: Self.length / 2)
+        let splitIndex = value.index(
+            value.startIndex,
+            offsetBy: Self.length / 2
+        )
         return "\(value[..<splitIndex])-\(value[splitIndex...])"
     }
 }

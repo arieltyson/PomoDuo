@@ -1,10 +1,3 @@
-//
-//  SessionHistoryView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftData
 import SwiftUI
 
@@ -20,7 +13,10 @@ struct SessionHistoryView: View {
 
     /// User-scoped sessions before type filtering.
     private var scopedSessions: [CompletedSession] {
-        viewModel.scopedSessions(from: sessions, userID: authManager.currentUserID)
+        viewModel.scopedSessions(
+            from: sessions,
+            userID: authManager.currentUserID
+        )
     }
 
     /// Final display list after type filtering.
@@ -81,7 +77,9 @@ private struct SessionHistoryListView: View {
                     filter: viewModel.activeFilter
                 )
                 .frame(height: 160)
-                .listRowInsets(.init(top: 8, leading: 0, bottom: 8, trailing: 0))
+                .listRowInsets(
+                    .init(top: 8, leading: 0, bottom: 8, trailing: 0)
+                )
             }
 
             Section {

@@ -1,10 +1,3 @@
-//
-//  PairedPartnerView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import SwiftUI
 
 /// Screen shown once a partner has connected successfully.
@@ -25,9 +18,11 @@ struct PairedPartnerView: View {
                 .font(.title2)
                 .bold()
 
-            Text("Paired \(partner.pairedAt, format: .relative(presentation: .named))")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            Text(
+                "Paired \(partner.pairedAt, format: .relative(presentation: .named))"
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
 
             Spacer()
 
@@ -41,7 +36,11 @@ struct PairedPartnerView: View {
                 .tint(AppColors.lavender)
                 .disabled(sessionViewModel.isStartingSession)
 
-                Button("Disconnect", systemImage: "person.badge.minus", role: .destructive) {
+                Button(
+                    "Disconnect",
+                    systemImage: "person.badge.minus",
+                    role: .destructive
+                ) {
                     showUnpairConfirmation = true
                 }
                 .buttonStyle(.bordered)

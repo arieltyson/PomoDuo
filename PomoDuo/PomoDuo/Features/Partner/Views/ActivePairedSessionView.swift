@@ -1,10 +1,3 @@
-//
-//  ActivePairedSessionView.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import SwiftData
 import SwiftUI
 
@@ -90,7 +83,9 @@ struct ActivePairedSessionView: View {
         switch session.state {
         case .requesting:
             if !hasAnnouncedRequestState {
-                AccessibilityAnnouncer.announcePairedSessionStarted(partnerName: partner.displayName)
+                AccessibilityAnnouncer.announcePairedSessionStarted(
+                    partnerName: partner.displayName
+                )
                 hasAnnouncedRequestState = true
             }
         case .focus:
@@ -101,7 +96,10 @@ struct ActivePairedSessionView: View {
         }
     }
 
-    private func handleStateTransition(from oldState: SessionState, to newState: SessionState) {
+    private func handleStateTransition(
+        from oldState: SessionState,
+        to newState: SessionState
+    ) {
         switch (oldState, newState) {
 
         case (.requesting, .focus):
@@ -147,10 +145,10 @@ struct ActivePairedSessionView: View {
             AccessibilityAnnouncer.announcePairedSessionCompleted()
 
         case (.requesting, .idle),
-             (.focus, .idle),
-             (.shortBreak, .idle),
-             (.longBreak, .idle),
-             (.completed, .idle):
+            (.focus, .idle),
+            (.shortBreak, .idle),
+            (.longBreak, .idle),
+            (.completed, .idle):
             haptic.fire(.stop)
             liveActivityManager.end()
             AccessibilityAnnouncer.announcePairedSessionEnded()
@@ -204,7 +202,9 @@ struct ActivePairedSessionView: View {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         let scopedSessions = sessionsForCurrentUser(from: sessions)
-        let todaySessions = scopedSessions.filter { calendar.isDate($0.dayBucket, inSameDayAs: today) }
+        let todaySessions = scopedSessions.filter {
+            calendar.isDate($0.dayBucket, inSameDayAs: today)
+        }
 
         let todayMinutes = todaySessions.reduce(0) { partial, session in
             partial + session.focusMinutes
@@ -224,7 +224,9 @@ struct ActivePairedSessionView: View {
         WidgetDataProvider.reloadWidget()
     }
 
-    private func sessionsForCurrentUser(from sessions: [CompletedSession]) -> [CompletedSession] {
+    private func sessionsForCurrentUser(from sessions: [CompletedSession])
+        -> [CompletedSession]
+    {
         guard let userID = authManager.currentUserID else {
             return sessions
         }
@@ -232,14 +234,24 @@ struct ActivePairedSessionView: View {
         return sessions.filter { $0.userID == nil || $0.userID == userID }
     }
 
-    private func streakCount(from dayBuckets: [Date], calendar: Calendar, today: Date) -> Int {
+    private func streakCount(
+        from dayBuckets: [Date],
+        calendar: Calendar,
+        today: Date
+    ) -> Int {
         let activeDays = Set(dayBuckets.map { calendar.startOfDay(for: $0) })
         var cursor = today
         var streak = 0
 
         while activeDays.contains(cursor) {
             streak += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+            guard
+                let previousDay = calendar.date(
+                    byAdding: .day,
+                    value: -1,
+                    to: cursor
+                )
+            else {
                 break
             }
             cursor = previousDay
@@ -310,7 +322,10 @@ private struct PartnerBannerView: View {
                 .accessibilityHidden(true)
         }
         .padding()
-        .background(AppColors.paleViolet.opacity(0.14), in: .rect(cornerRadius: 14))
+        .background(
+            AppColors.paleViolet.opacity(0.14),
+            in: .rect(cornerRadius: 14)
+        )
         .padding(.horizontal)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Studying with \(partner.displayName)")
@@ -550,7 +565,11 @@ private struct PairedSessionControls: View {
         VStack {
             switch session.state {
             case .requesting:
-                Button("Cancel", systemImage: "xmark.circle", role: .destructive) {
+                Button(
+                    "Cancel",
+                    systemImage: "xmark.circle",
+                    role: .destructive
+                ) {
                     Task {
                         await viewModel.endSession()
                     }
@@ -567,7 +586,11 @@ private struct PairedSessionControls: View {
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.lavender)
 
-                    Button("End Session", systemImage: "stop.fill", role: .destructive) {
+                    Button(
+                        "End Session",
+                        systemImage: "stop.fill",
+                        role: .destructive
+                    ) {
                         isShowingEndConfirmation = true
                     }
                     .buttonStyle(.bordered)
@@ -601,7 +624,11 @@ private struct PairedSessionControls: View {
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.lavender)
 
-                    Button("End Session", systemImage: "stop.fill", role: .destructive) {
+                    Button(
+                        "End Session",
+                        systemImage: "stop.fill",
+                        role: .destructive
+                    ) {
                         isShowingEndConfirmation = true
                     }
                     .buttonStyle(.bordered)

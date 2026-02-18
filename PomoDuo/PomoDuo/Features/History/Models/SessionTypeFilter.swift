@@ -1,10 +1,3 @@
-//
-//  SessionTypeFilter.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 
 /// Filter applied to session history data surfaces.

@@ -1,10 +1,3 @@
-//
-//  CheckFocusStatsIntent.swift
-//  PomoDuo
-//
-//  Created by Codex on 2/15/26.
-//
-
 import AppIntents
 import SwiftData
 
@@ -19,7 +12,9 @@ struct CheckFocusStatsIntent: AppIntent {
 
     static let openAppWhenRun = false
 
-    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ReturnsValue<String>
+        & ProvidesDialog
+    {
         let container = try await MainActor.run {
             try StorageConfiguration.makeContainer()
         }
@@ -31,15 +26,23 @@ struct CheckFocusStatsIntent: AppIntent {
         }
 
         var descriptor = FetchDescriptor<CompletedSession>(predicate: predicate)
-        descriptor.sortBy = [SortDescriptor(\CompletedSession.startedAt, order: .reverse)]
+        descriptor.sortBy = [
+            SortDescriptor(\CompletedSession.startedAt, order: .reverse)
+        ]
 
         let sessions = try context.fetch(descriptor)
         let totalMinutes = sessions.reduce(0) { partial, session in
             partial + session.focusMinutes
         }
-        let summary = Self.summary(totalMinutes: totalMinutes, sessionCount: sessions.count)
+        let summary = Self.summary(
+            totalMinutes: totalMinutes,
+            sessionCount: sessions.count
+        )
 
-        return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
+        return .result(
+            value: summary,
+            dialog: IntentDialog(stringLiteral: summary)
+        )
     }
 
     static func summary(totalMinutes: Int, sessionCount: Int) -> String {
@@ -48,6 +51,7 @@ struct CheckFocusStatsIntent: AppIntent {
         }
 
         let sessionWord = sessionCount == 1 ? "session" : "sessions"
-        return "You've focused for \(totalMinutes) minutes across \(sessionCount) \(sessionWord) today."
+        return
+            "You've focused for \(totalMinutes) minutes across \(sessionCount) \(sessionWord) today."
     }
 }
