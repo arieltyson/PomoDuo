@@ -19,6 +19,7 @@ struct AuthProviderTests {
 // MARK: - AuthUser
 
 @Suite("AuthUser - Apple Extensions")
+@MainActor
 struct AuthUserAppleTests {
     @Test("Apple user is persistent")
     func appleUserIsPersistent() {
@@ -67,6 +68,7 @@ struct AuthUserAppleTests {
 // MARK: - AppleAuthCredential
 
 @Suite("AppleAuthCredential")
+@MainActor
 struct AppleAuthCredentialTests {
     @Test("Stores all fields")
     func storesFields() {
@@ -356,6 +358,7 @@ struct AccountViewModelAppleTests {
 // MARK: - AppleSignInError
 
 @Suite("AppleSignInError")
+@MainActor
 struct AppleSignInErrorTests {
     @Test("Cancelled error has description")
     func cancelledDescription() {
@@ -388,6 +391,7 @@ struct AppleSignInErrorTests {
 // MARK: - AuthServiceError
 
 @Suite("AuthServiceError - Apple Extensions")
+@MainActor
 struct AuthServiceErrorAppleTests {
     @Test("Apple sign-in error has description")
     func appleSignInError() {
