@@ -65,16 +65,34 @@ final class ScreenTimeManager {
         UserDefaults.standard.removeObject(forKey: Self.selectionDefaultsKey)
         store.shield.applications = nil
         store.shield.applicationCategories = nil
+
+        // Clear App Group so extensions stay in sync.
+        ShieldSessionContext.writeSelection(FamilyActivitySelection())
     }
 
     private func persistSelection() {
         guard let data = try? JSONEncoder().encode(activitySelection) else {
             return
         }
+
+        // Standard defaults for fast main-app reads.
         UserDefaults.standard.set(data, forKey: Self.selectionDefaultsKey)
+
+        // App Group so the DeviceActivity Monitor extension can read the
+        // selection and reapply shields if the app is force-quit.
+        ShieldSessionContext.writeSelection(activitySelection)
     }
 
     private func restoreSelection() {
+        // Try App Group first (canonical for extensions), fall back to
+        // standard defaults (legacy data from before extensions existed).
+        if let shared = ShieldSessionContext.readSelection(),
+            !shared.applicationTokens.isEmpty || !shared.categoryTokens.isEmpty
+        {
+            activitySelection = shared
+            return
+        }
+
         guard
             let data = UserDefaults.standard.data(
                 forKey: Self.selectionDefaultsKey
@@ -88,6 +106,9 @@ final class ScreenTimeManager {
         }
 
         activitySelection = selection
+
+        // Migrate legacy data to App Group for extension access.
+        ShieldSessionContext.writeSelection(selection)
     }
 
     private static func userFacingMessage(for error: Error) -> String {
