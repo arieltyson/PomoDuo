@@ -144,6 +144,14 @@ struct RestrictionLifecycleTests {
 
 @MainActor
 struct AppBlockingStatusLogicTests {
+    func pluralizeApp(count: Int) -> String {
+        count == 1 ? "app" : "apps"
+    }
+
+    func pluralizeCategory(count: Int) -> String {
+        count == 1 ? "category" : "categories"
+    }
+
     @Test func badgeSumsAppsAndCategories() {
         let appCount = 3
         let categoryCount = 2
@@ -151,26 +159,22 @@ struct AppBlockingStatusLogicTests {
     }
 
     @Test func singularAppWord() {
-        let count = 1
-        let word = count == 1 ? "app" : "apps"
-        #expect(word == "app")
+        let result = pluralizeApp(count: 1)
+        #expect(result == "app")
     }
 
     @Test func pluralAppsWord() {
-        let count = 3
-        let word = count == 1 ? "app" : "apps"
-        #expect(word == "apps")
+        let result = pluralizeApp(count: 3)
+        #expect(result == "apps")
     }
 
     @Test func singularCategoryWord() {
-        let count = 1
-        let word = count == 1 ? "category" : "categories"
-        #expect(word == "category")
+        let result = pluralizeCategory(count: 1)
+        #expect(result == "category")
     }
 
     @Test func pluralCategoriesWord() {
-        let count = 4
-        let word = count == 1 ? "category" : "categories"
-        #expect(word == "categories")
+        let result = pluralizeCategory(count: 4)
+        #expect(result == "categories")
     }
 }
