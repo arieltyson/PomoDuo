@@ -1,10 +1,3 @@
-//
-//  PomoDuoUITests.swift
-//  PomoDuoUITests
-//
-//  Created by Ariel Tyson on 14/2/26.
-//
-
 import XCTest
 
 final class PomoDuoUITests: XCTestCase {
