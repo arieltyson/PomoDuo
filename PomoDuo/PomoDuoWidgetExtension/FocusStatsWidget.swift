@@ -47,10 +47,12 @@ struct FocusStatsWidget: Widget {
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Focus Stats")
-        .description("Track today’s focus minutes, sessions, and streak.")
+        .description("Track today's focus minutes, sessions, and streak.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
+
+// MARK: - Entry Router
 
 private struct FocusStatsEntryView: View {
     @Environment(\.widgetFamily) private var family
@@ -66,6 +68,8 @@ private struct FocusStatsEntryView: View {
     }
 }
 
+// MARK: - Small Widget
+
 private struct FocusStatsSmallWidget: View {
     let snapshot: WidgetFocusStatsSnapshot
     private let goalMinutes = 120
@@ -76,43 +80,54 @@ private struct FocusStatsSmallWidget: View {
     }
 
     var body: some View {
-        VStack {
+        VStack(spacing: 10) {
             ZStack {
                 Circle()
-                    .stroke(WidgetPalette.lavender.opacity(0.24), lineWidth: 7)
+                    .stroke(
+                        WidgetPalette.lavender.opacity(0.18),
+                        lineWidth: 6
+                    )
 
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
-                        WidgetPalette.lavender,
-                        style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                        WidgetPalette.ringGradient,
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
 
-                VStack(spacing: 2) {
+                VStack(spacing: 1) {
                     Text("\(snapshot.todayMinutes)")
                         .font(.system(.title2, design: .rounded))
                         .bold()
                         .foregroundStyle(WidgetPalette.lavender)
+                        .contentTransition(.numericText())
 
-                    Text("min")
-                        .font(.caption2)
+                    Text("min today")
+                        .font(.system(.caption2, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
             }
+            .padding(.horizontal, 8)
 
             if snapshot.currentStreak > 0 {
                 Label(
-                    "\(snapshot.currentStreak) day streak",
+                    "\(snapshot.currentStreak)-day streak",
                     systemImage: "flame.fill"
                 )
-                .font(.caption2)
+                .font(.system(.caption2, design: .rounded))
+                .bold()
                 .foregroundStyle(.orange)
+            } else {
+                Text("Start a session!")
+                    .font(.system(.caption2, design: .rounded))
+                    .foregroundStyle(WidgetPalette.lavender.opacity(0.7))
             }
         }
-        .padding(6)
     }
 }
+
+// MARK: - Medium Widget
 
 private struct FocusStatsMediumWidget: View {
     let snapshot: WidgetFocusStatsSnapshot
@@ -124,34 +139,16 @@ private struct FocusStatsMediumWidget: View {
     }
 
     var body: some View {
-        HStack {
-            ZStack {
-                Circle()
-                    .stroke(WidgetPalette.lavender.opacity(0.24), lineWidth: 8)
+        HStack(spacing: 16) {
+            // Progress ring — constrained to prevent overcrowding.
+            ProgressRingView(
+                minutes: snapshot.todayMinutes,
+                progress: progress
+            )
+            .frame(width: 100, height: 100)
 
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(
-                        WidgetPalette.lavender,
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
-
-                VStack(spacing: 2) {
-                    Text("\(snapshot.todayMinutes)")
-                        .font(.system(.title, design: .rounded))
-                        .bold()
-                        .foregroundStyle(WidgetPalette.lavender)
-
-                    Text("min today")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .frame(maxHeight: .infinity)
-            .aspectRatio(1, contentMode: .fit)
-
-            VStack(alignment: .leading) {
+            // Stats column with generous vertical spacing.
+            VStack(alignment: .leading, spacing: 10) {
                 FocusStatsMetricRow(
                     icon: "brain.head.profile.fill",
                     title: "Sessions",
@@ -172,10 +169,50 @@ private struct FocusStatsMediumWidget: View {
                     tint: WidgetPalette.success
                 )
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(4)
+        .padding(.horizontal, 4)
     }
 }
+
+// MARK: - Progress Ring
+
+private struct ProgressRingView: View {
+    let minutes: Int
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(
+                    WidgetPalette.lavender.opacity(0.18),
+                    lineWidth: 7
+                )
+
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    WidgetPalette.ringGradient,
+                    style: StrokeStyle(lineWidth: 7, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 1) {
+                Text("\(minutes)")
+                    .font(.system(.title, design: .rounded))
+                    .bold()
+                    .foregroundStyle(WidgetPalette.lavender)
+                    .contentTransition(.numericText())
+
+                Text("min today")
+                    .font(.system(.caption2, design: .rounded))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// MARK: - Metric Row
 
 private struct FocusStatsMetricRow: View {
     let icon: String
@@ -184,7 +221,7 @@ private struct FocusStatsMetricRow: View {
     let tint: Color
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.caption)
                 .foregroundStyle(tint)
@@ -192,21 +229,34 @@ private struct FocusStatsMetricRow: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(title)
-                    .font(.caption2)
+                    .font(.system(.caption2, design: .rounded))
                     .foregroundStyle(.secondary)
 
                 Text(value)
-                    .font(.caption)
+                    .font(.system(.caption, design: .rounded))
                     .bold()
             }
         }
     }
 }
 
+// MARK: - Palette
+
 private enum WidgetPalette {
     static let lavender = Color(red: 0.56, green: 0.44, blue: 0.86)
+    static let lilac = Color(red: 0.73, green: 0.60, blue: 0.93)
     static let success = Color(red: 0.45, green: 0.73, blue: 0.54)
+
+    /// Subtle angular gradient that gives the ring more depth than a flat color.
+    static let ringGradient = AngularGradient(
+        colors: [lavender, lilac, lavender],
+        center: .center,
+        startAngle: .degrees(-90),
+        endAngle: .degrees(270)
+    )
 }
+
+// MARK: - Previews
 
 #Preview("Focus Stats Small", as: .systemSmall) {
     FocusStatsWidget()
