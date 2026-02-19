@@ -23,17 +23,20 @@ final class SessionManager {
     private let syncService: (any SessionSyncService)?
     private let restrictionService: (any RestrictionService)?
     private let notificationService: (any NotificationService)?
+    private let focusScheduler: FocusActivityScheduler?
 
     // MARK: - Initialization
 
     init(
         syncService: (any SessionSyncService)? = nil,
         restrictionService: (any RestrictionService)? = nil,
-        notificationService: (any NotificationService)? = nil
+        notificationService: (any NotificationService)? = nil,
+        focusScheduler: FocusActivityScheduler? = nil
     ) {
         self.syncService = syncService
         self.restrictionService = restrictionService
         self.notificationService = notificationService
+        self.focusScheduler = focusScheduler
     }
 
     // MARK: - Intent Methods
@@ -164,6 +167,8 @@ final class SessionManager {
 
         try? await restrictionService?.removeRestrictions()
         try? await notificationService?.cancelPendingNotifications()
+        focusScheduler?.stopMonitoring()
+        ShieldSessionContext.clearSession()
 
         currentSession = nil
         lastError = nil
@@ -236,6 +241,10 @@ final class SessionManager {
 
     /// Shared side-effect enforcement used by both local transitions and
     /// remote updates.
+    ///
+    /// In addition to managing restrictions and notifications, this writes
+    /// session context to the App Group for the Shield Configuration extension
+    /// and schedules/cancels DeviceActivity monitoring for the Monitor extension.
     private func enforceRestrictions(for session: StudySession) async {
         switch session.state {
         case .focus where !session.isPaused:
@@ -244,18 +253,37 @@ final class SessionManager {
                 at: session.targetEndDate,
                 message: "Focus session complete! Time for a break."
             )
+            // Write context so the Shield extension shows the right message
+            // and the Monitor extension can reapply shields if the app is killed.
+            ShieldSessionContext.writeSession(
+                partnerName: nil,
+                phase: "Focus",
+                targetEndDate: session.targetEndDate
+            )
+            focusScheduler?.scheduleMonitoring(until: session.targetEndDate)
+
         case .focus where session.isPaused:
             try? await restrictionService?.removeRestrictions()
             try? await notificationService?.cancelPendingNotifications()
+            focusScheduler?.stopMonitoring()
+            ShieldSessionContext.clearSession()
+
         case .shortBreak, .longBreak:
             try? await restrictionService?.removeRestrictions()
             try? await notificationService?.scheduleTimerEndNotification(
                 at: session.targetEndDate,
                 message: "Break's over! Ready to focus?"
             )
+            // Shields are removed during breaks; clear the monitor schedule.
+            focusScheduler?.stopMonitoring()
+            ShieldSessionContext.clearSession()
+
         case .completed, .idle:
             try? await restrictionService?.removeRestrictions()
             try? await notificationService?.cancelPendingNotifications()
+            focusScheduler?.stopMonitoring()
+            ShieldSessionContext.clearSession()
+
         default:
             break
         }
