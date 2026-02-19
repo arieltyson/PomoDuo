@@ -147,7 +147,7 @@ private struct FocusStatsMediumWidget: View {
             )
             .frame(width: 100, height: 100)
 
-            // Stats column with generous vertical spacing.
+            // Stats column — centered in the remaining space.
             VStack(alignment: .leading, spacing: 10) {
                 FocusStatsMetricRow(
                     icon: "brain.head.profile.fill",
@@ -169,7 +169,7 @@ private struct FocusStatsMediumWidget: View {
                     tint: WidgetPalette.success
                 )
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 4)
     }
