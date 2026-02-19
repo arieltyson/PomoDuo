@@ -46,7 +46,7 @@ struct MockAuthServiceTests {
     @Test("Starts signed out")
     func startsSignedOut() async {
         let service = makeService()
-        let currentUser = await service.currentUser
+        let currentUser = service.currentUser
         #expect(currentUser == nil)
     }
 
@@ -59,7 +59,7 @@ struct MockAuthServiceTests {
         )
 
         let firstUser = try await service.signInAnonymously()
-        let secondUser = await service.currentUser
+        let secondUser = service.currentUser
 
         #expect(firstUser.id == secondUser?.id)
         #expect(firstUser.displayName == secondUser?.displayName)
@@ -87,7 +87,7 @@ struct MockAuthServiceTests {
         _ = try await service.signInAnonymously()
         try await service.signOut()
 
-        #expect(await service.currentUser == nil)
+        #expect(service.currentUser == nil)
     }
 
     @Test("Auth state stream emits sign-in and sign-out changes")
