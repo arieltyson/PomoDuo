@@ -6,6 +6,8 @@ enum AuthServiceError: LocalizedError, Sendable {
     case invalidEmail
     case emptyDisplayName
     case notAuthenticated
+    case appleSignInFailed(String)
+    case credentialLinkingFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -17,6 +19,10 @@ enum AuthServiceError: LocalizedError, Sendable {
             "Display name cannot be empty."
         case .notAuthenticated:
             "No authenticated user is available."
+        case .appleSignInFailed(let reason):
+            "Sign in with Apple failed: \(reason)"
+        case .credentialLinkingFailed(let reason):
+            "Could not link Apple ID: \(reason)"
         }
     }
 }
@@ -35,6 +41,15 @@ protocol AuthService: Sendable {
     /// Creates a new account.
     func createAccount(email: String, password: String, displayName: String)
         async throws -> AuthUser
+
+    /// Signs in with an Apple credential (new user or returning user).
+    func signInWithApple(credential: AppleAuthCredential) async throws
+        -> AuthUser
+
+    /// Links an Apple credential to the current anonymous account,
+    /// preserving the existing user ID and all associated data.
+    func linkAppleCredential(_ credential: AppleAuthCredential) async throws
+        -> AuthUser
 
     /// Signs out the active user.
     func signOut() async throws

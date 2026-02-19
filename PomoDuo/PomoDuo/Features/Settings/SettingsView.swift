@@ -122,14 +122,25 @@ private struct AccountSection: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                Button(
-                    "Sign In as Guest",
-                    systemImage: "person.crop.circle.badge.plus"
-                ) {
+                // Signed out - offer Apple sign-in as primary action.
+                SignInWithAppleButtonView(label: .signIn) {
+                    Task {
+                        await authManager.signInWithApple()
+                    }
+                }
+                .listRowInsets(EdgeInsets(
+                    top: 12,
+                    leading: 16,
+                    bottom: 12,
+                    trailing: 16
+                ))
+
+                Button("Continue as Guest", systemImage: "person.crop.circle.dashed") {
                     Task {
                         await authManager.signInAnonymously()
                     }
                 }
+                .foregroundStyle(.secondary)
                 .accessibilityHint("Creates a local guest account.")
             }
         } header: {
@@ -139,7 +150,7 @@ private struct AccountSection: View {
                 currentUser.isAnonymous
             {
                 Text(
-                    "You are signed in as a guest. Tap to manage your account."
+                    "Guest accounts can't be recovered after reinstalling. Tap to link your Apple ID."
                 )
             }
         }
@@ -151,12 +162,11 @@ private struct SignedInAccountRow: View {
 
     var body: some View {
         HStack {
-            Image(
-                systemName: user.isAnonymous
-                    ? "person.crop.circle.dashed" : "person.crop.circle.fill"
-            )
+            Image(systemName: accountSymbol)
             .font(.title2)
-            .foregroundStyle(user.isAnonymous ? .secondary : AppColors.lavender)
+            .foregroundStyle(
+                user.isAnonymous ? .secondary : AppColors.lavender
+            )
             .accessibilityHidden(true)
 
             VStack(alignment: .leading) {
@@ -164,21 +174,58 @@ private struct SignedInAccountRow: View {
                     .font(.subheadline)
                     .bold()
 
-                Text(user.isAnonymous ? "Guest" : "Signed In")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    if user.authProvider == .apple {
+                        Image(systemName: "apple.logo")
+                            .font(.caption2)
+                    }
+
+                    Text(statusText)
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            Text(String(user.id.prefix(8)))
-                .font(.caption2)
-                .monospaced()
-                .foregroundStyle(.tertiary)
+            if user.isAnonymous {
+                // Subtle upgrade indicator for anonymous users.
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Account not linked")
+            } else {
+                Text(String(user.id.prefix(8)))
+                    .font(.caption2)
+                    .monospaced()
+                    .foregroundStyle(.tertiary)
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Signed in as \(user.displayName)")
         .accessibilityHint("Tap to manage your account.")
+    }
+
+    private var accountSymbol: String {
+        switch user.authProvider {
+        case .anonymous:
+            "person.crop.circle.dashed"
+        case .apple:
+            "person.crop.circle.fill.badge.checkmark"
+        case .email:
+            "person.crop.circle.fill"
+        }
+    }
+
+    private var statusText: String {
+        switch user.authProvider {
+        case .anonymous:
+            "Guest"
+        case .apple:
+            "Apple ID"
+        case .email:
+            "Signed In"
+        }
     }
 }
 

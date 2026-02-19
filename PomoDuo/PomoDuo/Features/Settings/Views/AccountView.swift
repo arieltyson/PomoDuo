@@ -14,127 +14,18 @@ struct AccountView: View {
     var body: some View {
         Form {
             if let user = viewModel.authManager.currentUser {
-                Section {
-                    VStack {
-                        Image(
-                            systemName: user.isAnonymous
-                                ? "person.crop.circle.dashed"
-                                : "person.crop.circle.fill"
-                        )
-                        .font(.largeTitle)
-                        .foregroundStyle(
-                            user.isAnonymous ? .secondary : AppColors.lavender
-                        )
-                        .accessibilityHidden(true)
+                AccountHeaderSection(user: user)
 
-                        Text(user.displayName)
-                            .font(.title3)
-                            .bold()
-
-                        Text(user.isAnonymous ? "Guest Account" : "Signed In")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
+                if viewModel.canUpgradeToApple {
+                    AppleIDUpgradeSection(viewModel: viewModel)
                 }
 
-                Section {
-                    TextField(
-                        "Display Name",
-                        text: $viewModel.editingDisplayName
-                    )
-                    .textContentType(.name)
-                    .autocorrectionDisabled()
-                    .accessibilityHint("Name shown to your study partner.")
-
-                    if let validationError = viewModel.nameValidationError {
-                        Text(validationError)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-
-                    if viewModel.hasNameChanges {
-                        HStack {
-                            Button("Revert", role: .cancel) {
-                                viewModel.resetDisplayName()
-                            }
-
-                            Spacer()
-
-                            Button("Save", systemImage: "checkmark") {
-                                Task {
-                                    await viewModel.saveDisplayName()
-                                }
-                            }
-                            .disabled(
-                                viewModel.nameValidationError != nil
-                                    || viewModel.isSaving
-                            )
-                        }
-                    }
-                } header: {
-                    Text("Display Name")
-                } footer: {
-                    Text(
-                        "This name is visible to your partner during paired sessions."
-                    )
-                }
-
-                Section("Account") {
-                    LabeledContent("Type") {
-                        Text(user.isAnonymous ? "Guest" : "Email")
-                    }
-
-                    LabeledContent("User ID") {
-                        Text(String(user.id.prefix(12)))
-                            .font(.caption)
-                            .monospaced()
-                            .foregroundStyle(.secondary)
-                    }
-
-                    LabeledContent("Created") {
-                        Text(user.createdAt, style: .date)
-                    }
-                }
-
-                Section {
-                    Button(
-                        "Sign Out",
-                        systemImage: "rectangle.portrait.and.arrow.right"
-                    ) {
-                        Task {
-                            await viewModel.signOut()
-                            dismiss()
-                        }
-                    }
-                    .disabled(viewModel.isSaving)
-                }
-
-                Section {
-                    Button(
-                        "Delete Account",
-                        systemImage: "trash",
-                        role: .destructive
-                    ) {
-                        viewModel.isShowingDeleteConfirmation = true
-                    }
-                    .disabled(viewModel.isSaving)
-                } footer: {
-                    Text(
-                        "Deleting your account removes your profile identity from this device."
-                    )
-                }
+                DisplayNameSection(viewModel: viewModel)
+                AccountInfoSection(user: user, viewModel: viewModel)
+                SignOutSection(viewModel: viewModel, dismiss: dismiss)
+                DeleteAccountSection(viewModel: viewModel)
             } else {
-                Section {
-                    ContentUnavailableView {
-                        Label(
-                            "No Account",
-                            systemImage: "person.crop.circle.badge.xmark"
-                        )
-                    } description: {
-                        Text("Sign in to manage your account details.")
-                    }
-                }
+                SignedOutSection()
             }
         }
         .navigationTitle("Account")
@@ -174,5 +65,227 @@ struct AccountView: View {
                 }
             }
         )
+    }
+}
+
+private struct AccountHeaderSection: View {
+    let user: AuthUser
+
+    var body: some View {
+        Section {
+            VStack {
+                AccountAvatar(user: user)
+
+                Text(user.displayName)
+                    .font(.title3)
+                    .bold()
+
+                AccountTypeBadge(user: user)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+private struct AccountAvatar: View {
+    let user: AuthUser
+
+    var body: some View {
+        Image(systemName: avatarSymbol)
+            .font(.largeTitle)
+            .foregroundStyle(avatarColor)
+            .accessibilityHidden(true)
+    }
+
+    private var avatarSymbol: String {
+        switch user.authProvider {
+        case .anonymous:
+            "person.crop.circle.dashed"
+        case .apple:
+            "person.crop.circle.fill.badge.checkmark"
+        case .email:
+            "person.crop.circle.fill"
+        }
+    }
+
+    private var avatarColor: Color {
+        user.isAnonymous ? .secondary : AppColors.lavender
+    }
+}
+
+private struct AccountTypeBadge: View {
+    let user: AuthUser
+
+    var body: some View {
+        HStack {
+            if user.authProvider == .apple {
+                Image(systemName: "apple.logo")
+                    .font(.caption2)
+            }
+
+            Text(badgeText)
+                .font(.caption)
+        }
+        .foregroundStyle(badgeColor)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(badgeColor.opacity(0.12), in: .capsule)
+    }
+
+    private var badgeText: String {
+        switch user.authProvider {
+        case .anonymous:
+            "Guest Account"
+        case .apple:
+            "Apple ID"
+        case .email:
+            "Email Account"
+        }
+    }
+
+    private var badgeColor: Color {
+        user.isAnonymous ? .secondary : AppColors.lavender
+    }
+}
+
+private struct AppleIDUpgradeSection: View {
+    let viewModel: AccountViewModel
+
+    var body: some View {
+        Section {
+            AppleIDUpgradePromptView {
+                Task {
+                    await viewModel.linkWithApple()
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+        } footer: {
+            Text(
+                "Your existing partnerships, session history, and stats are preserved when you link your Apple ID."
+            )
+        }
+    }
+}
+
+private struct DisplayNameSection: View {
+    @Bindable var viewModel: AccountViewModel
+
+    var body: some View {
+        Section {
+            TextField("Display Name", text: $viewModel.editingDisplayName)
+                .textContentType(.name)
+                .autocorrectionDisabled()
+                .accessibilityHint("Name shown to your study partner.")
+
+            if let validationError = viewModel.nameValidationError {
+                Text(validationError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            if viewModel.hasNameChanges {
+                HStack {
+                    Button("Revert", role: .cancel) {
+                        viewModel.resetDisplayName()
+                    }
+
+                    Spacer()
+
+                    Button("Save", systemImage: "checkmark") {
+                        Task {
+                            await viewModel.saveDisplayName()
+                        }
+                    }
+                    .disabled(
+                        viewModel.nameValidationError != nil
+                            || viewModel.isSaving
+                    )
+                }
+            }
+        } header: {
+            Text("Display Name")
+        } footer: {
+            Text(
+                "This name is visible to your partner during paired sessions."
+            )
+        }
+    }
+}
+
+private struct AccountInfoSection: View {
+    let user: AuthUser
+    let viewModel: AccountViewModel
+
+    var body: some View {
+        Section("Account") {
+            LabeledContent("Type") {
+                Text(viewModel.accountTypeLabel)
+            }
+
+            if let email = user.email {
+                LabeledContent("Email") {
+                    Text(email)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            LabeledContent("User ID") {
+                Text(String(user.id.prefix(12)))
+                    .font(.caption)
+                    .monospaced()
+                    .foregroundStyle(.secondary)
+            }
+
+            LabeledContent("Created") {
+                Text(user.createdAt, style: .date)
+            }
+        }
+    }
+}
+
+private struct SignOutSection: View {
+    let viewModel: AccountViewModel
+    let dismiss: DismissAction
+
+    var body: some View {
+        Section {
+            Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") {
+                Task {
+                    await viewModel.signOut()
+                    dismiss()
+                }
+            }
+            .disabled(viewModel.isSaving)
+        }
+    }
+}
+
+private struct DeleteAccountSection: View {
+    @Bindable var viewModel: AccountViewModel
+
+    var body: some View {
+        Section {
+            Button("Delete Account", systemImage: "trash", role: .destructive) {
+                viewModel.isShowingDeleteConfirmation = true
+            }
+            .disabled(viewModel.isSaving)
+        } footer: {
+            Text(
+                "Deleting your account removes your profile, partnerships, and session history permanently."
+            )
+        }
+    }
+}
+
+private struct SignedOutSection: View {
+    var body: some View {
+        Section {
+            ContentUnavailableView {
+                Label("No Account", systemImage: "person.crop.circle.badge.xmark")
+            } description: {
+                Text("Sign in to manage your account details.")
+            }
+        }
     }
 }

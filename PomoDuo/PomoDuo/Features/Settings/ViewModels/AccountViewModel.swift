@@ -56,6 +56,27 @@ final class AccountViewModel {
         return nil
     }
 
+    /// Human-readable account type for display.
+    var accountTypeLabel: String {
+        guard let user = authManager.currentUser else {
+            return "Unknown"
+        }
+
+        switch user.authProvider {
+        case .anonymous:
+            return "Guest"
+        case .apple:
+            return "Apple ID"
+        case .email:
+            return "Email"
+        }
+    }
+
+    /// Whether the current user can upgrade to Apple ID.
+    var canUpgradeToApple: Bool {
+        authManager.currentUser?.isAnonymous ?? false
+    }
+
     /// Persists the edited display name when valid and changed.
     func saveDisplayName() async {
         guard nameValidationError == nil else {
@@ -80,6 +101,16 @@ final class AccountViewModel {
     /// Restores the display name draft from the current signed-in identity.
     func resetDisplayName() {
         editingDisplayName = authManager.currentUser?.displayName ?? ""
+    }
+
+    /// Links the current anonymous account to an Apple ID.
+    func linkWithApple() async {
+        await authManager.linkWithApple()
+    }
+
+    /// Signs in with Apple (replaces current session).
+    func signInWithApple() async {
+        await authManager.signInWithApple()
     }
 
     /// Signs out the current account.
