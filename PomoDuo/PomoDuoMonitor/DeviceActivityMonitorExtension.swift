@@ -1,48 +1,66 @@
-//
-//  DeviceActivityMonitorExtension.swift
-//  PomoDuoMonitor
-//
-//  Created by Ariel Tyson on 18/2/26.
-//
-
 import DeviceActivity
+import FamilyControls
+import ManagedSettings
 
-// Optionally override any of the functions below.
-// Make sure that your class name matches the NSExtensionPrincipalClass in your Info.plist.
+/// Monitors focus session intervals independently of the app process.
+///
+/// - ``intervalDidStart(for:)`` reapplies shields as a safety net if the
+///   app was killed after scheduling but before applying restrictions.
+/// - ``intervalDidEnd(for:)`` removes shields when the focus period expires,
+///   even if the user force-quit PomoDuo mid-session.
+///
+/// The main app schedules monitoring via ``FocusActivityScheduler`` when
+/// a focus session begins, and cancels it on pause, break, or completion.
+///
+/// - Note: The class name must match `NSExtensionPrincipalClass` in
+///   `PomoDuoMonitor/Info.plist`.
 class DeviceActivityMonitorExtension: DeviceActivityMonitor {
+
+    private let store = ManagedSettingsStore()
+
+    // MARK: - Interval Callbacks
+
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-        
-        // Handle the start of the interval.
+
+        guard activity.rawValue == ShieldSessionContext.focusActivityID else {
+            return
+        }
+
+        applyShields()
     }
-    
+
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
-        
-        // Handle the end of the interval.
+
+        guard activity.rawValue == ShieldSessionContext.focusActivityID else {
+            return
+        }
+
+        removeShields()
+        ShieldSessionContext.clearSession()
     }
-    
-    override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
-        super.eventDidReachThreshold(event, activity: activity)
-        
-        // Handle the event reaching its threshold.
+
+    // MARK: - Shield Management
+
+    /// Reads the user's app selection from the shared App Group and
+    /// applies shields via the default ``ManagedSettingsStore``.
+    private func applyShields() {
+        guard let selection = ShieldSessionContext.readSelection() else {
+            return
+        }
+
+        let appTokens = selection.applicationTokens
+        let categoryTokens = selection.categoryTokens
+
+        store.shield.applications = appTokens.isEmpty ? nil : appTokens
+        store.shield.applicationCategories =
+            categoryTokens.isEmpty ? nil : .specific(categoryTokens)
     }
-    
-    override func intervalWillStartWarning(for activity: DeviceActivityName) {
-        super.intervalWillStartWarning(for: activity)
-        
-        // Handle the warning before the interval starts.
-    }
-    
-    override func intervalWillEndWarning(for activity: DeviceActivityName) {
-        super.intervalWillEndWarning(for: activity)
-        
-        // Handle the warning before the interval ends.
-    }
-    
-    override func eventWillReachThresholdWarning(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
-        super.eventWillReachThresholdWarning(event, activity: activity)
-        
-        // Handle the warning before the event reaches its threshold.
+
+    /// Removes all shields from the default ``ManagedSettingsStore``.
+    private func removeShields() {
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
     }
 }
