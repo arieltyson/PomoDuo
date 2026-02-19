@@ -63,10 +63,16 @@ struct PomoDuoApp: App {
             pushSender: pushSender
         )
 
+        // The focus scheduler registers DeviceActivity monitoring intervals
+        // so the Monitor extension can reapply or remove shields even if
+        // the user force-quits the app mid-session.
+        let focusScheduler = FocusActivityScheduler()
+
         let sessionManager = SessionManager(
             syncService: syncService,
             restrictionService: restrictionService,
-            notificationService: notificationService
+            notificationService: notificationService,
+            focusScheduler: focusScheduler
         )
         _sessionManager = State(initialValue: sessionManager)
         _sessionObserver = State(
