@@ -2,6 +2,13 @@ import SwiftUI
 
 /// Root app shell using a bottom tab bar.
 ///
+/// Manages a three-phase launch sequence:
+/// 1. **Branded animation** — brief logo + ring animation (~0.8s)
+///    masks Firebase initialization.
+/// 2. **Skeleton** — structural placeholder matching the real tab layout,
+///    shown while anonymous auth resolves.
+/// 3. **Ready** — full interactive content with cross-dissolve transition.
+///
 /// On iOS 26, the native Tab API renders with the system's Liquid Glass look.
 struct RootView: View {
     @Environment(AuthManager.self) private var authManager
@@ -13,11 +20,145 @@ struct RootView: View {
 
     @State private var selectedTab = AppTab.timer
     @State private var isShowingOnboarding = false
+    @State private var launchPhase = LaunchPhase.branded
     private let pairingService: any PairingService
 
     init(pairingService: any PairingService = MockPairingService()) {
         self.pairingService = pairingService
     }
+
+    var body: some View {
+        ZStack {
+            // Layer 1: Content (skeleton or real tabs).
+            Group {
+                switch launchPhase {
+                case .branded, .skeleton:
+                    SkeletonTabView()
+                        .transition(.opacity)
+
+                case .ready:
+                    ContentTabView(
+                        selectedTab: $selectedTab,
+                        isShowingOnboarding: $isShowingOnboarding,
+                        pairingService: pairingService
+                    )
+                    .environment(onboardingManager)
+                    .transition(.opacity)
+                }
+            }
+
+            // Layer 2: Branded overlay (dismisses itself).
+            if launchPhase == .branded {
+                LaunchAnimationView {
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        launchPhase = .skeleton
+                    }
+                }
+                .transition(.opacity)
+                .zIndex(1)
+            }
+        }
+        .animation(.easeInOut(duration: 0.35), value: launchPhase)
+        .task {
+            isShowingOnboarding = !onboardingManager.hasCompletedOnboarding
+            manageHeartbeat(for: sessionManager.currentSession)
+        }
+        .task(id: authManager.authState) {
+            // Transition to ready once auth resolves past .unknown
+            // AND the branded animation has already dismissed.
+            guard authManager.authState != .unknown else { return }
+
+            if launchPhase == .skeleton {
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    launchPhase = .ready
+                }
+            }
+        }
+        .onChange(of: launchPhase) { _, newPhase in
+            // If auth resolved while the branded animation was still playing,
+            // the .skeleton → .ready transition catches it here.
+            if newPhase == .skeleton && authManager.authState != .unknown {
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    launchPhase = .ready
+                }
+            }
+        }
+        .task(id: authManager.currentUserID) {
+            let userID = authManager.currentUserID
+            sessionManager.setCurrentUserID(userID)
+
+            if let userID {
+                sessionObserver.startObserving(userID: userID)
+                fcmTokenManager.startObserving(userID: userID)
+            } else {
+                sessionObserver.stopObserving()
+                fcmTokenManager.stopObserving()
+                heartbeatManager.stopBeating()
+            }
+        }
+        .onChange(of: sessionManager.currentSession) { _, session in
+            manageHeartbeat(for: session)
+        }
+        .onChange(of: onboardingManager.hasCompletedOnboarding) {
+            _,
+            hasCompleted in
+            isShowingOnboarding = !hasCompleted
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .didTapPartnerNotification
+            )
+        ) { _ in
+            selectedTab = .partner
+        }
+    }
+
+    // MARK: - Heartbeat Lifecycle
+
+    /// Starts the heartbeat when a paired session is active,
+    /// stops it when the session ends or clears.
+    private func manageHeartbeat(for session: StudySession?) {
+        guard let session,
+            let userID = authManager.currentUserID,
+            let partnerID = session.partnerID(for: userID),
+            session.state != .idle,
+            session.state != .completed
+        else {
+            heartbeatManager.stopBeating()
+            return
+        }
+
+        heartbeatManager.startBeating(
+            sessionID: session.id,
+            userID: userID,
+            partnerID: partnerID,
+            onPartnerStale: { [sessionManager] in
+                await sessionManager.completeSession()
+            }
+        )
+    }
+}
+
+// MARK: - Launch Phase
+
+private enum LaunchPhase: Equatable {
+    /// Brief branded animation is playing.
+    case branded
+    /// Animation complete; waiting for auth to resolve.
+    case skeleton
+    /// Auth resolved; full content is visible.
+    case ready
+}
+
+// MARK: - Content Tabs
+
+/// The real interactive tab bar, shown once auth has resolved.
+private struct ContentTabView: View {
+    @Binding var selectedTab: AppTab
+    @Binding var isShowingOnboarding: Bool
+    @Environment(OnboardingManager.self) private var onboardingManager
+
+    let pairingService: any PairingService
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -62,38 +203,6 @@ struct RootView: View {
             }
         }
         .tint(AppColors.lavender)
-        .task {
-            isShowingOnboarding = !onboardingManager.hasCompletedOnboarding
-            manageHeartbeat(for: sessionManager.currentSession)
-        }
-        .task(id: authManager.currentUserID) {
-            let userID = authManager.currentUserID
-            sessionManager.setCurrentUserID(userID)
-
-            if let userID {
-                sessionObserver.startObserving(userID: userID)
-                fcmTokenManager.startObserving(userID: userID)
-            } else {
-                sessionObserver.stopObserving()
-                fcmTokenManager.stopObserving()
-                heartbeatManager.stopBeating()
-            }
-        }
-        .onChange(of: sessionManager.currentSession) { _, session in
-            manageHeartbeat(for: session)
-        }
-        .onChange(of: onboardingManager.hasCompletedOnboarding) {
-            _,
-            hasCompleted in
-            isShowingOnboarding = !hasCompleted
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: .didTapPartnerNotification
-            )
-        ) { _ in
-            selectedTab = .partner
-        }
         .fullScreenCover(isPresented: $isShowingOnboarding) {
             OnboardingView(
                 onComplete: {
@@ -104,31 +213,6 @@ struct RootView: View {
                 }
             )
         }
-    }
-
-    // MARK: - Heartbeat Lifecycle
-
-    /// Starts the heartbeat when a paired session is active,
-    /// stops it when the session ends or clears.
-    private func manageHeartbeat(for session: StudySession?) {
-        guard let session,
-            let userID = authManager.currentUserID,
-            let partnerID = session.partnerID(for: userID),
-            session.state != .idle,
-            session.state != .completed
-        else {
-            heartbeatManager.stopBeating()
-            return
-        }
-
-        heartbeatManager.startBeating(
-            sessionID: session.id,
-            userID: userID,
-            partnerID: partnerID,
-            onPartnerStale: { [sessionManager] in
-                await sessionManager.completeSession()
-            }
-        )
     }
 }
 
