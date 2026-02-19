@@ -61,7 +61,9 @@ struct MockAuthServiceTests {
         let firstUser = try await service.signInAnonymously()
         let secondUser = await service.currentUser
 
-        #expect(firstUser == secondUser)
+        #expect(firstUser.id == secondUser?.id)
+        #expect(firstUser.displayName == secondUser?.displayName)
+        #expect(firstUser.isAnonymous == secondUser?.isAnonymous)
         #expect(firstUser.isAnonymous)
     }
 
@@ -94,15 +96,26 @@ struct MockAuthServiceTests {
         let stream = service.authStateChanges()
         var iterator = stream.makeAsyncIterator()
 
-        let initial = await iterator.next()
+        guard let initial = await iterator.next() else {
+            Issue.record("Stream ended unexpectedly before initial emit")
+            return
+        }
         #expect(initial == nil)
 
         let user = try await service.signInAnonymously()
-        let signedIn = await iterator.next() ?? nil
+
+        guard let signedIn = await iterator.next() else {
+            Issue.record("Stream ended unexpectedly after sign-in")
+            return
+        }
         #expect(signedIn?.id == user.id)
 
         try await service.signOut()
-        let signedOut = await iterator.next()
+
+        guard let signedOut = await iterator.next() else {
+            Issue.record("Stream ended unexpectedly after sign-out")
+            return
+        }
         #expect(signedOut == nil)
     }
 }

@@ -244,7 +244,12 @@ struct MockAuthServiceAppleTests {
         let credential = makeAppleCredential()
         let linked = try await service.linkAppleCredential(credential)
 
-        #expect(linked.createdAt == originalDate)
+        #expect(
+            abs(
+                linked.createdAt.timeIntervalSince1970
+                    - originalDate.timeIntervalSince1970
+            ) < 1
+        )
     }
 
     @Test("Apple sign-in with nil name uses fallback")

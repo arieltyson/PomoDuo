@@ -150,7 +150,7 @@ struct PairedSessionLifecycleTests {
         )
         await manager.acceptSession()
 
-        #expect(viewModel.activeSession?.duration == 50 * 60)
+        #expect(viewModel.activeSession?.duration == TimeInterval(50 * 60))
         #expect(viewModel.activeSession?.totalRounds == 6)
     }
 
