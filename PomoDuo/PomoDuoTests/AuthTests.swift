@@ -44,7 +44,7 @@ struct MockAuthServiceTests {
     }
 
     @Test("Starts signed out")
-    func startsSignedOut() async {
+    func startsSignedOut() {
         let service = makeService()
         let currentUser = service.currentUser
         #expect(currentUser == nil)

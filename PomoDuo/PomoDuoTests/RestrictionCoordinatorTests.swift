@@ -5,6 +5,19 @@ import Testing
 
 @MainActor
 struct RestrictionCoordinatorTests {
+
+    /// Polls a condition up to ~400ms, yielding between checks so the
+    /// coordinator's inner `Task` can complete its actor round-trip.
+    private func waitUntil(
+        timeout: Int = 20,
+        _ condition: @MainActor () async -> Bool
+    ) async throws {
+        for _ in 0..<timeout {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
     @Test func initialStateIsNotRestricting() {
         let manager = ScreenTimeManager()
         let coordinator = RestrictionCoordinator(
@@ -27,7 +40,9 @@ struct RestrictionCoordinatorTests {
         )
 
         coordinator.enforceFocusRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+        try await waitUntil {
+            coordinator.lastError != nil || coordinator.isRestricting
+        }
 
         #expect(await service.applyCallCount == 0)
         #expect(coordinator.isRestricting == false)
@@ -43,7 +58,7 @@ struct RestrictionCoordinatorTests {
         )
 
         coordinator.enforceFocusRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+        try await waitUntil { coordinator.isRestricting }
 
         #expect(await service.applyCallCount == 1)
         #expect(coordinator.isRestricting)
@@ -60,7 +75,7 @@ struct RestrictionCoordinatorTests {
         )
 
         coordinator.enforceFocusRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+        try await waitUntil { coordinator.isRestricting }
         coordinator.enforceFocusRestrictions()
         try await Task.sleep(for: .milliseconds(60))
 
@@ -93,9 +108,10 @@ struct RestrictionCoordinatorTests {
         )
 
         coordinator.enforceFocusRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+        try await waitUntil { coordinator.isRestricting }
+
         coordinator.liftRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+        try await waitUntil { !coordinator.isRestricting }
 
         #expect(await service.applyCallCount == 1)
         #expect(await service.removeCallCount == 1)
@@ -112,7 +128,7 @@ struct RestrictionCoordinatorTests {
         )
 
         coordinator.forceRemoveRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+        try await waitUntil { await service.removeCallCount == 1 }
 
         #expect(await service.removeCallCount == 1)
         #expect(coordinator.isRestricting == false)
@@ -129,13 +145,7 @@ struct RestrictionCoordinatorTests {
         )
 
         coordinator.enforceFocusRestrictions()
-
-        // Poll briefly — the inner Task must hop to the mock actor
-        // (to throw) and back to @MainActor (to set lastError).
-        for _ in 0..<20 {
-            try await Task.sleep(for: .milliseconds(20))
-            if coordinator.lastError != nil { break }
-        }
+        try await waitUntil { coordinator.lastError != nil }
 
         #expect(await service.applyCallCount == 0)
         #expect(coordinator.isRestricting == false)
@@ -152,11 +162,12 @@ struct RestrictionCoordinatorTests {
         )
 
         coordinator.enforceFocusRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+        try await waitUntil { coordinator.isRestricting }
+
         await service.setRemoveError(NSError(domain: "tests", code: 99))
 
         coordinator.liftRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+        try await waitUntil { coordinator.lastError != nil }
 
         #expect(await service.removeCallCount == 0)
         #expect(coordinator.isRestricting)
