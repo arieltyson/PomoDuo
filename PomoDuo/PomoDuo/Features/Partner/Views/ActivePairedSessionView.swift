@@ -79,6 +79,7 @@ struct ActivePairedSessionView: View {
             handlePauseChange(wasPaused: wasPaused, isPaused: isPaused)
         }
         .task {
+            ShieldSessionContext.writePartnerName(partner.displayName)
             configureForInitialState()
         }
     }
