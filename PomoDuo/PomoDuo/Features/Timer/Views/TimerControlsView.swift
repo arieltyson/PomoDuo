@@ -18,6 +18,15 @@ struct TimerControlsView: View {
         Group {
             if isComplete {
                 CompletedControls(onSkip: onSkip)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .asymmetric(
+                                insertion: .scale(scale: 0.85)
+                                    .combined(with: .opacity),
+                                removal: .opacity
+                            )
+                    )
             } else if isRunning {
                 ActiveControls(
                     isPaused: isPaused,
@@ -26,20 +35,39 @@ struct TimerControlsView: View {
                     onStop: onStop,
                     onSkip: onSkip
                 )
+                .transition(
+                    reduceMotion
+                        ? .opacity
+                        : .asymmetric(
+                            insertion: .move(edge: .bottom)
+                                .combined(with: .opacity),
+                            removal: .opacity
+                        )
+                )
             } else {
                 IdleControls(onStart: onStart)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .asymmetric(
+                                insertion: .scale(scale: 0.9)
+                                    .combined(with: .opacity),
+                                removal: .scale(scale: 0.8)
+                                    .combined(with: .opacity)
+                            )
+                    )
             }
         }
         .animation(
-            reduceMotion ? .none : .easeInOut(duration: 0.3),
+            reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
             value: isRunning
         )
         .animation(
-            reduceMotion ? .none : .easeInOut(duration: 0.3),
+            reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
             value: isPaused
         )
         .animation(
-            reduceMotion ? .none : .easeInOut(duration: 0.3),
+            reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
             value: isComplete
         )
     }
@@ -64,6 +92,8 @@ private struct ActiveControls: View {
     let onStop: () -> Void
     let onSkip: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack {
             Button("Stop", systemImage: "stop.fill", action: onStop)
@@ -77,12 +107,22 @@ private struct ActiveControls: View {
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.lavender)
                     .controlSize(.large)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .scale(scale: 0.92).combined(with: .opacity)
+                    )
                     .accessibilityHint("Continues the paused timer.")
             } else {
                 Button("Pause", systemImage: "pause.fill", action: onPause)
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.pauseTint)
                     .controlSize(.large)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .scale(scale: 0.92).combined(with: .opacity)
+                    )
                     .accessibilityHint("Pauses the running timer.")
             }
 
@@ -121,6 +161,7 @@ private struct SecondaryControlButtonStyle: ButtonStyle {
                     .stroke(tint.opacity(0.36), lineWidth: 1)
             }
             .opacity(configuration.isPressed ? 0.85 : 1)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }

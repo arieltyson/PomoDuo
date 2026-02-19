@@ -14,6 +14,7 @@ struct CircularProgressView: View {
 
     var body: some View {
         ZStack {
+            // Track ring.
             Circle()
                 .stroke(
                     AppColors.paleViolet.opacity(0.26),
@@ -23,6 +24,7 @@ struct CircularProgressView: View {
                     )
                 )
 
+            // Progress ring with pause breathing effect.
             Circle()
                 .trim(from: 0, to: max(0, min(1, remainingProgress)))
                 .stroke(
@@ -39,6 +41,13 @@ struct CircularProgressView: View {
                     reduceMotion ? .none : .easeInOut(duration: 0.7),
                     value: remainingProgress
                 )
+                .pauseBreathing(isPaused: isPaused)
+
+            // Resume glow flash - fires when paused -> running.
+            ResumeGlowOverlay(
+                color: isBreak ? AppColors.breakTint : AppColors.lavender,
+                trigger: isPaused
+            )
 
             TimerCenterView(
                 timeString: timeString,
@@ -79,15 +88,48 @@ private struct TimerCenterView: View {
                 .foregroundStyle(isPaused ? AppColors.secondaryLabel : .primary)
 
             if isPaused {
-                Label("Paused", systemImage: "pause.fill")
-                    .font(.caption)
-                    .foregroundStyle(AppColors.pauseTint)
-                    .transition(reduceMotion ? .opacity : .opacity)
+                PausedIndicator()
             }
         }
         .animation(
             reduceMotion ? .none : .easeInOut(duration: 0.2),
             value: isPaused
         )
+    }
+}
+
+/// Animated "Paused" indicator with a gentle pulsing dot.
+private struct PausedIndicator: View {
+    @State private var dotOpacity = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(AppColors.pauseTint)
+                .frame(width: 6, height: 6)
+                .opacity(dotOpacity)
+
+            Text("Paused")
+                .font(.caption)
+                .foregroundStyle(AppColors.pauseTint)
+        }
+        .transition(
+            reduceMotion
+                ? .opacity
+                : .asymmetric(
+                    insertion: .scale(scale: 0.8).combined(with: .opacity),
+                    removal: .opacity
+                )
+        )
+        .task {
+            guard !reduceMotion else { return }
+            withAnimation(
+                .easeInOut(duration: 0.8)
+                    .repeatForever(autoreverses: true)
+            ) {
+                dotOpacity = 0.3
+            }
+        }
     }
 }

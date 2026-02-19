@@ -552,12 +552,19 @@ private struct TimerBodyContent: View {
 
     var body: some View {
         VStack {
-            CircularProgressView(
-                remainingProgress: remainingProgress,
-                timeString: timeString,
-                isPaused: isPaused,
-                isBreak: isBreak
-            )
+            ZStack {
+                CircularProgressView(
+                    remainingProgress: remainingProgress,
+                    timeString: timeString,
+                    isPaused: isPaused,
+                    isBreak: isBreak
+                )
+
+                CelebrationParticlesView(
+                    isActive: isComplete,
+                    color: isBreak ? AppColors.breakTint : AppColors.lavender
+                )
+            }
             .containerRelativeFrame(.horizontal) { width, _ in
                 width * 0.66
             }

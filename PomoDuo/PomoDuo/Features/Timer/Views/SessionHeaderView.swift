@@ -15,10 +15,14 @@ struct SessionHeaderView: View {
                     .font(.title2)
                     .bold()
                     .foregroundStyle(.white)
+                    .phaseTransition(phase: phaseName)
 
                 Text("Round \(currentRound) of \(totalRounds)")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.88))
+                    .contentTransition(
+                        reduceMotion ? .identity : .numericText()
+                    )
             }
 
             Spacer()
@@ -29,6 +33,10 @@ struct SessionHeaderView: View {
                 .symbolEffect(
                     .pulse,
                     isActive: !reduceMotion && phaseName == "Focus"
+                )
+                .symbolEffect(
+                    .bounce,
+                    value: phaseName
                 )
                 .accessibilityHidden(true)
         }

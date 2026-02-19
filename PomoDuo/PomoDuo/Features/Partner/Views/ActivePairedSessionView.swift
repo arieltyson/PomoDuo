@@ -16,6 +16,7 @@ struct ActivePairedSessionView: View {
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
     @Environment(HeartbeatManager.self) private var heartbeatManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var haptic = HapticTrigger()
     @State private var focusStartedAt: Date?
@@ -57,9 +58,18 @@ struct ActivePairedSessionView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sensoryFeedback(haptic.feedback, trigger: haptic)
-        .animation(.default, value: session.state)
-        .animation(.default, value: restrictionCoordinator.isRestricting)
-        .animation(.default, value: heartbeatManager.isPartnerActive)
+        .animation(
+            reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
+            value: session.state
+        )
+        .animation(
+            reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
+            value: restrictionCoordinator.isRestricting
+        )
+        .animation(
+            reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
+            value: heartbeatManager.isPartnerActive
+        )
         .alert(
             "Session Error",
             isPresented: sessionErrorIsPresented
@@ -463,6 +473,7 @@ private struct SessionPhaseBadge: View {
             .bold()
             .foregroundStyle(phaseColor)
             .padding(.vertical)
+            .phaseTransition(phase: phaseLabel)
             .accessibilityAddTraits(.isHeader)
     }
 
@@ -556,15 +567,37 @@ private struct RequestingCountdownView: View {
 }
 
 private struct CompletedCountdownView: View {
+    @State private var showCelebration = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack {
-            Image(systemName: "party.popper.fill")
-                .font(.largeTitle)
-                .foregroundStyle(AppColors.lavender)
+            ZStack {
+                CelebrationParticlesView(
+                    isActive: showCelebration,
+                    color: AppColors.lavender
+                )
+
+                Image(systemName: "party.popper.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(AppColors.lavender)
+                    .scaleEffect(showCelebration ? 1 : 0.5)
+                    .opacity(showCelebration ? 1 : 0)
+            }
 
             Text("Great work!")
                 .font(.title3)
                 .foregroundStyle(.secondary)
+                .opacity(showCelebration ? 1 : 0)
+        }
+        .task {
+            guard !reduceMotion else {
+                showCelebration = true
+                return
+            }
+            withAnimation(.spring(duration: 0.5, bounce: 0.4)) {
+                showCelebration = true
+            }
         }
     }
 }
@@ -572,12 +605,25 @@ private struct CompletedCountdownView: View {
 private struct PausedCountdownView: View {
     let targetEndDate: Date
 
+    @State private var breatheOpacity = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Text(remainingText)
             .font(.largeTitle)
             .monospacedDigit()
             .foregroundStyle(.secondary)
+            .opacity(breatheOpacity)
             .accessibilityValue(remainingText)
+            .task {
+                guard !reduceMotion else { return }
+                withAnimation(
+                    .easeInOut(duration: 1.5)
+                        .repeatForever(autoreverses: true)
+                ) {
+                    breatheOpacity = 0.4
+                }
+            }
     }
 
     private var remainingText: String {
@@ -626,17 +672,36 @@ private struct RoundStatusDot: View {
     let isCompleted: Bool
     let isCurrent: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        Circle()
-            .fill(fillColor)
-            .frame(width: 12, height: 12)
-            .overlay {
-                if isCurrent {
-                    Circle()
-                        .stroke(AppColors.lavender, lineWidth: 2)
-                        .frame(width: 18, height: 18)
-                }
+        ZStack {
+            Circle()
+                .fill(fillColor)
+                .frame(width: 12, height: 12)
+
+            if isCompleted {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 6, weight: .bold))
+                    .foregroundStyle(.white)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .scale.combined(with: .opacity)
+                    )
             }
+
+            if isCurrent {
+                Circle()
+                    .stroke(AppColors.lavender, lineWidth: 2)
+                    .frame(width: 18, height: 18)
+            }
+        }
+        .roundCompletionPop(isCompleted: isCompleted)
+        .animation(
+            reduceMotion ? .none : .spring(duration: 0.4, bounce: 0.3),
+            value: isCompleted
+        )
     }
 
     private var fillColor: Color {
@@ -657,92 +722,118 @@ private struct PairedSessionControls: View {
     let viewModel: PartnerSessionViewModel
 
     @State private var isShowingEndConfirmation = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack {
-            switch session.state {
-            case .requesting:
-                Button(
-                    "Cancel",
-                    systemImage: "xmark.circle",
-                    role: .destructive
-                ) {
-                    Task {
-                        await viewModel.endSession()
-                    }
-                }
-                .buttonStyle(.bordered)
-
-            case .focus where session.isPaused:
-                HStack {
-                    Button("Resume", systemImage: "play.fill") {
+            Group {
+                switch session.state {
+                case .requesting:
+                    Button(
+                        "Cancel",
+                        systemImage: "xmark.circle",
+                        role: .destructive
+                    ) {
                         Task {
-                            await viewModel.resumeSession()
+                            await viewModel.endSession()
+                        }
+                    }
+                    .buttonStyle(.bordered)
+
+                case .focus where session.isPaused:
+                    HStack {
+                        Button("Resume", systemImage: "play.fill") {
+                            Task {
+                                await viewModel.resumeSession()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(AppColors.lavender)
+
+                        Button(
+                            "End Session",
+                            systemImage: "stop.fill",
+                            role: .destructive
+                        ) {
+                            isShowingEndConfirmation = true
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .scale(scale: 0.92).combined(with: .opacity)
+                    )
+
+                case .focus:
+                    HStack {
+                        Button("Pause", systemImage: "pause.fill") {
+                            Task {
+                                await viewModel.pauseSession()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Skip to Break", systemImage: "forward.fill") {
+                            Task {
+                                await viewModel.beginBreak()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.teal)
+                    }
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .scale(scale: 0.92).combined(with: .opacity)
+                    )
+
+                case .shortBreak, .longBreak:
+                    HStack {
+                        Button("Next Round", systemImage: "play.fill") {
+                            Task {
+                                await viewModel.beginFocus()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(AppColors.lavender)
+
+                        Button(
+                            "End Session",
+                            systemImage: "stop.fill",
+                            role: .destructive
+                        ) {
+                            isShowingEndConfirmation = true
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                case .completed:
+                    Button("Done", systemImage: "checkmark") {
+                        Task {
+                            await viewModel.endSession()
                         }
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.lavender)
+                    .transition(
+                        reduceMotion
+                            ? .opacity
+                            : .scale(scale: 0.85).combined(with: .opacity)
+                    )
 
-                    Button(
-                        "End Session",
-                        systemImage: "stop.fill",
-                        role: .destructive
-                    ) {
-                        isShowingEndConfirmation = true
-                    }
-                    .buttonStyle(.bordered)
+                case .idle:
+                    EmptyView()
                 }
-
-            case .focus:
-                HStack {
-                    Button("Pause", systemImage: "pause.fill") {
-                        Task {
-                            await viewModel.pauseSession()
-                        }
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("Skip to Break", systemImage: "forward.fill") {
-                        Task {
-                            await viewModel.beginBreak()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.teal)
-                }
-
-            case .shortBreak, .longBreak:
-                HStack {
-                    Button("Next Round", systemImage: "play.fill") {
-                        Task {
-                            await viewModel.beginFocus()
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(AppColors.lavender)
-
-                    Button(
-                        "End Session",
-                        systemImage: "stop.fill",
-                        role: .destructive
-                    ) {
-                        isShowingEndConfirmation = true
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-            case .completed:
-                Button("Done", systemImage: "checkmark") {
-                    Task {
-                        await viewModel.endSession()
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(AppColors.lavender)
-
-            case .idle:
-                EmptyView()
             }
+            .animation(
+                reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
+                value: session.state
+            )
+            .animation(
+                reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
+                value: session.isPaused
+            )
         }
         .controlSize(.large)
         .confirmationDialog(
