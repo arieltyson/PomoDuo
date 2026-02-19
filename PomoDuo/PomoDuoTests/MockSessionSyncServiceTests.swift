@@ -1,12 +1,6 @@
-//
-//  MockSessionSyncServiceTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @Suite("MockSessionSyncService")

@@ -1,12 +1,6 @@
-//
-//  SessionHistoryUserScopeTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @Suite("SessionHistory User Scope")
@@ -89,7 +83,9 @@ struct SessionHistoryUserScopeTests {
     func streakRespectsScope() {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
-        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else {
+        guard
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: today)
+        else {
             Issue.record("Unable to build test date")
             return
         }
@@ -115,7 +111,9 @@ struct SessionHistoryUserScopeTests {
         ]
 
         viewModel.refresh(from: sessions, userID: "alice")
-        let totalWeeklyMinutes = viewModel.weeklySummaries.reduce(0) { partial, summary in
+        let totalWeeklyMinutes = viewModel.weeklySummaries.reduce(0) {
+            partial,
+            summary in
             partial + summary.totalMinutes
         }
 

@@ -1,12 +1,6 @@
-//
-//  SessionHistoryTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 struct CompletedSessionTests {
@@ -64,13 +58,21 @@ struct CompletedSessionTests {
 struct DailyFocusSummaryTests {
     @Test func idMatchesDay() {
         let day = Date.now
-        let summary = DailyFocusSummary(day: day, totalMinutes: 60, sessionCount: 2)
+        let summary = DailyFocusSummary(
+            day: day,
+            totalMinutes: 60,
+            sessionCount: 2
+        )
 
         #expect(summary.id == day)
     }
 
     @Test func dayLabelIsNotEmpty() {
-        let summary = DailyFocusSummary(day: .now, totalMinutes: 25, sessionCount: 1)
+        let summary = DailyFocusSummary(
+            day: .now,
+            totalMinutes: 25,
+            sessionCount: 1
+        )
         #expect(summary.dayLabel.isEmpty == false)
     }
 }
@@ -130,7 +132,10 @@ struct SessionHistoryViewModelTests {
         viewModel.refresh(from: [])
 
         for index in 0..<(viewModel.weeklySummaries.count - 1) {
-            #expect(viewModel.weeklySummaries[index].day < viewModel.weeklySummaries[index + 1].day)
+            #expect(
+                viewModel.weeklySummaries[index].day
+                    < viewModel.weeklySummaries[index + 1].day
+            )
         }
     }
 
@@ -140,7 +145,13 @@ struct SessionHistoryViewModelTests {
 
         var sessions: [CompletedSession] = []
         for offset in 0..<3 {
-            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
+            guard
+                let day = calendar.date(
+                    byAdding: .day,
+                    value: -offset,
+                    to: today
+                )
+            else { continue }
             sessions.append(
                 CompletedSession(
                     startedAt: day.addingTimeInterval(3600),
@@ -170,7 +181,8 @@ struct SessionHistoryViewModelTests {
             )
         ]
 
-        if let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today) {
+        if let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today)
+        {
             sessions.append(
                 CompletedSession(
                     startedAt: twoDaysAgo.addingTimeInterval(600),
@@ -189,7 +201,8 @@ struct SessionHistoryViewModelTests {
 
     @Test func oldSessionsExcludedFromWeeklyIncludedInAllTime() {
         let calendar = Calendar.current
-        guard let oldDate = calendar.date(byAdding: .day, value: -10, to: .now) else {
+        guard let oldDate = calendar.date(byAdding: .day, value: -10, to: .now)
+        else {
             Issue.record("Failed to create test date")
             return
         }

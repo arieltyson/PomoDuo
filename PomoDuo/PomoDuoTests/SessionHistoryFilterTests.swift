@@ -1,12 +1,6 @@
-//
-//  SessionHistoryFilterTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @Suite("SessionTypeFilter")
@@ -65,7 +59,7 @@ struct SessionHistoryFilteringSuiteTests {
 
         let sessions = [
             makeSession(type: .solo),
-            makeSession(type: .paired)
+            makeSession(type: .paired),
         ]
 
         let filtered = viewModel.filteredSessions(from: sessions)
@@ -80,7 +74,7 @@ struct SessionHistoryFilteringSuiteTests {
         let sessions = [
             makeSession(type: .solo),
             makeSession(type: .paired),
-            makeSession(type: .solo)
+            makeSession(type: .solo),
         ]
 
         let filtered = viewModel.filteredSessions(from: sessions)
@@ -96,7 +90,7 @@ struct SessionHistoryFilteringSuiteTests {
         let sessions = [
             makeSession(type: .solo),
             makeSession(type: .paired),
-            makeSession(type: .paired)
+            makeSession(type: .paired),
         ]
 
         let filtered = viewModel.filteredSessions(from: sessions)
@@ -141,7 +135,7 @@ struct SessionHistoryPairedStatsSuiteTests {
         let sessions = [
             makeSession(type: .solo, minutes: 25),
             makeSession(type: .solo, minutes: 50),
-            makeSession(type: .paired, minutes: 30)
+            makeSession(type: .paired, minutes: 30),
         ]
 
         viewModel.refresh(from: sessions, userID: "user-1")
@@ -171,7 +165,7 @@ struct SessionHistoryPairedStatsSuiteTests {
         let viewModel = SessionHistoryViewModel()
         let sessions = [
             makeSession(type: .solo, minutes: 20),
-            makeSession(type: .solo, minutes: 40)
+            makeSession(type: .solo, minutes: 40),
         ]
 
         viewModel.refresh(from: sessions, userID: "user-1")
@@ -187,7 +181,7 @@ struct SessionHistoryPairedStatsSuiteTests {
         let viewModel = SessionHistoryViewModel()
         let sessions = [
             makeSession(type: .paired, minutes: 30),
-            makeSession(type: .paired, minutes: 45)
+            makeSession(type: .paired, minutes: 45),
         ]
 
         viewModel.refresh(from: sessions, userID: "user-1")
@@ -225,7 +219,7 @@ struct SessionHistoryWeeklyBreakdownSuiteTests {
                 totalRounds: 4,
                 sessionType: .paired,
                 userID: "user-1"
-            )
+            ),
         ]
 
         viewModel.refresh(from: sessions, userID: "user-1")
@@ -259,7 +253,11 @@ struct DailyFocusSummaryCompatibilitySuiteTests {
 
     @Test("Legacy initializer defaults split to zero")
     func legacyInit() {
-        let summary = DailyFocusSummary(day: .now, totalMinutes: 50, sessionCount: 2)
+        let summary = DailyFocusSummary(
+            day: .now,
+            totalMinutes: 50,
+            sessionCount: 2
+        )
         #expect(summary.soloMinutes == 0)
         #expect(summary.pairedMinutes == 0)
     }
@@ -282,7 +280,11 @@ struct DailyFocusSummaryCompatibilitySuiteTests {
 
     @Test("Day label is non-empty")
     func dayLabel() {
-        let summary = DailyFocusSummary(day: .now, totalMinutes: 0, sessionCount: 0)
+        let summary = DailyFocusSummary(
+            day: .now,
+            totalMinutes: 0,
+            sessionCount: 0
+        )
         #expect(!summary.dayLabel.isEmpty)
     }
 }

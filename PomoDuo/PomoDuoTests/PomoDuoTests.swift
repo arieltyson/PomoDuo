@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @MainActor
@@ -43,7 +44,7 @@ struct SessionStateMachineTests {
         let session = makeSession(state: .idle)
         let invalidEvents: [SessionEvent] = [
             .accepted, .declined, .focusBegan,
-            .paused(by: "alice"), .resumed, .breakBegan, .completed
+            .paused(by: "alice"), .resumed, .breakBegan, .completed,
         ]
 
         for event in invalidEvents {
@@ -73,7 +74,7 @@ struct SessionStateMachineTests {
         let session = makeSession(state: .requesting)
         let invalidEvents: [SessionEvent] = [
             .requestSent, .focusBegan, .paused(by: "alice"),
-            .resumed, .breakBegan, .completed
+            .resumed, .breakBegan, .completed,
         ]
 
         for event in invalidEvents {
@@ -87,14 +88,21 @@ struct SessionStateMachineTests {
 
     @Test func focusToPaused() throws {
         let session = makeSession(state: .focus)
-        let result = try SessionStateMachine.apply(.paused(by: "alice"), to: session)
+        let result = try SessionStateMachine.apply(
+            .paused(by: "alice"),
+            to: session
+        )
         #expect(result.state == .focus)
         #expect(result.isPaused == true)
         #expect(result.pausedBy == "alice")
     }
 
     @Test func focusPausedToResumed() throws {
-        let session = makeSession(state: .focus, isPaused: true, pausedBy: "alice")
+        let session = makeSession(
+            state: .focus,
+            isPaused: true,
+            pausedBy: "alice"
+        )
         let result = try SessionStateMachine.apply(.resumed, to: session)
         #expect(result.isPaused == false)
         #expect(result.pausedBy == nil)
@@ -108,19 +116,31 @@ struct SessionStateMachineTests {
     }
 
     @Test func focusToShortBreak() throws {
-        let session = makeSession(state: .focus, currentRound: 1, totalRounds: 4)
+        let session = makeSession(
+            state: .focus,
+            currentRound: 1,
+            totalRounds: 4
+        )
         let result = try SessionStateMachine.apply(.breakBegan, to: session)
         #expect(result.state == .shortBreak)
     }
 
     @Test func focusToLongBreakOnFinalRound() throws {
-        let session = makeSession(state: .focus, currentRound: 4, totalRounds: 4)
+        let session = makeSession(
+            state: .focus,
+            currentRound: 4,
+            totalRounds: 4
+        )
         let result = try SessionStateMachine.apply(.breakBegan, to: session)
         #expect(result.state == .longBreak)
     }
 
     @Test func focusBreakWhilePausedThrows() {
-        let session = makeSession(state: .focus, isPaused: true, pausedBy: "bob")
+        let session = makeSession(
+            state: .focus,
+            isPaused: true,
+            pausedBy: "bob"
+        )
         #expect(throws: SessionStateMachine.TransitionError.self) {
             try SessionStateMachine.apply(.breakBegan, to: session)
         }
@@ -145,7 +165,7 @@ struct SessionStateMachineTests {
         let session = makeSession(state: .shortBreak)
         let invalidEvents: [SessionEvent] = [
             .requestSent, .accepted, .declined,
-            .paused(by: "alice"), .resumed, .breakBegan, .completed
+            .paused(by: "alice"), .resumed, .breakBegan, .completed,
         ]
 
         for event in invalidEvents {
@@ -176,7 +196,7 @@ struct SessionStateMachineTests {
         let session = makeSession(state: .completed)
         let allEvents: [SessionEvent] = [
             .requestSent, .accepted, .declined, .focusBegan,
-            .paused(by: "alice"), .resumed, .breakBegan, .completed
+            .paused(by: "alice"), .resumed, .breakBegan, .completed,
         ]
 
         for event in allEvents {
@@ -217,7 +237,10 @@ struct SessionStateMachineTests {
         session = try SessionStateMachine.apply(.accepted, to: session)
 
         // Pause by alice.
-        session = try SessionStateMachine.apply(.paused(by: "alice"), to: session)
+        session = try SessionStateMachine.apply(
+            .paused(by: "alice"),
+            to: session
+        )
         #expect(session.isPaused == true)
         #expect(session.pausedBy == "alice")
 

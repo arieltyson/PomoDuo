@@ -1,11 +1,5 @@
-//
-//  PairingViewModelAuthTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Testing
+
 @testable import PomoDuo
 
 private struct PendingPairingService: PairingService {
@@ -33,7 +27,9 @@ private struct PendingPairingService: PairingService {
 struct PairingViewModelAuthTests {
     @Test("Reset clears local pairing state after auth change")
     func resetForSignedOutClearsState() async {
-        let viewModel = PairingViewModel(pairingService: PendingPairingService())
+        let viewModel = PairingViewModel(
+            pairingService: PendingPairingService()
+        )
 
         await viewModel.generateCode()
         #expect(isWaitingForPartner(viewModel.pairingState))

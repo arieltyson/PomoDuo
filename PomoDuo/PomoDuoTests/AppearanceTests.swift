@@ -1,13 +1,7 @@
-//
-//  AppearanceTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import SwiftUI
 import Testing
+
 @testable import PomoDuo
 
 @MainActor
@@ -29,7 +23,10 @@ struct AppearanceManagerTests {
             return
         }
 
-        defaults.set(AppAppearance.dark.rawValue, forKey: AppearanceManager.storageKey)
+        defaults.set(
+            AppAppearance.dark.rawValue,
+            forKey: AppearanceManager.storageKey
+        )
 
         let manager = AppearanceManager(userDefaults: defaults)
         #expect(manager.selectedAppearance == .dark)
@@ -45,7 +42,9 @@ struct AppearanceManagerTests {
         let manager = AppearanceManager(userDefaults: defaults)
         manager.selectedAppearance = .light
 
-        let savedRawValue = defaults.string(forKey: AppearanceManager.storageKey)
+        let savedRawValue = defaults.string(
+            forKey: AppearanceManager.storageKey
+        )
         #expect(savedRawValue == AppAppearance.light.rawValue)
     }
 

@@ -1,12 +1,6 @@
-//
-//  RestrictionCoordinatorTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @MainActor

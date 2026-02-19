@@ -1,12 +1,6 @@
-//
-//  PairedSessionRecordingTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @Suite("CompletedSession Paired Recording")
@@ -60,7 +54,10 @@ struct CompletedSessionPairedTests {
     func sessionTypeCodable() throws {
         let original = CompletedSession.SessionType.paired
         let encoded = try JSONEncoder().encode(original)
-        let decoded = try JSONDecoder().decode(CompletedSession.SessionType.self, from: encoded)
+        let decoded = try JSONDecoder().decode(
+            CompletedSession.SessionType.self,
+            from: encoded
+        )
 
         #expect(decoded == .paired)
     }
@@ -68,7 +65,9 @@ struct CompletedSessionPairedTests {
     @Test("Day bucket is computed from startedAt")
     func dayBucketComputed() {
         let calendar = Calendar.current
-        let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: .now) ?? .now
+        let noon =
+            calendar.date(bySettingHour: 12, minute: 0, second: 0, of: .now)
+            ?? .now
 
         let session = CompletedSession(
             startedAt: noon,
@@ -144,7 +143,11 @@ struct PairedSessionLifecycleTests {
         let manager = makeSessionManager()
         let viewModel = PartnerSessionViewModel(sessionManager: manager)
 
-        await viewModel.startSession(with: testPartner, duration: 50 * 60, totalRounds: 6)
+        await viewModel.startSession(
+            with: testPartner,
+            duration: 50 * 60,
+            totalRounds: 6
+        )
         await manager.acceptSession()
 
         #expect(viewModel.activeSession?.duration == 50 * 60)

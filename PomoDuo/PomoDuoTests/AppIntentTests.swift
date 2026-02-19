@@ -1,12 +1,6 @@
-//
-//  AppIntentTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/15/26.
-//
-
-import Testing
 import Foundation
+import Testing
+
 @testable import PomoDuo
 
 @MainActor
@@ -59,18 +53,27 @@ struct CheckFocusStatsIntentTests {
     }
 
     @Test func zeroSessionSummary() {
-        let summary = CheckFocusStatsIntent.summary(totalMinutes: 0, sessionCount: 0)
+        let summary = CheckFocusStatsIntent.summary(
+            totalMinutes: 0,
+            sessionCount: 0
+        )
         #expect(summary.localizedStandardContains("haven't completed"))
     }
 
     @Test func singularSummary() {
-        let summary = CheckFocusStatsIntent.summary(totalMinutes: 25, sessionCount: 1)
+        let summary = CheckFocusStatsIntent.summary(
+            totalMinutes: 25,
+            sessionCount: 1
+        )
         #expect(summary.localizedStandardContains("25"))
         #expect(summary.localizedStandardContains("1 session"))
     }
 
     @Test func pluralSummary() {
-        let summary = CheckFocusStatsIntent.summary(totalMinutes: 75, sessionCount: 3)
+        let summary = CheckFocusStatsIntent.summary(
+            totalMinutes: 75,
+            sessionCount: 3
+        )
         #expect(summary.localizedStandardContains("75"))
         #expect(summary.localizedStandardContains("3 sessions"))
     }

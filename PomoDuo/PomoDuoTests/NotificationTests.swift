@@ -1,13 +1,7 @@
-//
-//  NotificationTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Testing
 import UserNotifications
+
 @testable import PomoDuo
 
 @MainActor
@@ -45,13 +39,19 @@ private final class MockLocalNotificationService: LocalNotificationManaging {
         authorizationStatusValue
     }
 
-    func sendSessionRequest(to partnerID: String, from senderName: String) async throws {}
+    func sendSessionRequest(to partnerID: String, from senderName: String)
+        async throws
+    {}
 
-    func sendPauseNotification(to partnerID: String, pausedBy name: String) async throws {}
+    func sendPauseNotification(to partnerID: String, pausedBy name: String)
+        async throws
+    {}
 
     func sendResumeNotification(to partnerID: String) async throws {}
 
-    func scheduleTimerEndNotification(at date: Date, message: String) async throws {
+    func scheduleTimerEndNotification(at date: Date, message: String)
+        async throws
+    {
         scheduledRequests.append((date: date, message: message))
     }
 

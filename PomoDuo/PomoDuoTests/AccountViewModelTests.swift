@@ -1,12 +1,6 @@
-//
-//  AccountViewModelTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @Suite("AccountViewModel")
@@ -23,7 +17,10 @@ struct AccountViewModelTests {
     }
 
     private func makeAuthManager() -> AuthManager {
-        let service = MockAuthService(simulatedDelay: .zero, userDefaults: makeDefaults())
+        let service = MockAuthService(
+            simulatedDelay: .zero,
+            userDefaults: makeDefaults()
+        )
         return AuthManager(authService: service)
     }
 

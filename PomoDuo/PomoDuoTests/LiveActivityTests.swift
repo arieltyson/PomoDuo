@@ -1,12 +1,6 @@
-//
-//  LiveActivityTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @MainActor
@@ -33,9 +27,14 @@ struct TimerActivityPhaseTests {
     }
 
     @Test func phaseRawValueRoundTrip() throws {
-        for phase in [TimerActivityAttributes.Phase.focus, .shortBreak, .longBreak] {
+        for phase in [
+            TimerActivityAttributes.Phase.focus, .shortBreak, .longBreak,
+        ] {
             let data = try JSONEncoder().encode(phase)
-            let decoded = try JSONDecoder().decode(TimerActivityAttributes.Phase.self, from: data)
+            let decoded = try JSONDecoder().decode(
+                TimerActivityAttributes.Phase.self,
+                from: data
+            )
             #expect(decoded == phase)
         }
     }
@@ -49,7 +48,10 @@ struct TimerActivityPhaseTests {
         )
 
         let data = try JSONEncoder().encode(state)
-        let decoded = try JSONDecoder().decode(TimerActivityAttributes.ContentState.self, from: data)
+        let decoded = try JSONDecoder().decode(
+            TimerActivityAttributes.ContentState.self,
+            from: data
+        )
 
         #expect(decoded == state)
         #expect(decoded.hashValue == state.hashValue)

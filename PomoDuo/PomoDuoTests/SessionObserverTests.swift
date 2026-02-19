@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @Suite("SessionObserver")
@@ -70,7 +71,9 @@ struct SessionObserverTests {
 
         observer.startObserving(userID: "user-b")
 
-        #expect(await waitUntil { sessionManager.currentSession?.id == session.id })
+        #expect(
+            await waitUntil { sessionManager.currentSession?.id == session.id }
+        )
         observer.stopObserving()
     }
 
@@ -98,14 +101,20 @@ struct SessionObserverTests {
         _ = try await syncService.createSession(session)
 
         observer.startObserving(userID: "user-b")
-        #expect(await waitUntil { sessionManager.currentSession?.state == .requesting })
+        #expect(
+            await waitUntil {
+                sessionManager.currentSession?.state == .requesting
+            }
+        )
 
         session.state = .focus
         session.startTime = .now
         session.targetEndDate = .now.addingTimeInterval(25 * 60)
         try await syncService.writeSession(session)
 
-        #expect(await waitUntil { sessionManager.currentSession?.state == .focus })
+        #expect(
+            await waitUntil { sessionManager.currentSession?.state == .focus }
+        )
         observer.stopObserving()
     }
 
@@ -116,13 +125,17 @@ struct SessionObserverTests {
         _ = try await syncService.createSession(session)
 
         observer.startObserving(userID: "user-b")
-        #expect(await waitUntil { sessionManager.currentSession?.state == .focus })
+        #expect(
+            await waitUntil { sessionManager.currentSession?.state == .focus }
+        )
 
         session.isPaused = true
         session.pausedBy = "user-a"
         try await syncService.writeSession(session)
 
-        #expect(await waitUntil { sessionManager.currentSession?.isPaused == true })
+        #expect(
+            await waitUntil { sessionManager.currentSession?.isPaused == true }
+        )
         #expect(sessionManager.currentSession?.pausedBy == "user-a")
         observer.stopObserving()
     }
@@ -134,7 +147,9 @@ struct SessionObserverTests {
         _ = try await syncService.createSession(session)
 
         observer.startObserving(userID: "user-b")
-        #expect(await waitUntil { sessionManager.currentSession?.state == .focus })
+        #expect(
+            await waitUntil { sessionManager.currentSession?.state == .focus }
+        )
 
         observer.stopObserving()
 
@@ -145,7 +160,9 @@ struct SessionObserverTests {
         #expect(sessionManager.currentSession?.state == .focus)
     }
 
-    @Test("restarting observation for a new identity clears old session context")
+    @Test(
+        "restarting observation for a new identity clears old session context"
+    )
     func restartObservationForNewIdentity() async throws {
         let (syncService, sessionManager, observer) = makeDependencies()
         let sessionForB = makeSession(
@@ -157,7 +174,9 @@ struct SessionObserverTests {
         _ = try await syncService.createSession(sessionForB)
 
         observer.startObserving(userID: "user-b")
-        #expect(await waitUntil { sessionManager.currentSession?.id == "session-b" })
+        #expect(
+            await waitUntil { sessionManager.currentSession?.id == "session-b" }
+        )
 
         sessionManager.setCurrentUserID("user-c")
         observer.startObserving(userID: "user-c")

@@ -1,12 +1,6 @@
-//
-//  AuthTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @Suite("AuthUser")
@@ -59,7 +53,10 @@ struct MockAuthServiceTests {
     @Test("Anonymous sign-in creates and persists a user")
     func anonymousSignInPersists() async throws {
         let defaults = makeDefaults()
-        let service = MockAuthService(simulatedDelay: .zero, userDefaults: defaults)
+        let service = MockAuthService(
+            simulatedDelay: .zero,
+            userDefaults: defaults
+        )
 
         let firstUser = try await service.signInAnonymously()
         let secondUser = await service.currentUser
@@ -72,7 +69,10 @@ struct MockAuthServiceTests {
     func emailSignInReturnsUser() async throws {
         let service = makeService()
 
-        let user = try await service.signIn(email: "hello@example.com", password: "test")
+        let user = try await service.signIn(
+            email: "hello@example.com",
+            password: "test"
+        )
 
         #expect(user.isAnonymous == false)
         #expect(user.displayName == "hello")
@@ -120,7 +120,10 @@ struct AuthManagerTests {
             defaults = .standard
         }
 
-        let service = MockAuthService(simulatedDelay: .zero, userDefaults: defaults)
+        let service = MockAuthService(
+            simulatedDelay: .zero,
+            userDefaults: defaults
+        )
         return AuthManager(authService: service)
     }
 

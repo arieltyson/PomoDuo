@@ -1,12 +1,6 @@
-//
-//  PartnerSessionViewModelTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @Suite("PartnerSessionViewModel")
@@ -18,7 +12,9 @@ struct PartnerSessionViewModelTests {
         pairedAt: .now
     )
 
-    private func makeSessionManager(authenticated: Bool = true) -> SessionManager {
+    private func makeSessionManager(authenticated: Bool = true)
+        -> SessionManager
+    {
         let manager = SessionManager(syncService: MockSessionSyncService())
         if authenticated {
             manager.setCurrentUserID("user-1")

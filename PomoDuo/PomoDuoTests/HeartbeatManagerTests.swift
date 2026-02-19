@@ -95,7 +95,9 @@ struct HeartbeatManagerTests {
     @Test("Stale threshold and auto-end threshold constants are valid")
     func thresholdsAreValid() {
         #expect(HeartbeatManager.staleThreshold > 0)
-        #expect(HeartbeatManager.autoEndThreshold > HeartbeatManager.staleThreshold)
+        #expect(
+            HeartbeatManager.autoEndThreshold > HeartbeatManager.staleThreshold
+        )
         #expect(HeartbeatManager.beatInterval > .zero)
     }
 }

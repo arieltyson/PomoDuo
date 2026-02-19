@@ -1,11 +1,5 @@
-//
-//  SessionManagerIdentityTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/16/26.
-//
-
 import Testing
+
 @testable import PomoDuo
 
 @Suite("SessionManager Identity")

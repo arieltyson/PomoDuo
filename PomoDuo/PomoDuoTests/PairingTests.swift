@@ -1,12 +1,6 @@
-//
-//  PairingTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @MainActor
@@ -67,7 +61,7 @@ struct PairingViewModelTests {
 
         await viewModel.generateCode()
 
-        if case let .waitingForPartner(code) = viewModel.pairingState {
+        if case .waitingForPartner(let code) = viewModel.pairingState {
             #expect(code.value.count == PairCode.length)
         } else {
             Issue.record("Expected waitingForPartner state")
@@ -85,14 +79,21 @@ struct PairingViewModelTests {
     }
 
     @Test func joinWithValidCodePairsSuccessfully() async {
-        let partner = PartnerProfile(id: "test-id", displayName: "Alice", pairedAt: .now)
-        let service = MockPairingService(simulatedDelay: .milliseconds(50), simulatedPartner: partner)
+        let partner = PartnerProfile(
+            id: "test-id",
+            displayName: "Alice",
+            pairedAt: .now
+        )
+        let service = MockPairingService(
+            simulatedDelay: .milliseconds(50),
+            simulatedPartner: partner
+        )
         let viewModel = PairingViewModel(pairingService: service)
 
         viewModel.codeInput = "ABC234"
         await viewModel.joinWithEnteredCode()
 
-        if case let .paired(result) = viewModel.pairingState {
+        if case .paired(let result) = viewModel.pairingState {
             #expect(result.displayName == "Alice")
         } else {
             Issue.record("Expected paired state")
@@ -109,8 +110,15 @@ struct PairingViewModelTests {
     }
 
     @Test func unpairReturnsToUnpaired() async {
-        let partner = PartnerProfile(id: "test-id", displayName: "Bob", pairedAt: .now)
-        let service = MockPairingService(simulatedDelay: .milliseconds(10), simulatedPartner: partner)
+        let partner = PartnerProfile(
+            id: "test-id",
+            displayName: "Bob",
+            pairedAt: .now
+        )
+        let service = MockPairingService(
+            simulatedDelay: .milliseconds(10),
+            simulatedPartner: partner
+        )
         let viewModel = PairingViewModel(pairingService: service)
 
         viewModel.codeInput = "ABC234"

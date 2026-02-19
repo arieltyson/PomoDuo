@@ -1,12 +1,6 @@
-//
-//  WidgetDataTests.swift
-//  PomoDuoTests
-//
-//  Created by Codex on 2/15/26.
-//
-
 import Foundation
 import Testing
+
 @testable import PomoDuo
 
 @MainActor
@@ -36,7 +30,10 @@ struct FocusWidgetKindTests {
 @MainActor
 struct WidgetDataProviderTests {
     @Test func appGroupIDIsStable() {
-        #expect(WidgetDataProvider.appGroupID == StorageConfiguration.widgetAppGroupID)
+        #expect(
+            WidgetDataProvider.appGroupID
+                == StorageConfiguration.widgetAppGroupID
+        )
     }
 
     @Test func readSnapshotNoCrashesWithoutGroupEntitlement() {
@@ -47,6 +44,10 @@ struct WidgetDataProviderTests {
     }
 
     @Test func updateNoCrashesWithoutGroupEntitlement() {
-        WidgetDataProvider.update(todayMinutes: 40, todaySessionCount: 2, currentStreak: 3)
+        WidgetDataProvider.update(
+            todayMinutes: 40,
+            todaySessionCount: 2,
+            currentStreak: 3
+        )
     }
 }
