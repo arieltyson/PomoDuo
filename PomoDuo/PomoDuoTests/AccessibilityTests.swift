@@ -40,45 +40,78 @@ struct AccessibilityAnnouncerTests {
 }
 
 struct CircularProgressAccessibilityTests {
-    @Test func focusTimerLabel() {
-        let isBreak = false
-        let remainingProgress = 0.75
+    func accessibilityDescription(
+        isBreak: Bool,
+        isPaused: Bool,
+        remainingProgress: Double
+    ) -> String {
         let timerType = isBreak ? "Break timer" : "Focus timer"
+
+        if isPaused {
+            return "\(timerType), paused"
+        }
+
         let percentComplete = Int((1 - remainingProgress) * 100)
-        let label = "\(timerType), \(percentComplete) percent complete"
+        return "\(timerType), \(percentComplete) percent complete"
+    }
+
+    @Test func focusTimerLabel() {
+        let label = accessibilityDescription(
+            isBreak: false,
+            isPaused: false,
+            remainingProgress: 0.75
+        )
         #expect(label == "Focus timer, 25 percent complete")
     }
 
     @Test func breakTimerLabel() {
-        let isBreak = true
-        let remainingProgress = 0.5
-        let timerType = isBreak ? "Break timer" : "Focus timer"
-        let percentComplete = Int((1 - remainingProgress) * 100)
-        let label = "\(timerType), \(percentComplete) percent complete"
+        let label = accessibilityDescription(
+            isBreak: true,
+            isPaused: false,
+            remainingProgress: 0.5
+        )
         #expect(label == "Break timer, 50 percent complete")
     }
 
-    @Test func pausedTimerLabel() {
-        let timerType = "Focus timer"
-        let label = "\(timerType), paused"
+    @Test func pausedFocusTimerLabel() {
+        let label = accessibilityDescription(
+            isBreak: false,
+            isPaused: true,
+            remainingProgress: 0.75
+        )
         #expect(label == "Focus timer, paused")
     }
 
+    @Test func pausedBreakTimerLabel() {
+        let label = accessibilityDescription(
+            isBreak: true,
+            isPaused: true,
+            remainingProgress: 0.5
+        )
+        #expect(label == "Break timer, paused")
+    }
+
     @Test func zeroProgressLabel() {
-        let remainingProgress = 0.0
-        let percentComplete = Int((1 - remainingProgress) * 100)
-        #expect(percentComplete == 100)
+        let label = accessibilityDescription(
+            isBreak: false,
+            isPaused: false,
+            remainingProgress: 0.0
+        )
+        #expect(label == "Focus timer, 100 percent complete")
     }
 
     @Test func fullProgressLabel() {
-        let remainingProgress = 1.0
-        let percentComplete = Int((1 - remainingProgress) * 100)
-        #expect(percentComplete == 0)
+        let label = accessibilityDescription(
+            isBreak: false,
+            isPaused: false,
+            remainingProgress: 1.0
+        )
+        #expect(label == "Focus timer, 0 percent complete")
     }
 }
 
 struct ReducedMotionModifierTests {
-    @Test func modifierInitializesWithAnimations() {
+    @Test @MainActor func modifierInitializesWithAnimations() {
         let standard = Animation.easeInOut(duration: 0.7)
         let reduced = Animation.default.speed(2)
         let modifier = ReducedMotionModifier(

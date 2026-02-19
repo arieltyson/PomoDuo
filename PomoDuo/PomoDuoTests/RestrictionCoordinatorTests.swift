@@ -129,7 +129,13 @@ struct RestrictionCoordinatorTests {
         )
 
         coordinator.enforceFocusRestrictions()
-        try await Task.sleep(for: .milliseconds(60))
+
+        // Poll briefly — the inner Task must hop to the mock actor
+        // (to throw) and back to @MainActor (to set lastError).
+        for _ in 0..<20 {
+            try await Task.sleep(for: .milliseconds(20))
+            if coordinator.lastError != nil { break }
+        }
 
         #expect(await service.applyCallCount == 0)
         #expect(coordinator.isRestricting == false)
