@@ -15,31 +15,30 @@ struct PauseBreathingEffect: ViewModifier {
         content
             .scaleEffect(isActive && isExpanded ? 1.03 : 1)
             .opacity(isActive ? (isExpanded ? 0.72 : 0.9) : 1)
-            .onAppear {
-                refreshAnimationState()
-            }
-            .onChange(of: isActive) { _, _ in
-                refreshAnimationState()
-            }
-            .onChange(of: reduceMotion) { _, _ in
-                refreshAnimationState()
+            .animation(.easeOut(duration: 0.2), value: isActive)
+            .animation(
+                isActive && !reduceMotion
+                    ? .easeInOut(duration: 1.5)
+                        .repeatForever(autoreverses: true)
+                    : .easeOut(duration: 0.2),
+                value: isExpanded
+            )
+            .task(id: AnimationTaskID(isActive: isActive, reduceMotion: reduceMotion)) {
+                guard isActive, !reduceMotion else {
+                    isExpanded = false
+                    return
+                }
+
+                isExpanded = false
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                isExpanded = true
             }
     }
 
-    private func refreshAnimationState() {
-        guard isActive, !reduceMotion else {
-            withAnimation(.easeOut(duration: 0.2)) {
-                isExpanded = false
-            }
-            return
-        }
-
-        withAnimation(
-            .easeInOut(duration: 1.5)
-                .repeatForever(autoreverses: true)
-        ) {
-            isExpanded = true
-        }
+    private struct AnimationTaskID: Equatable {
+        let isActive: Bool
+        let reduceMotion: Bool
     }
 }
 
