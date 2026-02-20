@@ -17,10 +17,12 @@ struct RootView: View {
     @Environment(SessionObserver.self) private var sessionObserver
     @Environment(FCMTokenManager.self) private var fcmTokenManager
     @Environment(HeartbeatManager.self) private var heartbeatManager
+    @Environment(QuickActionManager.self) private var quickActionManager
 
     @State private var selectedTab = AppTab.timer
     @State private var isShowingOnboarding = false
     @State private var launchPhase = LaunchPhase.branded
+    @State private var feedbackCategory: FeedbackCategory?
     private let pairingService: any PairingService
 
     init(pairingService: any PairingService = MockPairingService()) {
@@ -96,6 +98,9 @@ struct RootView: View {
                 heartbeatManager.stopBeating()
             }
         }
+        .task(id: quickActionManager.pendingAction) {
+            presentFeedbackFromQuickActionIfNeeded()
+        }
         .onChange(of: sessionManager.currentSession) { _, session in
             manageHeartbeat(for: session)
         }
@@ -110,6 +115,9 @@ struct RootView: View {
             )
         ) { _ in
             selectedTab = .partner
+        }
+        .sheet(item: $feedbackCategory) { category in
+            FeedbackView(category: category)
         }
     }
 
@@ -136,6 +144,21 @@ struct RootView: View {
                 await sessionManager.completeSession()
             }
         )
+    }
+
+    private func presentFeedbackFromQuickActionIfNeeded() {
+        guard let quickAction = quickActionManager.consumePendingAction() else {
+            return
+        }
+
+        selectedTab = .settings
+
+        switch quickAction {
+        case .reportBug:
+            feedbackCategory = .bug
+        case .suggestFeature:
+            feedbackCategory = .feature
+        }
     }
 }
 

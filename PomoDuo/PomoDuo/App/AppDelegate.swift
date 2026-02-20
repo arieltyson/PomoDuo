@@ -21,6 +21,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         "session_resumed",
     ]
 
+    /// Bridge used to deliver quick actions to SwiftUI views.
+    var quickActionManager: QuickActionManager? {
+        didSet {
+            flushDeferredQuickActionIfNeeded()
+        }
+    }
+
+    /// Quick action captured before the SwiftUI layer has injected
+    /// ``quickActionManager``.
+    private var deferredQuickAction: UIApplicationShortcutItem?
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication
@@ -32,6 +43,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
         Messaging.messaging().delegate = self
         UNUserNotificationCenter.current().delegate = self
+
+        QuickAction.registerAll(in: application)
 
         // APNs registration is required for Firebase to mint an FCM token.
         application.registerForRemoteNotifications()
@@ -53,6 +66,57 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         Self.logger.warning(
             "APNs registration failed: \(error.localizedDescription, privacy: .public)"
         )
+    }
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        if let shortcutItem = options.shortcutItem {
+            _ = routeQuickAction(shortcutItem)
+        }
+
+        return UISceneConfiguration(
+            name: nil,
+            sessionRole: connectingSceneSession.role
+        )
+    }
+
+    func application(
+        _ application: UIApplication,
+        performActionFor shortcutItem: UIApplicationShortcutItem,
+        completionHandler: @escaping (Bool) -> Void
+    ) {
+        completionHandler(routeQuickAction(shortcutItem))
+    }
+
+    @discardableResult
+    private func routeQuickAction(
+        _ shortcutItem: UIApplicationShortcutItem
+    ) -> Bool {
+        guard QuickAction(shortcutItem: shortcutItem) != nil else {
+            return false
+        }
+
+        guard let quickActionManager else {
+            deferredQuickAction = shortcutItem
+            return true
+        }
+
+        return quickActionManager.handle(shortcutItem)
+    }
+
+    private func flushDeferredQuickActionIfNeeded() {
+        guard
+            let quickActionManager,
+            let deferredQuickAction
+        else {
+            return
+        }
+
+        self.deferredQuickAction = nil
+        _ = quickActionManager.handle(deferredQuickAction)
     }
 }
 

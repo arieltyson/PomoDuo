@@ -14,6 +14,7 @@ struct PomoDuoApp: App {
     @State private var connectionMonitor = ConnectionMonitor()
     @State private var notificationManager = NotificationManager()
     @State private var liveActivityManager = LiveActivityManager()
+    @State private var quickActionManager = QuickActionManager()
     @State private var focusIntentState = FocusIntentState.shared
     @State private var screenTimeManager: ScreenTimeManager
     @State private var restrictionCoordinator: RestrictionCoordinator
@@ -94,6 +95,7 @@ struct PomoDuoApp: App {
                 .environment(connectionMonitor)
                 .environment(notificationManager)
                 .environment(liveActivityManager)
+                .environment(quickActionManager)
                 .environment(focusIntentState)
                 .environment(screenTimeManager)
                 .environment(restrictionCoordinator)
@@ -104,6 +106,7 @@ struct PomoDuoApp: App {
                 .environment(appearanceManager)
                 .preferredColorScheme(appearanceManager.preferredColorScheme)
                 .task {
+                    appDelegate.quickActionManager = quickActionManager
                     await authManager.start()
                     await notificationManager.refreshAuthorizationStatus()
                     screenTimeManager.refreshAuthorizationStatus()

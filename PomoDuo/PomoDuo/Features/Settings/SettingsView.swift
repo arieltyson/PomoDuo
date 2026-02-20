@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(AppearanceManager.self) private var appearanceManager
     @Environment(NotificationManager.self) private var notificationManager
+    @State private var feedbackCategory: FeedbackCategory?
 
     var body: some View {
         @Bindable var bindableAppearanceManager = appearanceManager
@@ -77,6 +78,19 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            Section("Feedback") {
+                Button("Report a Bug", systemImage: "ladybug") {
+                    feedbackCategory = .bug
+                }
+
+                Button("Suggest a Feature", systemImage: "lightbulb") {
+                    feedbackCategory = .feature
+                }
+            }
+        }
+        .sheet(item: $feedbackCategory) { category in
+            FeedbackView(category: category)
         }
         .alert("Account Error", isPresented: authErrorIsPresented) {
             Button("OK") {
