@@ -4,6 +4,9 @@ import Observation
 ///
 /// The timer calls this coordinator on focus/break/stop transitions
 /// so view code stays synchronous and does not need `try await` plumbing.
+///
+/// All operations are serialized through `pendingTask` to prevent
+/// race conditions when start/stop happen in quick succession.
 @MainActor
 @Observable
 final class RestrictionCoordinator {
@@ -15,6 +18,10 @@ final class RestrictionCoordinator {
 
     private let restrictionService: any RestrictionService
     private let canRestrictEvaluator: @MainActor () -> Bool
+
+    /// Serializes apply/remove calls so a late-arriving apply
+    /// can never overwrite an earlier remove.
+    private var pendingTask: Task<Void, Never>?
 
     init(
         screenTimeManager: ScreenTimeManager,
@@ -44,14 +51,9 @@ final class RestrictionCoordinator {
     func enforceFocusRestrictions() {
         guard !isRestricting, canRestrict else { return }
 
-        Task { @MainActor in
-            do {
-                try await restrictionService.applyRestrictions()
-                isRestricting = true
-                lastError = nil
-            } catch {
-                lastError = error
-            }
+        enqueue { [restrictionService] in
+            try await restrictionService.applyRestrictions()
+            return true
         }
     }
 
@@ -59,28 +61,41 @@ final class RestrictionCoordinator {
     func liftRestrictions() {
         guard isRestricting else { return }
 
-        Task { @MainActor in
-            do {
-                try await restrictionService.removeRestrictions()
-                isRestricting = false
-                lastError = nil
-            } catch {
-                lastError = error
-            }
+        enqueue { [restrictionService] in
+            try await restrictionService.removeRestrictions()
+            return false
         }
     }
 
     /// Safety-net removal used when the user explicitly stops the timer.
     func forceRemoveRestrictions() {
-        Task { @MainActor in
+        enqueue { [restrictionService] in
+            try await restrictionService.removeRestrictions()
+            return false
+        }
+    }
+
+    // MARK: - Private
+
+    /// Cancels any in-flight operation, then runs the new one.
+    /// The closure returns the desired `isRestricting` value on success.
+    private func enqueue(
+        operation: @escaping @Sendable () async throws -> Bool
+    ) {
+        pendingTask?.cancel()
+
+        pendingTask = Task { @MainActor in
             do {
-                try await restrictionService.removeRestrictions()
+                let restricting = try await operation()
+                guard !Task.isCancelled else { return }
+                isRestricting = restricting
                 lastError = nil
+            } catch is CancellationError {
+                // Operation was superseded — ignore.
             } catch {
+                guard !Task.isCancelled else { return }
                 lastError = error
             }
-
-            isRestricting = false
         }
     }
 }
