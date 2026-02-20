@@ -97,6 +97,9 @@ struct PomoDuoApp: App {
                 .environment(focusIntentState)
                 .environment(screenTimeManager)
                 .environment(restrictionCoordinator)
+                .onChange(of: screenTimeManager.activitySelection) { _, _ in
+                    restrictionCoordinator.refreshRestrictions()
+                }
                 .environment(onboardingManager)
                 .environment(appearanceManager)
                 .preferredColorScheme(appearanceManager.preferredColorScheme)

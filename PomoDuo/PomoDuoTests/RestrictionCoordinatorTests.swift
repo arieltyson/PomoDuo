@@ -134,6 +134,42 @@ struct RestrictionCoordinatorTests {
         #expect(coordinator.isRestricting == false)
     }
 
+    @Test func refreshNoOpsWhenNotRestricting() async throws {
+        let manager = ScreenTimeManager()
+        let service = MockRestrictionService()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            canRestrictEvaluator: { true }
+        )
+
+        coordinator.refreshRestrictions()
+        try await Task.sleep(for: .milliseconds(60))
+
+        #expect(await service.applyCallCount == 0)
+        #expect(coordinator.isRestricting == false)
+    }
+
+    @Test func refreshReappliesRestrictionsWhenActive() async throws {
+        let manager = ScreenTimeManager()
+        let service = MockRestrictionService()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            canRestrictEvaluator: { true }
+        )
+
+        coordinator.enforceFocusRestrictions()
+        try await waitUntil { coordinator.isRestricting }
+
+        coordinator.refreshRestrictions()
+        try await waitUntil { await service.applyCallCount == 2 }
+
+        #expect(await service.applyCallCount == 2)
+        #expect(coordinator.isRestricting)
+        #expect(coordinator.lastError == nil)
+    }
+
     @Test func applyFailureSetsLastError() async throws {
         let manager = ScreenTimeManager()
         let service = MockRestrictionService()

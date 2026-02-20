@@ -75,6 +75,19 @@ final class RestrictionCoordinator {
         }
     }
 
+    /// Re-applies the latest app/category selection while restrictions are active.
+    ///
+    /// Use this after `ScreenTimeManager.activitySelection` changes mid-session.
+    /// No-op when restrictions are not currently active.
+    func refreshRestrictions() {
+        guard isRestricting else { return }
+
+        enqueue { [restrictionService] in
+            try await restrictionService.applyRestrictions()
+            return true
+        }
+    }
+
     // MARK: - Private
 
     /// Cancels any in-flight operation, then runs the new one.
