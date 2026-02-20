@@ -62,13 +62,18 @@ struct PomoDuoLiveActivity: Widget {
 
 /// Compact color system for the widget extension.
 ///
-/// Mirror's the main app's ``AppColors`` without importing the app target.
+/// Mirrors the main app's ``AppColors`` without importing the app target.
+/// Includes high-contrast vivid variants for Lock Screen liquid glass.
 private enum Palette {
     static let focusTint = Color(red: 0.56, green: 0.44, blue: 0.86)
     static let focusLight = Color(red: 0.73, green: 0.60, blue: 0.93)
     static let breakTint = Color(red: 0.55, green: 0.78, blue: 0.78)
     static let pauseTint = Color.orange
     static let success = Color(red: 0.45, green: 0.73, blue: 0.54)
+
+    /// High-contrast tint for Lock Screen elements.
+    static let focusVivid = Color(red: 0.70, green: 0.55, blue: 1.0)
+    static let breakVivid = Color(red: 0.60, green: 0.88, blue: 0.88)
 
     static func phaseTint(
         for phase: TimerActivityAttributes.Phase,
@@ -78,31 +83,13 @@ private enum Palette {
         return phase.isBreak ? breakTint : focusTint
     }
 
-    static func phaseGradient(
+    /// High-contrast variant for Lock Screen accents.
+    static func phaseVivid(
         for phase: TimerActivityAttributes.Phase,
         isPaused: Bool
-    ) -> LinearGradient {
-        if isPaused {
-            return LinearGradient(
-                colors: [.orange, .orange.opacity(0.7)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-
-        if phase.isBreak {
-            return LinearGradient(
-                colors: [breakTint, breakTint.opacity(0.7)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-
-        return LinearGradient(
-            colors: [focusTint, focusLight],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+    ) -> Color {
+        if isPaused { return pauseTint }
+        return phase.isBreak ? breakVivid : focusVivid
     }
 }
 
@@ -143,9 +130,6 @@ private struct CompactLeadingView: View {
 }
 
 /// Trailing side: countdown timer that fits the narrow slot.
-///
-/// Key fix: `.font(.caption2)` + `.minimumScaleFactor(0.6)` + frame
-/// constraint prevents truncation ("23..." → "23:45").
 private struct CompactTrailingView: View {
     let state: TimerActivityAttributes.ContentState
 
@@ -175,7 +159,6 @@ private struct CompactTrailingView: View {
 /// Shown when multiple Live Activities are active.
 ///
 /// HIG: display live, dynamic content — not a static logo.
-/// A tiny circular progress arc conveys session progress at a glance.
 private struct MinimalView: View {
     let state: TimerActivityAttributes.ContentState
 
@@ -260,9 +243,6 @@ private struct ExpandedCenterView: View {
 }
 
 /// Bottom region: round progress dots + round counter.
-///
-/// Gives users a clear sense of overall session progress,
-/// which is a key HIG principle for Live Activities.
 private struct ExpandedBottomView: View {
     let state: TimerActivityAttributes.ContentState
     let totalRounds: Int
@@ -289,8 +269,7 @@ private struct ExpandedBottomView: View {
     }
 }
 
-/// Dot indicators in the expanded view showing completed, current,
-/// and remaining rounds with phase-appropriate coloring.
+/// Dot indicators in the expanded Dynamic Island view.
 private struct ExpandedRoundDots: View {
     let currentRound: Int
     let totalRounds: Int
@@ -326,168 +305,118 @@ private struct ExpandedRoundDots: View {
 
 /// Lock Screen presentation — the most information-dense surface.
 ///
-/// HIG: "Use a standard margin to visually align the content of your
-/// Lock Screen Live Activity with other elements on the Lock Screen."
+/// The countdown `Text` uses `.frame(maxWidth: .infinity, alignment: .trailing)`
+/// to claim remaining space and right-align, avoiding `Spacer()` which
+/// does not reliably expand in Live Activity Lock Screen contexts.
 ///
-/// Design approach: leading icon + phase/round info on the left,
-/// countdown on the right, with a thin progress bar along the bottom
-/// edge for a visual sense of time remaining.
+/// Layout: `[icon] [phase / round] ———[countdown]`
+///         `[====  round bar segments  ====]`
 private struct LockScreenBanner: View {
     let state: TimerActivityAttributes.ContentState
     let totalRounds: Int
 
+    private var accentColor: Color {
+        Palette.phaseVivid(for: state.phase, isPaused: state.isPaused)
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                LockScreenPhaseInfo(state: state, totalRounds: totalRounds)
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Image(
+                    systemName: state.isPaused
+                        ? "pause.fill"
+                        : state.phase.systemImage
+                )
+                .font(.title3)
+                .foregroundStyle(accentColor)
+                .frame(width: 36, height: 36)
+                .background(accentColor.opacity(0.25), in: .circle)
+                .accessibilityHidden(true)
 
-                Spacer()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(state.isPaused ? "Paused" : state.phase.label)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
 
-                LockScreenCountdown(state: state)
+                    Text("Round \(state.currentRound) of \(totalRounds)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if state.isPaused {
+                    Text("Paused")
+                        .font(.title2)
+                        .bold()
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityLabel("Timer paused")
+                } else {
+                    Text(
+                        timerInterval: Date.now...state.targetEndDate,
+                        countsDown: true
+                    )
+                    .font(.system(.title, design: .rounded))
+                    .bold()
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                    .contentTransition(.numericText())
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .accessibilityLabel("Time remaining")
+                }
             }
-            .padding()
 
-            LockScreenProgressBar(state: state)
+            LockScreenRoundBar(
+                currentRound: state.currentRound,
+                totalRounds: totalRounds,
+                phase: state.phase,
+                isPaused: state.isPaused
+            )
         }
+        .padding()
         .activityBackgroundTint(backgroundTint)
         .accessibilityElement(children: .combine)
     }
 
     private var backgroundTint: Color {
         if state.isPaused {
-            return .orange.opacity(0.12)
+            return .orange.opacity(0.15)
         }
         return state.phase.isBreak
-            ? Palette.breakTint.opacity(0.12)
-            : Palette.focusTint.opacity(0.12)
+            ? Palette.breakTint.opacity(0.15)
+            : Palette.focusTint.opacity(0.15)
     }
 }
 
-/// Left side of the Lock Screen banner: icon + phase + round.
-private struct LockScreenPhaseInfo: View {
-    let state: TimerActivityAttributes.ContentState
+/// Full-width segmented round progress bar.
+///
+/// Each round is a capsule — completed rounds are filled with the
+/// vivid phase tint, current round is partially opaque, remaining
+/// rounds use a dim primary fill. Visible on any wallpaper.
+private struct LockScreenRoundBar: View {
+    let currentRound: Int
     let totalRounds: Int
+    let phase: TimerActivityAttributes.Phase
+    let isPaused: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
-            LockScreenPhaseIcon(state: state)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(state.isPaused ? "Paused" : state.phase.label)
-                    .font(.headline)
-                    .bold()
-
-                Text("Round \(state.currentRound) of \(totalRounds)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        HStack(spacing: 4) {
+            ForEach(1...max(1, totalRounds), id: \.self) { round in
+                Capsule()
+                    .fill(segmentFill(for: round))
+                    .frame(height: 5)
             }
         }
-    }
-}
-
-/// Circular icon with subtle tinted background for the Lock Screen.
-private struct LockScreenPhaseIcon: View {
-    let state: TimerActivityAttributes.ContentState
-
-    var body: some View {
-        Image(systemName: iconName)
-            .font(.title3)
-            .foregroundStyle(tint)
-            .accessibilityHidden(true)
+        .accessibilityHidden(true)
     }
 
-    private var iconName: String {
-        if state.isPaused { return "pause.circle.fill" }
-        return state.phase.systemImage
-    }
-
-    private var tint: Color {
-        Palette.phaseTint(for: state.phase, isPaused: state.isPaused)
-    }
-}
-
-/// Right side of the Lock Screen banner: large countdown or pause state.
-private struct LockScreenCountdown: View {
-    let state: TimerActivityAttributes.ContentState
-
-    var body: some View {
-        if state.isPaused {
-            Image(systemName: "pause.fill")
-                .font(.title3)
-                .foregroundStyle(.orange)
-                .accessibilityLabel("Timer paused")
+    private func segmentFill(for round: Int) -> some ShapeStyle {
+        let vivid = Palette.phaseVivid(for: phase, isPaused: isPaused)
+        if round < currentRound {
+            return AnyShapeStyle(vivid)
+        } else if round == currentRound {
+            return AnyShapeStyle(vivid.opacity(0.6))
         } else {
-            Text(
-                timerInterval: Date.now...state.targetEndDate,
-                countsDown: true
-            )
-            .font(.title3)
-            .bold()
-            .monospacedDigit()
-            .foregroundStyle(
-                Palette.phaseTint(
-                    for: state.phase,
-                    isPaused: false
-                )
-            )
-            .contentTransition(.numericText())
-            .accessibilityLabel("Time remaining")
-        }
-    }
-}
-
-/// Thin progress accent bar along the bottom of the Lock Screen banner.
-///
-/// Provides an ambient sense of time elapsed, similar to how Apple's
-/// native Timer app shows progress. Animates with `.easeInOut` for
-/// smooth state-to-state transitions.
-private struct LockScreenProgressBar: View {
-    let state: TimerActivityAttributes.ContentState
-
-    var body: some View {
-        GeometryReader { proxy in
-            Capsule()
-                .fill(barGradient)
-                .frame(width: barWidth(in: proxy.size.width), height: 3)
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-        }
-        .frame(height: 3)
-    }
-
-    private var barGradient: LinearGradient {
-        Palette.phaseGradient(
-            for: state.phase,
-            isPaused: state.isPaused
-        )
-    }
-
-    /// Estimates progress from time remaining vs. phase duration.
-    ///
-    /// Because Live Activities can't store the original start time,
-    /// we use the standard Pomodoro durations as reasonable defaults.
-    private func barWidth(in totalWidth: CGFloat) -> CGFloat {
-        guard !state.isPaused else {
-            // Show a short accent when paused.
-            return totalWidth * 0.15
-        }
-
-        let remaining = state.targetEndDate.timeIntervalSinceNow
-        let estimated = estimatedDuration(for: state.phase)
-        let progress = max(0, min(1, 1.0 - remaining / estimated))
-
-        return max(totalWidth * 0.04, totalWidth * progress)
-    }
-
-    private func estimatedDuration(
-        for phase: TimerActivityAttributes.Phase
-    ) -> TimeInterval {
-        switch phase {
-        case .focus: return 25 * 60
-        case .shortBreak: return 5 * 60
-        case .longBreak: return 15 * 60
+            return AnyShapeStyle(.primary.opacity(0.15))
         }
     }
 }
