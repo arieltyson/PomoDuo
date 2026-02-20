@@ -74,6 +74,11 @@ private struct UnauthorizedAppBlockingContent: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
+                Image(systemName: "lock.shield.fill")
+                    .font(.caption)
+                    .foregroundStyle(AppColors.lavender.opacity(0.6))
+                    .padding(.top, 12)
+
                 Button {
                     Task {
                         await screenTimeManager.requestAuthorization()
@@ -83,13 +88,12 @@ private struct UnauthorizedAppBlockingContent: View {
                         ProgressView()
                             .controlSize(.regular)
                     } else {
-                        Label("Enable App Blocking", systemImage: "lock.shield")
+                        Text("Enable App Blocking")
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AppColors.lavender)
                 .controlSize(.large)
-                .padding(.top, 8)
                 .accessibilityHint(
                     "Requests Screen Time authorization for app blocking."
                 )

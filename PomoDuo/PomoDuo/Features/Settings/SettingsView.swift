@@ -128,14 +128,19 @@ private struct AccountSection: View {
                         await authManager.signInWithApple()
                     }
                 }
-                .listRowInsets(EdgeInsets(
-                    top: 12,
-                    leading: 16,
-                    bottom: 12,
-                    trailing: 16
-                ))
+                .listRowInsets(
+                    EdgeInsets(
+                        top: 12,
+                        leading: 16,
+                        bottom: 12,
+                        trailing: 16
+                    )
+                )
 
-                Button("Continue as Guest", systemImage: "person.crop.circle.dashed") {
+                Button(
+                    "Continue as Guest",
+                    systemImage: "person.crop.circle.dashed"
+                ) {
                     Task {
                         await authManager.signInAnonymously()
                     }
@@ -163,11 +168,11 @@ private struct SignedInAccountRow: View {
     var body: some View {
         HStack {
             Image(systemName: accountSymbol)
-            .font(.title2)
-            .foregroundStyle(
-                user.isAnonymous ? .secondary : AppColors.lavender
-            )
-            .accessibilityHidden(true)
+                .font(.title2)
+                .foregroundStyle(
+                    user.isAnonymous ? .secondary : AppColors.lavender
+                )
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading) {
                 Text(user.displayName)
@@ -250,6 +255,11 @@ private struct AppBlockingStatusBadge: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("App blocking authorized, no apps selected")
+        } else {
+            Text("Off")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("App blocking not enabled")
         }
     }
 }
