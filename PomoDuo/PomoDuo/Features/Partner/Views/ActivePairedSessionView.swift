@@ -82,6 +82,12 @@ struct ActivePairedSessionView: View {
                 Text(sessionError)
             }
         }
+        .onAppear {
+            updateIdleTimer(isDisabled: sessionKeepsScreenAwake)
+        }
+        .onChange(of: sessionKeepsScreenAwake) { _, shouldKeepScreenAwake in
+            updateIdleTimer(isDisabled: shouldKeepScreenAwake)
+        }
         .onChange(of: session.state) { oldState, newState in
             handleStateTransition(from: oldState, to: newState)
         }
@@ -91,6 +97,9 @@ struct ActivePairedSessionView: View {
         .task {
             ShieldSessionContext.writePartnerName(partner.displayName)
             configureForInitialState()
+        }
+        .onDisappear {
+            updateIdleTimer(isDisabled: false)
         }
     }
 
@@ -103,6 +112,19 @@ struct ActivePairedSessionView: View {
                 }
             }
         )
+    }
+
+    private var sessionKeepsScreenAwake: Bool {
+        switch session.state {
+        case .focus, .shortBreak, .longBreak:
+            true
+        case .idle, .requesting, .completed:
+            false
+        }
+    }
+
+    private func updateIdleTimer(isDisabled: Bool) {
+        UIApplication.shared.isIdleTimerDisabled = isDisabled
     }
 
     // MARK: - State Transitions

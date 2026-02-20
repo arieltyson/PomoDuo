@@ -53,6 +53,12 @@ struct TimerView: View {
             }
         }
         .sensoryFeedback(haptic.feedback, trigger: haptic)
+        .onAppear {
+            updateIdleTimer(isDisabled: viewModel.isRunning)
+        }
+        .onChange(of: viewModel.isRunning) { _, isRunning in
+            updateIdleTimer(isDisabled: isRunning)
+        }
         .onChange(of: viewModel.isComplete) { wasComplete, isNowComplete in
             if !wasComplete && isNowComplete {
                 haptic.fire(.complete)
@@ -72,6 +78,13 @@ struct TimerView: View {
         .task(id: configurations.count) {
             await ensureConfigurationLoaded()
         }
+        .onDisappear {
+            updateIdleTimer(isDisabled: false)
+        }
+    }
+
+    private func updateIdleTimer(isDisabled: Bool) {
+        UIApplication.shared.isIdleTimerDisabled = isDisabled
     }
 
     private func consumePendingFocusRequest() {
