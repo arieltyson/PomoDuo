@@ -4,7 +4,9 @@
 <dict>
 	<key>com.apple.developer.family-controls</key>
 	<true/>
-	<key>com.apple.security.application-groups</key>
-	<array/>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.arieljtyson.pomoduo</string>
+    </array>
 </dict>
 </plist>
