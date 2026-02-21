@@ -129,7 +129,7 @@ final class ScreenTimeManager {
 
         if nsError.domain.localizedStandardContains("familycontrols") {
             return
-                "Could not enable app blocking. Confirm the Family Controls capability is enabled for the app target."
+                "Could not enable app blocking on this device right now. Please try again."
         }
 
         return "Could not enable app blocking: \(error.localizedDescription)"

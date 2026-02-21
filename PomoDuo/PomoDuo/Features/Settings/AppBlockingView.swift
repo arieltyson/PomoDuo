@@ -102,20 +102,6 @@ private struct UnauthorizedAppBlockingContent: View {
             .padding(.vertical, 8)
         }
 
-        Section("Setup Required") {
-            HStack(alignment: .top) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .accessibilityHidden(true)
-
-                Text(
-                    "If authorization does not appear, enable the Family Controls capability in Xcode Signing & Capabilities."
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .combine)
-        }
     }
 }
 
