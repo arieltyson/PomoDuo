@@ -19,41 +19,17 @@
     {
       "layers" : [
         {
-          "fill-specializations" : [
+          "glass-specializations" : [
+            {
+              "value" : true
+            },
             {
               "appearance" : "dark",
-              "value" : "none"
+              "value" : true
             }
           ],
-          "image-name" : "timers.svg",
-          "name" : "timers",
-          "opacity-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : 0.95
-            }
-          ],
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              3.4921875,
-              82.578125
-            ]
-          }
-        },
-        {
-          "blend-mode" : "darken",
-          "glass" : true,
-          "hidden" : false,
-          "image-name" : "book.svg",
-          "name" : "book",
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              0.2421875,
-              -15.8671875
-            ]
-          }
+          "image-name" : "pomoduo-foreground.png",
+          "name" : "pomoduo-foreground"
         }
       ],
       "shadow" : {
@@ -67,7 +43,10 @@
     },
     {
       "layers" : [
-
+        {
+          "image-name" : "pomoduo-background.png",
+          "name" : "pomoduo-background"
+        }
       ],
       "shadow" : {
         "kind" : "neutral",
