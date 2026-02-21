@@ -1,15 +1,25 @@
 import ActivityKit
 import Foundation
 import Observation
+import OSLog
 
 /// Owns the lifecycle of the timer Live Activity.
 @MainActor
 @Observable
 final class LiveActivityManager {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.arieljtyson.PomoDuo",
+        category: "LiveActivityManager"
+    )
+
     /// Whether a timer Live Activity is currently active.
     private(set) var isActivityActive = false
 
     private var currentActivity: Activity<TimerActivityAttributes>?
+
+    init() {
+        endAllOrphanedActivities()
+    }
 
     /// Starts a new timer Live Activity.
     /// Any previous activity is ended immediately first.
@@ -19,7 +29,7 @@ final class LiveActivityManager {
         totalRounds: Int,
         targetEndDate: Date
     ) {
-        endImmediately()
+        endAllActivities()
 
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             isActivityActive = false
@@ -43,6 +53,9 @@ final class LiveActivityManager {
             currentActivity = activity
             isActivityActive = true
         } catch {
+            Self.logger.warning(
+                "Failed to start Live Activity: \(String(describing: error), privacy: .public)"
+            )
             currentActivity = nil
             isActivityActive = false
         }
@@ -74,19 +87,66 @@ final class LiveActivityManager {
 
     /// Ends the active timer Live Activity immediately.
     func end() {
-        endImmediately()
+        endAllActivities()
     }
 
-    private func endImmediately() {
-        guard let activity = currentActivity else {
-            return
-        }
-
+    private func endAllActivities() {
+        let trackedActivity = currentActivity
+        let activityIDsToEnd = Set(
+            Activity<TimerActivityAttributes>.activities.map(\.id)
+        )
         currentActivity = nil
         isActivityActive = false
 
         Task {
-            await activity.end(nil, dismissalPolicy: .immediate)
+            if let trackedActivity {
+                let finalContent = finalContent(for: trackedActivity.content.state)
+                await trackedActivity.end(
+                    finalContent,
+                    dismissalPolicy: .immediate
+                )
+            }
+
+            // End only activities known to exist at call time to avoid
+            // racing with a newly started activity.
+            for activity in Activity<TimerActivityAttributes>.activities where
+                activityIDsToEnd.contains(activity.id) && activity.id != trackedActivity?.id
+            {
+                let finalContent = finalContent(for: activity.content.state)
+                await activity.end(finalContent, dismissalPolicy: .immediate)
+            }
         }
+    }
+
+    private func endAllOrphanedActivities() {
+        let orphanedActivityIDs = Set(
+            Activity<TimerActivityAttributes>.activities.map(\.id)
+        )
+        guard !orphanedActivityIDs.isEmpty else { return }
+
+        Self.logger.notice(
+            "Cleaning up \(orphanedActivityIDs.count, privacy: .public) orphaned Live Activities."
+        )
+
+        Task {
+            for activity in Activity<TimerActivityAttributes>.activities where
+                orphanedActivityIDs.contains(activity.id)
+            {
+                let finalContent = finalContent(for: activity.content.state)
+                await activity.end(finalContent, dismissalPolicy: .immediate)
+            }
+        }
+    }
+
+    private func finalContent(
+        for state: TimerActivityAttributes.ContentState
+    ) -> ActivityContent<TimerActivityAttributes.ContentState> {
+        let finalState = TimerActivityAttributes.ContentState(
+            phase: state.phase,
+            currentRound: state.currentRound,
+            targetEndDate: .now,
+            isPaused: state.isPaused
+        )
+        return ActivityContent(state: finalState, staleDate: .now)
     }
 }

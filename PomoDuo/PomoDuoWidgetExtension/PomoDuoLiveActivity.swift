@@ -93,6 +93,19 @@ private enum Palette {
     }
 }
 
+// MARK: - Timer Interval
+
+/// Ensures `Text(timerInterval:)` always receives a valid range.
+///
+/// If a Live Activity lingers briefly after the countdown expired, the raw
+/// range can become `Date.now...pastDate`, which is invalid.
+private func safeTimerInterval(
+    until targetEndDate: Date
+) -> ClosedRange<Date> {
+    let now = Date.now
+    return now...max(now, targetEndDate)
+}
+
 // MARK: - Dynamic Island — Compact
 
 /// Leading side: phase icon tinted to current state.
@@ -141,13 +154,12 @@ private struct CompactTrailingView: View {
                 .accessibilityLabel("Paused")
         } else {
             Text(
-                timerInterval: Date.now...state.targetEndDate,
+                timerInterval: safeTimerInterval(until: state.targetEndDate),
                 countsDown: true
             )
             .font(.caption2)
             .monospacedDigit()
             .minimumScaleFactor(0.6)
-            .frame(minWidth: 0, maxWidth: .infinity, alignment: .trailing)
             .foregroundStyle(.white)
             .accessibilityLabel("Time remaining")
         }
@@ -170,7 +182,7 @@ private struct MinimalView: View {
                 .accessibilityLabel("Focus session paused")
         } else {
             Text(
-                timerInterval: Date.now...state.targetEndDate,
+                timerInterval: safeTimerInterval(until: state.targetEndDate),
                 countsDown: true
             )
             .font(.caption2)
@@ -216,7 +228,7 @@ private struct ExpandedTrailingView: View {
                 .foregroundStyle(.orange)
         } else {
             Text(
-                timerInterval: Date.now...state.targetEndDate,
+                timerInterval: safeTimerInterval(until: state.targetEndDate),
                 countsDown: true
             )
             .font(.title3)
@@ -352,7 +364,9 @@ private struct LockScreenBanner: View {
                         .accessibilityLabel("Timer paused")
                 } else {
                     Text(
-                        timerInterval: Date.now...state.targetEndDate,
+                        timerInterval: safeTimerInterval(
+                            until: state.targetEndDate
+                        ),
                         countsDown: true
                     )
                     .font(.system(.title, design: .rounded))
