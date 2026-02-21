@@ -1,4 +1,5 @@
 import FamilyControls
+import StoreKit
 import SwiftUI
 
 /// Root view for the Settings tab.
@@ -7,7 +8,10 @@ struct SettingsView: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(AppearanceManager.self) private var appearanceManager
     @Environment(NotificationManager.self) private var notificationManager
+    @Environment(\.openURL) private var openURL
+    @Environment(\.requestReview) private var requestReview
     @State private var feedbackCategory: FeedbackCategory?
+    @State private var reviewViewModel = SettingsReviewViewModel()
 
     var body: some View {
         @Bindable var bindableAppearanceManager = appearanceManager
@@ -80,6 +84,14 @@ struct SettingsView: View {
             }
 
             Section("Feedback") {
+                Button("Rate PomoDuo", systemImage: "star.fill") {
+                    ratePomoDuo()
+                }
+                .tint(AppColors.lavender)
+                .accessibilityHint(
+                    "Opens the App Store review page when configured, otherwise uses the in-app review prompt."
+                )
+
                 Button("Report a Bug", systemImage: "ladybug") {
                     feedbackCategory = .bug
                 }
@@ -102,6 +114,19 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+    }
+
+    private func ratePomoDuo() {
+        if let appStoreReviewURL = reviewViewModel.appStoreReviewURL {
+            openURL(appStoreReviewURL) { accepted in
+                if !accepted {
+                    requestReview()
+                }
+            }
+            return
+        }
+
+        requestReview()
     }
 
     private var authErrorIsPresented: Binding<Bool> {
