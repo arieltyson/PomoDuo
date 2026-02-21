@@ -5,7 +5,7 @@
 ## App Store  : Coming Soon
 
 <kbd>
-    <img src="https://github.com/user-attachments/assets/9eb2b333-4a0f-4067-964b-53966b08b1b5" alt="PomoDuo Hero" width="800" height="500">
+    <img src="https://github.com/user-attachments/assets/e94e341a-ea7d-402f-89f1-60b77ba6abe1" width="800" height="500">
 </kbd>
 
 ## Project Description 🎨
@@ -38,11 +38,6 @@ The app combines Apple's Screen Time API stack (`FamilyControls`, `ManagedSettin
 - **App Store hardening** includes rigorous edge-case handling and performance optimization, ensuring a stable, production-ready experience.
 
 </div>
-
-
-## Demo:
-
-Coming soon
 
 ## Screenshots:
 
@@ -79,17 +74,20 @@ This project leverages modern Swift, SwiftUI, and Apple platform APIs for a nati
 - [x] Observation framework
 - [x] Swift Concurrency (`async/await`, actors)
 - [x] Swift Testing + XCTest UI Testing
-- [ ] FamilyControls
-- [ ] ManagedSettings
-- [ ] DeviceActivity
-- [ ] ActivityKit + WidgetKit (Live Activities)
-- [ ] FirebaseAuth
-- [ ] Firestore
-- [ ] FirebaseMessaging (FCM)
-- [ ] SwiftData
-- [ ] UserNotifications
-- [ ] AppIntents + Shortcuts
-- [ ] Charts
+- [x] FamilyControls
+- [x] ManagedSettings
+- [x] DeviceActivity
+- [x] ActivityKit + WidgetKit (Live Activities)
+- [x] FirebaseAuth
+- [x] Firestore
+- [x] FirebaseMessaging (FCM)
+- [x] SwiftData
+- [x] UserNotifications
+- [x] AppIntents + Shortcuts
+- [x] Charts
+- [x] AuthenticationServices (Sign in with Apple)
+- [x] StoreKit (App Rating)
+- [x] OSLog (Structured Logging)
 
 ## Skills Demonstrated 🥋
 
