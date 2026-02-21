@@ -21,20 +21,18 @@ struct PomoDuoLiveActivity: Widget {
             )
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
+                DynamicIslandExpandedRegion(.leading, priority: 1) {
                     ExpandedLeadingView(state: context.state)
+                        .dynamicIsland(verticalPlacement: .belowIfTooWide)
                 }
 
-                DynamicIslandExpandedRegion(.trailing) {
+                DynamicIslandExpandedRegion(.trailing, priority: 2) {
                     ExpandedTrailingView(state: context.state)
+                        .dynamicIsland(verticalPlacement: .belowIfTooWide)
                 }
 
                 DynamicIslandExpandedRegion(.center) {
-                    ExpandedCenterView(state: context.state)
-                }
-
-                DynamicIslandExpandedRegion(.bottom) {
-                    ExpandedBottomView(
+                    ExpandedCenterView(
                         state: context.state,
                         totalRounds: context.attributes.totalRounds
                     )
@@ -244,72 +242,28 @@ private struct ExpandedTrailingView: View {
 /// Center region: phase label.
 private struct ExpandedCenterView: View {
     let state: TimerActivityAttributes.ContentState
-
-    var body: some View {
-        Text(state.isPaused ? "Paused" : state.phase.label)
-            .font(.headline)
-            .bold()
-            .foregroundStyle(.white)
-            .accessibilityAddTraits(.isHeader)
-    }
-}
-
-/// Bottom region: round progress dots + round counter.
-private struct ExpandedBottomView: View {
-    let state: TimerActivityAttributes.ContentState
     let totalRounds: Int
 
     var body: some View {
-        HStack {
-            ExpandedRoundDots(
-                currentRound: state.currentRound,
-                totalRounds: totalRounds,
-                phase: state.phase,
-                isPaused: state.isPaused
-            )
-
-            Spacer()
+        VStack(spacing: 2) {
+            Text(state.isPaused ? "Paused" : state.phase.label)
+                .font(.headline)
+                .bold()
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
 
             Text("Round \(state.currentRound) of \(totalRounds)")
                 .font(.caption2)
-                .foregroundStyle(.white.opacity(0.72))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .lineLimit(1)
         }
+        .multilineTextAlignment(.center)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             "Round \(state.currentRound) of \(totalRounds)"
         )
-    }
-}
-
-/// Dot indicators in the expanded Dynamic Island view.
-private struct ExpandedRoundDots: View {
-    let currentRound: Int
-    let totalRounds: Int
-    let phase: TimerActivityAttributes.Phase
-    let isPaused: Bool
-
-    private var activeTint: Color {
-        Palette.phaseTint(for: phase, isPaused: isPaused)
-    }
-
-    var body: some View {
-        HStack(spacing: 5) {
-            ForEach(1...max(1, totalRounds), id: \.self) { round in
-                Circle()
-                    .fill(dotColor(for: round))
-                    .frame(width: 7, height: 7)
-            }
-        }
-    }
-
-    private func dotColor(for round: Int) -> Color {
-        if round < currentRound {
-            return activeTint
-        } else if round == currentRound {
-            return activeTint.opacity(0.6)
-        } else {
-            return .white.opacity(0.24)
-        }
     }
 }
 
