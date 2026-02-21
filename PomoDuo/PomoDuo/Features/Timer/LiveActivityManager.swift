@@ -12,10 +12,15 @@ final class LiveActivityManager {
         category: "LiveActivityManager"
     )
 
+    /// Grace period after the target date before auto-end cleanup fires.
+    private static let autoEndGracePeriod: TimeInterval = 2
+
     /// Whether a timer Live Activity is currently active.
     private(set) var isActivityActive = false
 
     private var currentActivity: Activity<TimerActivityAttributes>?
+    private var autoEndTask: Task<Void, Never>?
+    private var autoEndScheduleID: UInt64 = 0
 
     init() {
         endAllOrphanedActivities()
@@ -52,12 +57,14 @@ final class LiveActivityManager {
             )
             currentActivity = activity
             isActivityActive = true
+            scheduleAutoEnd(at: targetEndDate)
         } catch {
             Self.logger.warning(
                 "Failed to start Live Activity: \(String(describing: error), privacy: .public)"
             )
             currentActivity = nil
             isActivityActive = false
+            cancelAutoEnd()
         }
     }
 
@@ -83,6 +90,12 @@ final class LiveActivityManager {
         Task {
             await activity.update(.init(state: state, staleDate: staleDate))
         }
+
+        if isPaused {
+            cancelAutoEnd()
+        } else {
+            scheduleAutoEnd(at: targetEndDate)
+        }
     }
 
     /// Ends the active timer Live Activity immediately.
@@ -90,7 +103,48 @@ final class LiveActivityManager {
         endAllActivities()
     }
 
+    // MARK: - Auto-End
+
+    /// Schedules an automatic cleanup if timer completion is never observed
+    /// by an active view (for example on Lock Screen or another tab).
+    private func scheduleAutoEnd(at targetEndDate: Date) {
+        cancelAutoEnd()
+        let scheduleID = autoEndScheduleID
+        let delaySeconds =
+            max(0, targetEndDate.timeIntervalSinceNow) + Self.autoEndGracePeriod
+
+        autoEndTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delaySeconds))
+            guard let self else { return }
+            await self.handleAutoEndTrigger(scheduleID: scheduleID)
+        }
+    }
+
+    private func handleAutoEndTrigger(scheduleID: UInt64) {
+        guard scheduleID == autoEndScheduleID else { return }
+        guard let activity = currentActivity else { return }
+        guard
+            Date.now
+                >= activity.content.state.targetEndDate.addingTimeInterval(
+                    Self.autoEndGracePeriod
+                )
+        else { return }
+
+        Self.logger.notice("Auto-ending stale timer Live Activity.")
+        endAllActivities()
+    }
+
+    private func cancelAutoEnd() {
+        autoEndTask?.cancel()
+        autoEndTask = nil
+        autoEndScheduleID &+= 1
+    }
+
+    // MARK: - Activity Lifecycle
+
     private func endAllActivities() {
+        cancelAutoEnd()
+
         let trackedActivity = currentActivity
         let activityIDsToEnd = Set(
             Activity<TimerActivityAttributes>.activities.map(\.id)
@@ -145,8 +199,8 @@ final class LiveActivityManager {
             phase: state.phase,
             currentRound: state.currentRound,
             targetEndDate: .now,
-            isPaused: state.isPaused
+            isPaused: false
         )
-        return ActivityContent(state: finalState, staleDate: .now)
+        return ActivityContent(state: finalState, staleDate: nil)
     }
 }
