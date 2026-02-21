@@ -116,7 +116,7 @@ final class LiveActivityManager {
         autoEndTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delaySeconds))
             guard let self else { return }
-            await self.handleAutoEndTrigger(scheduleID: scheduleID)
+            self.handleAutoEndTrigger(scheduleID: scheduleID)
         }
     }
 
