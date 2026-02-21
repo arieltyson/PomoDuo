@@ -54,4 +54,4 @@ PomoDuo does not knowingly collect data from children under 13. The app requires
 
 ## Contact
 
-If you have questions about this privacy policy, please contact us at privacy@pomoduo.app.
+If you have questions about this privacy policy, please contact us at arieltyson30190@gmail.com.

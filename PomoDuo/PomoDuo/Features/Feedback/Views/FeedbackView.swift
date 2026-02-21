@@ -4,7 +4,7 @@ import UIKit
 
 /// In-app sheet for bug reports and feature suggestions.
 struct FeedbackView: View {
-    private static let supportEmailAddress = "feedback@pomoduo.app"
+    private static let supportEmailAddress = "arieltyson30190@gmail.com"
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.arieljtyson.PomoDuo",
         category: "Feedback"
