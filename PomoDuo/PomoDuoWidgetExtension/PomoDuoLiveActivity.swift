@@ -284,6 +284,14 @@ private struct CompactCountdownValueView: View {
 private struct MinimalView: View {
     let state: TimerActivityAttributes.ContentState
 
+    private var accessibilityStatusLabel: String {
+        let phaseText = state.phase.label.lowercased()
+        if state.isPaused {
+            return "Paused \(phaseText) timer"
+        }
+        return "Running \(phaseText) timer"
+    }
+
     var body: some View {
         ClockStatusIconView(
             isPaused: state.isPaused,
@@ -291,9 +299,7 @@ private struct MinimalView: View {
             font: .title3
         )
         .frame(width: 24, height: 24)
-        .accessibilityLabel(
-            state.isPaused ? "Focus session paused" : "Focus session running"
-        )
+        .accessibilityLabel(accessibilityStatusLabel)
     }
 }
 
