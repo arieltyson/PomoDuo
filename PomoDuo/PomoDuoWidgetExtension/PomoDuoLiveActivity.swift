@@ -9,7 +9,7 @@ import WidgetKit
 ///
 /// Design language modeled after the Apple Clock timer:
 /// - Clock-style compact status icon (running/paused) for quick recognition
-/// - Brand-purple countdown text for strong theme consistency
+/// - Phase-aware accent color: purple for focus, teal for breaks, amber when paused
 /// - Cohesive compact leading + trailing forming a single visual thought
 /// - Minimal state mirrors compact iconography when coexisting with other activities
 /// - Expanded view adds detail without duplicating the compact view
@@ -50,7 +50,7 @@ struct PomoDuoLiveActivity: Widget {
             } minimal: {
                 MinimalView(state: context.state)
             }
-            .keylineTint(Palette.focusTint)
+            .keylineTint(Palette.accentTint(for: context.state))
         }
     }
 }
@@ -218,7 +218,7 @@ private struct CompactLeadingView: View {
     var body: some View {
         ClockStatusIconView(
             isPaused: state.isPaused,
-            tint: Palette.focusTint,
+            tint: Palette.accentTint(for: state),
             font: .headline
         )
         .frame(width: 22, height: 22)
@@ -226,7 +226,7 @@ private struct CompactLeadingView: View {
     }
 }
 
-/// Trailing side: countdown in the app's primary purple tint.
+/// Trailing side: countdown in the current phase's accent color.
 private struct CompactTrailingView: View {
     let state: TimerActivityAttributes.ContentState
 
@@ -269,7 +269,7 @@ private struct CompactCountdownValueView: View {
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-                .foregroundStyle(Palette.focusTint)
+                .foregroundStyle(Palette.accentTint(for: state))
                 .contentTransition(.numericText())
             }
             .layoutPriority(1)
@@ -287,7 +287,7 @@ private struct MinimalView: View {
     var body: some View {
         ClockStatusIconView(
             isPaused: state.isPaused,
-            tint: Palette.focusTint,
+            tint: Palette.accentTint(for: state),
             font: .title3
         )
         .frame(width: 24, height: 24)
