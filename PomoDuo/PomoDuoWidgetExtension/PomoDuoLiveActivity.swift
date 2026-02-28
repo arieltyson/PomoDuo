@@ -8,10 +8,10 @@ import WidgetKit
 /// Live Activity rendering for Lock Screen and Dynamic Island.
 ///
 /// Design language modeled after the Apple Clock timer:
-/// - Circular progress ring as the primary visual element
-/// - Accent-colored countdown text for at-a-glance legibility
+/// - Clock-style compact status icon (running/paused) for quick recognition
+/// - Brand-purple countdown text for strong theme consistency
 /// - Cohesive compact leading + trailing forming a single visual thought
-/// - Dynamic content in minimal (progress ring, not a static logo)
+/// - Minimal state mirrors compact iconography when coexisting with other activities
 /// - Expanded view adds detail without duplicating the compact view
 /// - Interactive pause/resume and stop controls in the expanded bottom region
 struct PomoDuoLiveActivity: Widget {
@@ -50,7 +50,7 @@ struct PomoDuoLiveActivity: Widget {
             } minimal: {
                 MinimalView(state: context.state)
             }
-            .keylineTint(Palette.accentTint(for: context.state))
+            .keylineTint(Palette.focusTint)
         }
     }
 }
@@ -194,56 +194,51 @@ private struct PausedRingView: View {
     }
 }
 
-// MARK: - Dynamic Island — Compact
-
-/// Leading side: circular progress ring tinted to current phase.
+/// Compact iconography that mirrors the Apple Clock timer language.
 ///
-/// HIG: compact leading + trailing should form a single cohesive thought.
-/// Leading shows *progress* (ring), trailing shows *time* (countdown).
-private struct CompactLeadingView: View {
-    let state: TimerActivityAttributes.ContentState
-
-    private var tint: Color {
-        Palette.accentTint(for: state)
-    }
+/// Running uses the timer glyph. Paused uses the pause-in-circle glyph.
+private struct ClockStatusIconView: View {
+    let isPaused: Bool
+    let tint: Color
+    let font: Font
 
     var body: some View {
-        Group {
-            if state.isPaused {
-                PausedRingView(
-                    tint: tint,
-                    lineWidth: 2,
-                    iconFont: .system(size: 7, weight: .bold)
-                )
-            } else {
-                TimerRingView(
-                    fraction: remainingFraction(for: state),
-                    tint: tint,
-                    lineWidth: 2
-                )
-            }
-        }
-        .frame(width: 22, height: 22)
-        .accessibilityLabel(state.isPaused ? "Paused" : state.phase.label)
+        Image(systemName: isPaused ? "pause.circle" : "timer")
+            .font(font)
+            .foregroundStyle(tint)
     }
 }
 
-/// Trailing side: countdown in the phase accent color.
-private struct CompactTrailingView: View {
+// MARK: - Dynamic Island — Compact
+
+/// Leading side: Clock-style timer status icon.
+private struct CompactLeadingView: View {
     let state: TimerActivityAttributes.ContentState
 
-    private var tint: Color {
-        Palette.accentTint(for: state)
+    var body: some View {
+        ClockStatusIconView(
+            isPaused: state.isPaused,
+            tint: Palette.focusTint,
+            font: .headline
+        )
+        .frame(width: 22, height: 22)
+        .accessibilityLabel(state.isPaused ? "Paused timer" : "Running timer")
     }
+}
+
+/// Trailing side: countdown in the app's primary purple tint.
+private struct CompactTrailingView: View {
+    let state: TimerActivityAttributes.ContentState
 
     var body: some View {
         if state.isPaused {
             Text(pausedTimeText(for: state))
-                .font(.caption2)
+                .font(.headline)
                 .bold()
                 .monospacedDigit()
                 .fixedSize(horizontal: true, vertical: false)
-                .foregroundStyle(tint)
+                .foregroundStyle(Palette.focusTint)
+                .contentTransition(.numericText())
                 .accessibilityLabel(
                     "Paused, \(pausedTimeText(for: state)) remaining"
                 )
@@ -252,11 +247,12 @@ private struct CompactTrailingView: View {
                 timerInterval: safeTimerInterval(until: state.targetEndDate),
                 countsDown: true
             )
-            .font(.caption2)
+            .font(.headline)
             .bold()
             .monospacedDigit()
             .fixedSize(horizontal: true, vertical: false)
-            .foregroundStyle(tint)
+            .foregroundStyle(Palette.focusTint)
+            .contentTransition(.numericText())
             .accessibilityLabel("Time remaining")
         }
     }
@@ -266,34 +262,19 @@ private struct CompactTrailingView: View {
 
 /// Shown when multiple Live Activities are active.
 ///
-/// HIG: display live, dynamic content — not a static logo.
-/// The progress ring continuously conveys time remaining.
+/// HIG: display live, dynamic content that maps to compact semantics.
 private struct MinimalView: View {
     let state: TimerActivityAttributes.ContentState
 
-    private var tint: Color {
-        Palette.accentTint(for: state)
-    }
-
     var body: some View {
-        Group {
-            if state.isPaused {
-                PausedRingView(
-                    tint: tint,
-                    lineWidth: 2,
-                    iconFont: .system(size: 8, weight: .bold)
-                )
-            } else {
-                TimerRingView(
-                    fraction: remainingFraction(for: state),
-                    tint: tint,
-                    lineWidth: 2
-                )
-            }
-        }
+        ClockStatusIconView(
+            isPaused: state.isPaused,
+            tint: Palette.focusTint,
+            font: .title3
+        )
         .frame(width: 24, height: 24)
         .accessibilityLabel(
-            state.isPaused ? "Focus session paused" : "Time remaining"
+            state.isPaused ? "Focus session paused" : "Focus session running"
         )
     }
 }
