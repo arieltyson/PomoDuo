@@ -231,7 +231,7 @@ private struct CompactTrailingView: View {
             .font(.caption2)
             .bold()
             .monospacedDigit()
-            .minimumScaleFactor(0.6)
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(tint)
             .accessibilityLabel("Time remaining")
         }
