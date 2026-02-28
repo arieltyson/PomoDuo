@@ -6,8 +6,8 @@ import AppIntents
 /// This app-target counterpart mirrors the widget-extension intent so
 /// execution succeeds even when the system resolves actions in app process.
 struct StopTimerIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Stop Timer"
-    static var description: IntentDescription? = IntentDescription(
+    static let title: LocalizedStringResource = "Stop Timer"
+    static let description: IntentDescription? = IntentDescription(
         "Stop the Pomodoro timer."
     )
 
@@ -21,6 +21,7 @@ struct StopTimerIntent: LiveActivityIntent {
         [.background, .foreground(.dynamic)]
     }
 
+    @MainActor
     func perform() async throws -> some IntentResult {
         LiveActivityBridge.write(.stop)
 

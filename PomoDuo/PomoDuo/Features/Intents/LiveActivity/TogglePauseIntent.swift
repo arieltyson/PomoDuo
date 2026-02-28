@@ -6,8 +6,8 @@ import AppIntents
 /// This app-target counterpart mirrors the widget-extension intent so
 /// execution succeeds even when the system resolves actions in app process.
 struct TogglePauseIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Toggle Pause"
-    static var description: IntentDescription? = IntentDescription(
+    static let title: LocalizedStringResource = "Toggle Pause"
+    static let description: IntentDescription? = IntentDescription(
         "Pause or resume the Pomodoro timer."
     )
 
@@ -21,11 +21,13 @@ struct TogglePauseIntent: LiveActivityIntent {
         [.background, .foreground(.dynamic)]
     }
 
+    @MainActor
     func perform() async throws -> some IntentResult {
         guard
             let activity = Activity<TimerActivityAttributes>.activities.max(
                 by: { lhs, rhs in
-                    lhs.content.state.targetEndDate < rhs.content.state.targetEndDate
+                    lhs.content.state.targetEndDate
+                        < rhs.content.state.targetEndDate
                 }
             )
         else {
@@ -46,7 +48,8 @@ struct TogglePauseIntent: LiveActivityIntent {
                 phaseDuration: state.phaseDuration
             )
 
-            await activity.update(
+            nonisolated(unsafe) let capturedActivity = activity
+            await capturedActivity.update(
                 ActivityContent(state: newState, staleDate: newTargetEndDate)
             )
 
@@ -66,7 +69,8 @@ struct TogglePauseIntent: LiveActivityIntent {
                 pausedRemainingSeconds: remaining
             )
 
-            await activity.update(
+            nonisolated(unsafe) let capturedActivity = activity
+            await capturedActivity.update(
                 ActivityContent(state: newState, staleDate: nil)
             )
 
