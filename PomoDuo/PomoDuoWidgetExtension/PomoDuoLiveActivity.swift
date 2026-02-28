@@ -13,7 +13,7 @@ import WidgetKit
 /// - Cohesive compact leading + trailing forming a single visual thought
 /// - Minimal state mirrors compact iconography when coexisting with other activities
 /// - Expanded view adds detail without duplicating the compact view
-/// - Interactive pause/resume and stop controls in the expanded bottom region
+/// - Interactive pause/resume and cancel controls in the expanded bottom region
 struct PomoDuoLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TimerActivityAttributes.self) { context in
@@ -25,12 +25,10 @@ struct PomoDuoLiveActivity: Widget {
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading, priority: 1) {
                     ExpandedLeadingView(state: context.state)
-                        .dynamicIsland(verticalPlacement: .belowIfTooWide)
                 }
 
                 DynamicIslandExpandedRegion(.trailing, priority: 2) {
                     ExpandedTrailingView(state: context.state)
-                        .dynamicIsland(verticalPlacement: .belowIfTooWide)
                 }
 
                 DynamicIslandExpandedRegion(.center) {
@@ -143,55 +141,6 @@ private func pausedTimeText(
 ) -> String {
     let duration = Duration.seconds(Int(state.pausedRemainingSeconds))
     return duration.formatted(.time(pattern: .minuteSecond))
-}
-
-// MARK: - Timer Ring Components
-
-/// Circular progress ring modeled after the Apple Clock timer.
-///
-/// Draws a dim track ring behind a bright fill arc that depletes clockwise
-/// from 12 o'clock as time elapses. The system periodically re-renders
-/// the Live Activity, advancing the fill to the current progress.
-private struct TimerRingView: View {
-    let fraction: Double
-    let tint: Color
-    let lineWidth: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(tint.opacity(0.25), lineWidth: lineWidth)
-
-            Circle()
-                .trim(from: 0, to: max(0.001, fraction))
-                .stroke(
-                    tint,
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-        }
-    }
-}
-
-/// Ring with pause icon, shown when the timer is paused.
-///
-/// A complete ring with centered pause icon communicates the paused
-/// state at every Dynamic Island presentation size.
-private struct PausedRingView: View {
-    let tint: Color
-    let lineWidth: CGFloat
-    let iconFont: Font
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(tint, lineWidth: lineWidth)
-
-            Image(systemName: "pause.fill")
-                .font(iconFont)
-                .foregroundStyle(tint)
-        }
-    }
 }
 
 /// Compact iconography that mirrors the Apple Clock timer language.
@@ -313,60 +262,70 @@ private struct ExpandedLeadingView: View {
         Palette.accentTint(for: state)
     }
 
+    private var centerSymbol: String {
+        state.isPaused ? "pause.fill" : state.phase.systemImage
+    }
+
     var body: some View {
-        Group {
-            if state.isPaused {
-                PausedRingView(
-                    tint: tint,
-                    lineWidth: 3,
-                    iconFont: .system(size: 14, weight: .bold)
-                )
-            } else {
-                TimerRingView(
-                    fraction: remainingFraction(for: state),
-                    tint: tint,
-                    lineWidth: 3
-                )
+        ZStack {
+            Circle()
+                .stroke(tint.opacity(state.isPaused ? 0.95 : 0.24), lineWidth: 3.5)
+
+            if !state.isPaused {
+                Circle()
+                    .trim(from: 0, to: max(0.001, remainingFraction(for: state)))
+                    .stroke(
+                        tint,
+                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
             }
+
+            Image(systemName: centerSymbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
         }
-        .frame(width: 36, height: 36)
-        .accessibilityHidden(true)
+        .frame(width: 44, height: 44)
+        .accessibilityLabel(
+            state.isPaused
+                ? "Paused \(state.phase.label.lowercased()) timer"
+                : "\(state.phase.label) timer progress"
+        )
+        .accessibilityValue(
+            state.isPaused
+                ? pausedTimeText(for: state)
+                : "\(Int((1 - remainingFraction(for: state)) * 100)) percent complete"
+        )
     }
 }
 
-/// Trailing region: countdown in accent color or paused indicator.
+/// Trailing region: high-contrast countdown for readability.
 private struct ExpandedTrailingView: View {
     let state: TimerActivityAttributes.ContentState
 
-    private var tint: Color {
-        Palette.accentTint(for: state)
-    }
-
     var body: some View {
-        if state.isPaused {
-            VStack(spacing: 2) {
+        Group {
+            if state.isPaused {
                 Text(pausedTimeText(for: state))
-                    .font(.title3)
-                    .bold()
-                    .monospacedDigit()
-                    .foregroundStyle(tint)
-
-                Text("Paused")
-                    .font(.caption2)
-                    .foregroundStyle(tint.opacity(0.7))
+                    .accessibilityLabel(
+                        "Paused, \(pausedTimeText(for: state)) remaining"
+                    )
+            } else {
+                Text(
+                    timerInterval: safeTimerInterval(until: state.targetEndDate),
+                    countsDown: true
+                )
+                .accessibilityLabel("Time remaining")
             }
-        } else {
-            Text(
-                timerInterval: safeTimerInterval(until: state.targetEndDate),
-                countsDown: true
-            )
-            .font(.title3)
-            .bold()
-            .monospacedDigit()
-            .foregroundStyle(tint)
-            .contentTransition(.numericText())
-            .accessibilityLabel("Time remaining")
         }
+        .font(.system(.title2, design: .rounded))
+        .bold()
+        .monospacedDigit()
+        .foregroundStyle(.white)
+        .lineLimit(1)
+        .minimumScaleFactor(0.9)
+        .contentTransition(.numericText())
     }
 }
 
@@ -376,7 +335,7 @@ private struct ExpandedCenterView: View {
     let totalRounds: Int
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(state.isPaused ? "Paused" : state.phase.label)
                 .font(.headline)
                 .bold()
@@ -386,11 +345,11 @@ private struct ExpandedCenterView: View {
 
             Text("Round \(state.currentRound) of \(totalRounds)")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
                 .monospacedDigit()
                 .lineLimit(1)
         }
-        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             "Round \(state.currentRound) of \(totalRounds)"
@@ -402,7 +361,7 @@ private struct ExpandedCenterView: View {
 
 /// Interactive controls in the expanded Dynamic Island's bottom region.
 ///
-/// Provides Pause/Resume and Stop buttons powered by ``LiveActivityIntent``
+/// Provides Pause/Resume and Cancel buttons powered by ``LiveActivityIntent``
 /// conformances. These execute in the widget extension process, update the
 /// Live Activity inline, and write a bridge command for the main app.
 private struct ExpandedBottomControlsView: View {
@@ -413,31 +372,30 @@ private struct ExpandedBottomControlsView: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             Button(intent: StopTimerIntent()) {
-                Label("Stop", systemImage: "stop.fill")
-                    .font(.caption)
-                    .bold()
+                Text("Cancel")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(.red.opacity(0.6), in: .capsule)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .background(.white.opacity(0.15), in: .capsule)
+                    .contentShape(.capsule)
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
 
             Button(intent: TogglePauseIntent()) {
-                Label(
-                    state.isPaused ? "Resume" : "Pause",
-                    systemImage: state.isPaused ? "play.fill" : "pause.fill"
-                )
-                .font(.caption)
-                .bold()
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(tint.opacity(0.6), in: .capsule)
+                Text(state.isPaused ? "Resume" : "Pause")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .background(tint.opacity(0.7), in: .capsule)
+                    .contentShape(.capsule)
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
         }
         .padding(.top, 4)
     }
