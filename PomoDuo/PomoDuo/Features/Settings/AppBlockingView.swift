@@ -26,7 +26,6 @@ struct AppBlockingView: View {
             isPresented: $isPickerPresented,
             selection: $bindableScreenTimeManager.activitySelection
         )
-        .tint(AppColors.lavender)
         .alert(
             "App Blocking Unavailable",
             isPresented: authorizationErrorAlertIsPresented
