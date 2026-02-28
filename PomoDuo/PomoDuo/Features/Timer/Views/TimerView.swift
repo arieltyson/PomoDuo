@@ -124,7 +124,8 @@ struct TimerView: View {
             phase: .focus,
             currentRound: currentRound,
             totalRounds: configuration.roundsBeforeLongBreak,
-            targetEndDate: targetEndDate
+            targetEndDate: targetEndDate,
+            phaseDuration: configuration.focusDuration
         )
 
         scheduleNotification(
@@ -147,7 +148,8 @@ struct TimerView: View {
             phase: phase.activityPhase,
             currentRound: currentRound,
             targetEndDate: .now,
-            isPaused: true
+            isPaused: true,
+            phaseDuration: phaseDuration(for: phase)
         )
         cancelNotification()
         AccessibilityAnnouncer.announcePause()
@@ -171,7 +173,8 @@ struct TimerView: View {
             phase: phase.activityPhase,
             currentRound: currentRound,
             targetEndDate: targetEndDate,
-            isPaused: false
+            isPaused: false,
+            phaseDuration: phaseDuration(for: phase)
         )
 
         let message =
@@ -212,7 +215,8 @@ struct TimerView: View {
                     phase: .longBreak,
                     currentRound: currentRound,
                     totalRounds: configuration.roundsBeforeLongBreak,
-                    targetEndDate: targetEndDate
+                    targetEndDate: targetEndDate,
+                    phaseDuration: configuration.longBreakDuration
                 )
 
                 scheduleNotification(
@@ -231,7 +235,8 @@ struct TimerView: View {
                     phase: .shortBreak,
                     currentRound: currentRound,
                     totalRounds: configuration.roundsBeforeLongBreak,
-                    targetEndDate: targetEndDate
+                    targetEndDate: targetEndDate,
+                    phaseDuration: configuration.shortBreakDuration
                 )
 
                 scheduleNotification(
@@ -253,7 +258,8 @@ struct TimerView: View {
                 phase: .focus,
                 currentRound: currentRound,
                 totalRounds: configuration.roundsBeforeLongBreak,
-                targetEndDate: targetEndDate
+                targetEndDate: targetEndDate,
+                phaseDuration: configuration.focusDuration
             )
 
             scheduleNotification(
@@ -280,7 +286,8 @@ struct TimerView: View {
                 phase: .focus,
                 currentRound: currentRound,
                 totalRounds: configuration.roundsBeforeLongBreak,
-                targetEndDate: targetEndDate
+                targetEndDate: targetEndDate,
+                phaseDuration: configuration.focusDuration
             )
 
             scheduleNotification(
@@ -429,6 +436,18 @@ struct TimerView: View {
             return currentTick.formattedTime
         }
         return idleTimeString(for: phase, configuration: configuration)
+    }
+
+    private func phaseDuration(for phase: TimerPhase) -> TimeInterval {
+        guard let configuration = activeConfiguration else { return 0 }
+        switch phase {
+        case .idle, .focus:
+            return configuration.focusDuration
+        case .shortBreak:
+            return configuration.shortBreakDuration
+        case .longBreak:
+            return configuration.longBreakDuration
+        }
     }
 
     private func idleTimeString(

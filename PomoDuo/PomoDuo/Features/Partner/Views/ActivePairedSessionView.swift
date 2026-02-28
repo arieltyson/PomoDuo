@@ -328,7 +328,8 @@ struct ActivePairedSessionView: View {
             phase: .focus,
             currentRound: session.currentRound,
             totalRounds: session.totalRounds,
-            targetEndDate: session.targetEndDate
+            targetEndDate: session.targetEndDate,
+            phaseDuration: session.duration
         )
 
         if isPaused {
@@ -336,7 +337,8 @@ struct ActivePairedSessionView: View {
                 phase: .focus,
                 currentRound: session.currentRound,
                 targetEndDate: session.targetEndDate,
-                isPaused: true
+                isPaused: true,
+                phaseDuration: session.duration
             )
         }
     }
@@ -346,7 +348,8 @@ struct ActivePairedSessionView: View {
             phase: isLong ? .longBreak : .shortBreak,
             currentRound: session.currentRound,
             targetEndDate: session.targetEndDate,
-            isPaused: false
+            isPaused: false,
+            phaseDuration: session.duration
         )
     }
 
@@ -355,7 +358,8 @@ struct ActivePairedSessionView: View {
             phase: .focus,
             currentRound: session.currentRound,
             targetEndDate: session.targetEndDate,
-            isPaused: isPaused
+            isPaused: isPaused,
+            phaseDuration: session.duration
         )
     }
 }

@@ -6,10 +6,11 @@ import WidgetKit
 
 /// Live Activity rendering for Lock Screen and Dynamic Island.
 ///
-/// Follows Apple HIG for Live Activities:
-/// - Glanceable information at every presentation size
+/// Design language modeled after the Apple Clock timer:
+/// - Circular progress ring as the primary visual element
+/// - Accent-colored countdown text for at-a-glance legibility
 /// - Cohesive compact leading + trailing forming a single visual thought
-/// - Dynamic content in minimal (progress, not a static logo)
+/// - Dynamic content in minimal (progress ring, not a static logo)
 /// - Expanded view adds detail without duplicating the compact view
 /// - No interactive controls — tapping opens the app
 struct PomoDuoLiveActivity: Widget {
@@ -44,15 +45,8 @@ struct PomoDuoLiveActivity: Widget {
             } minimal: {
                 MinimalView(state: context.state)
             }
-            .keylineTint(keylineTint(for: context.state))
+            .keylineTint(Palette.accentTint(for: context.state))
         }
-    }
-
-    private func keylineTint(
-        for state: TimerActivityAttributes.ContentState
-    ) -> Color {
-        if state.isPaused { return .orange }
-        return state.phase.isBreak ? Palette.breakTint : Palette.focusTint
     }
 }
 
@@ -63,17 +57,28 @@ struct PomoDuoLiveActivity: Widget {
 /// Mirrors the main app's ``AppColors`` without importing the app target.
 /// Includes high-contrast vivid variants for Lock Screen liquid glass.
 private enum Palette {
+    /// PomoDuo's signature deep lavender.
     static let focusTint = Color(red: 0.56, green: 0.44, blue: 0.86)
+    /// Soft lilac for secondary accents.
     static let focusLight = Color(red: 0.73, green: 0.60, blue: 0.93)
-    static let breakTint = Color(red: 0.55, green: 0.78, blue: 0.78)
-    static let pauseTint = Color.orange
-    static let success = Color(red: 0.45, green: 0.73, blue: 0.54)
-
-    /// High-contrast tint for Lock Screen elements.
+    /// High-contrast vivid purple for Lock Screen elements.
     static let focusVivid = Color(red: 0.70, green: 0.55, blue: 1.0)
+
+    static let breakTint = Color(red: 0.55, green: 0.78, blue: 0.78)
     static let breakVivid = Color(red: 0.60, green: 0.88, blue: 0.88)
 
-    static func phaseTint(
+    static let pauseTint = Color(red: 0.90, green: 0.70, blue: 0.40)
+
+    static let success = Color(red: 0.45, green: 0.73, blue: 0.54)
+
+    /// Phase-aware accent for Dynamic Island elements.
+    static func accentTint(
+        for state: TimerActivityAttributes.ContentState
+    ) -> Color {
+        accentTint(for: state.phase, isPaused: state.isPaused)
+    }
+
+    static func accentTint(
         for phase: TimerActivityAttributes.Phase,
         isPaused: Bool
     ) -> Color {
@@ -82,7 +87,13 @@ private enum Palette {
     }
 
     /// High-contrast variant for Lock Screen accents.
-    static func phaseVivid(
+    static func accentVivid(
+        for state: TimerActivityAttributes.ContentState
+    ) -> Color {
+        accentVivid(for: state.phase, isPaused: state.isPaused)
+    }
+
+    static func accentVivid(
         for phase: TimerActivityAttributes.Phase,
         isPaused: Bool
     ) -> Color {
@@ -91,7 +102,7 @@ private enum Palette {
     }
 }
 
-// MARK: - Timer Interval
+// MARK: - Timer Helpers
 
 /// Ensures `Text(timerInterval:)` always receives a valid range.
 ///
@@ -104,51 +115,113 @@ private func safeTimerInterval(
     return now...max(now, targetEndDate)
 }
 
-// MARK: - Dynamic Island — Compact
-
-/// Leading side: phase icon tinted to current state.
+/// Calculates the remaining fraction (0…1) of the current timer phase.
 ///
-/// HIG: compact leading + trailing should form a single cohesive thought.
-/// Leading shows *what* (icon), trailing shows *when* (countdown).
-private struct CompactLeadingView: View {
-    let state: TimerActivityAttributes.ContentState
+/// Returns 1.0 when the full duration remains and 0.0 at expiration.
+private func remainingFraction(
+    for state: TimerActivityAttributes.ContentState
+) -> Double {
+    guard state.phaseDuration > 0 else { return 0 }
+    let remaining = max(0, state.targetEndDate.timeIntervalSinceNow)
+    return min(1, remaining / state.phaseDuration)
+}
+
+// MARK: - Timer Ring Components
+
+/// Circular progress ring modeled after the Apple Clock timer.
+///
+/// Draws a dim track ring behind a bright fill arc that depletes clockwise
+/// from 12 o'clock as time elapses. The system periodically re-renders
+/// the Live Activity, advancing the fill to the current progress.
+private struct TimerRingView: View {
+    let fraction: Double
+    let tint: Color
+    let lineWidth: CGFloat
 
     var body: some View {
-        Image(systemName: iconName)
-            .font(.caption)
-            .foregroundStyle(tint)
-            .accessibilityLabel(accessibilityPhase)
-    }
+        ZStack {
+            Circle()
+                .stroke(tint.opacity(0.25), lineWidth: lineWidth)
 
-    private var iconName: String {
-        if state.isPaused { return "pause.circle.fill" }
-
-        switch state.phase {
-        case .focus: return "brain.head.profile"
-        case .shortBreak: return "cup.and.saucer.fill"
-        case .longBreak: return "figure.walk"
+            Circle()
+                .trim(from: 0, to: max(0.001, fraction))
+                .stroke(
+                    tint,
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
         }
-    }
-
-    private var tint: Color {
-        Palette.phaseTint(for: state.phase, isPaused: state.isPaused)
-    }
-
-    private var accessibilityPhase: String {
-        if state.isPaused { return "Paused" }
-        return state.phase.label
     }
 }
 
-/// Trailing side: countdown timer that fits the narrow slot.
+/// Ring with pause icon, shown when the timer is paused.
+///
+/// A complete ring with centered pause icon communicates the paused
+/// state at every Dynamic Island presentation size.
+private struct PausedRingView: View {
+    let tint: Color
+    let lineWidth: CGFloat
+    let iconFont: Font
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(tint, lineWidth: lineWidth)
+
+            Image(systemName: "pause.fill")
+                .font(iconFont)
+                .foregroundStyle(tint)
+        }
+    }
+}
+
+// MARK: - Dynamic Island — Compact
+
+/// Leading side: circular progress ring tinted to current phase.
+///
+/// HIG: compact leading + trailing should form a single cohesive thought.
+/// Leading shows *progress* (ring), trailing shows *time* (countdown).
+private struct CompactLeadingView: View {
+    let state: TimerActivityAttributes.ContentState
+
+    private var tint: Color {
+        Palette.accentTint(for: state)
+    }
+
+    var body: some View {
+        Group {
+            if state.isPaused {
+                PausedRingView(
+                    tint: tint,
+                    lineWidth: 2,
+                    iconFont: .system(size: 7, weight: .bold)
+                )
+            } else {
+                TimerRingView(
+                    fraction: remainingFraction(for: state),
+                    tint: tint,
+                    lineWidth: 2
+                )
+            }
+        }
+        .frame(width: 22, height: 22)
+        .accessibilityLabel(state.isPaused ? "Paused" : state.phase.label)
+    }
+}
+
+/// Trailing side: countdown in the phase accent color.
 private struct CompactTrailingView: View {
     let state: TimerActivityAttributes.ContentState
+
+    private var tint: Color {
+        Palette.accentTint(for: state)
+    }
 
     var body: some View {
         if state.isPaused {
             Image(systemName: "pause.fill")
                 .font(.caption2)
-                .foregroundStyle(.orange)
+                .foregroundStyle(tint)
                 .accessibilityLabel("Paused")
         } else {
             Text(
@@ -156,9 +229,10 @@ private struct CompactTrailingView: View {
                 countsDown: true
             )
             .font(.caption2)
+            .bold()
             .monospacedDigit()
             .minimumScaleFactor(0.6)
-            .foregroundStyle(.white)
+            .foregroundStyle(tint)
             .accessibilityLabel("Time remaining")
         }
     }
@@ -169,61 +243,81 @@ private struct CompactTrailingView: View {
 /// Shown when multiple Live Activities are active.
 ///
 /// HIG: display live, dynamic content — not a static logo.
+/// The progress ring continuously conveys time remaining.
 private struct MinimalView: View {
     let state: TimerActivityAttributes.ContentState
 
+    private var tint: Color {
+        Palette.accentTint(for: state)
+    }
+
     var body: some View {
-        if state.isPaused {
-            Image(systemName: "pause.fill")
-                .font(.caption2)
-                .foregroundStyle(.orange)
-                .accessibilityLabel("Focus session paused")
-        } else {
-            Text(
-                timerInterval: safeTimerInterval(until: state.targetEndDate),
-                countsDown: true
-            )
-            .font(.caption2)
-            .monospacedDigit()
-            .minimumScaleFactor(0.5)
-            .foregroundStyle(.white)
-            .accessibilityLabel("Time remaining")
+        Group {
+            if state.isPaused {
+                PausedRingView(
+                    tint: tint,
+                    lineWidth: 1.5,
+                    iconFont: .system(size: 6, weight: .bold)
+                )
+            } else {
+                TimerRingView(
+                    fraction: remainingFraction(for: state),
+                    tint: tint,
+                    lineWidth: 1.5
+                )
+            }
         }
+        .frame(width: 16, height: 16)
+        .accessibilityLabel(
+            state.isPaused ? "Focus session paused" : "Time remaining"
+        )
     }
 }
 
 // MARK: - Dynamic Island — Expanded
 
-/// Leading region: large phase icon with tinted background.
+/// Leading region: larger progress ring.
 private struct ExpandedLeadingView: View {
     let state: TimerActivityAttributes.ContentState
 
-    var body: some View {
-        Image(systemName: iconName)
-            .font(.title2)
-            .foregroundStyle(tint)
-            .accessibilityHidden(true)
-    }
-
-    private var iconName: String {
-        if state.isPaused { return "pause.circle.fill" }
-        return state.phase.systemImage
-    }
-
     private var tint: Color {
-        Palette.phaseTint(for: state.phase, isPaused: state.isPaused)
+        Palette.accentTint(for: state)
+    }
+
+    var body: some View {
+        Group {
+            if state.isPaused {
+                PausedRingView(
+                    tint: tint,
+                    lineWidth: 3,
+                    iconFont: .system(size: 14, weight: .bold)
+                )
+            } else {
+                TimerRingView(
+                    fraction: remainingFraction(for: state),
+                    tint: tint,
+                    lineWidth: 3
+                )
+            }
+        }
+        .frame(width: 36, height: 36)
+        .accessibilityHidden(true)
     }
 }
 
-/// Trailing region: countdown timer or paused indicator.
+/// Trailing region: countdown in accent color or paused indicator.
 private struct ExpandedTrailingView: View {
     let state: TimerActivityAttributes.ContentState
+
+    private var tint: Color {
+        Palette.accentTint(for: state)
+    }
 
     var body: some View {
         if state.isPaused {
             Text("Paused")
                 .font(.headline)
-                .foregroundStyle(.orange)
+                .foregroundStyle(tint)
         } else {
             Text(
                 timerInterval: safeTimerInterval(until: state.targetEndDate),
@@ -232,14 +326,14 @@ private struct ExpandedTrailingView: View {
             .font(.title3)
             .bold()
             .monospacedDigit()
-            .foregroundStyle(.white)
+            .foregroundStyle(tint)
             .contentTransition(.numericText())
             .accessibilityLabel("Time remaining")
         }
     }
 }
 
-/// Center region: phase label.
+/// Center region: phase label and round indicator.
 private struct ExpandedCenterView: View {
     let state: TimerActivityAttributes.ContentState
     let totalRounds: Int
@@ -275,28 +369,35 @@ private struct ExpandedCenterView: View {
 /// to claim remaining space and right-align, avoiding `Spacer()` which
 /// does not reliably expand in Live Activity Lock Screen contexts.
 ///
-/// Layout: `[icon] [phase / round] ———[countdown]`
+/// Layout: `[ring] [phase / round] ———[countdown]`
 ///         `[====  round bar segments  ====]`
 private struct LockScreenBanner: View {
     let state: TimerActivityAttributes.ContentState
     let totalRounds: Int
 
     private var accentColor: Color {
-        Palette.phaseVivid(for: state.phase, isPaused: state.isPaused)
+        Palette.accentVivid(for: state)
     }
 
     var body: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Image(
-                    systemName: state.isPaused
-                        ? "pause.fill"
-                        : state.phase.systemImage
-                )
-                .font(.title3)
-                .foregroundStyle(accentColor)
+                Group {
+                    if state.isPaused {
+                        PausedRingView(
+                            tint: accentColor,
+                            lineWidth: 2.5,
+                            iconFont: .system(size: 12, weight: .bold)
+                        )
+                    } else {
+                        TimerRingView(
+                            fraction: remainingFraction(for: state),
+                            tint: accentColor,
+                            lineWidth: 2.5
+                        )
+                    }
+                }
                 .frame(width: 36, height: 36)
-                .background(accentColor.opacity(0.25), in: .circle)
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -313,7 +414,7 @@ private struct LockScreenBanner: View {
                     Text("Paused")
                         .font(.title2)
                         .bold()
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(accentColor)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .accessibilityLabel("Timer paused")
                 } else {
@@ -347,7 +448,7 @@ private struct LockScreenBanner: View {
 
     private var backgroundTint: Color {
         if state.isPaused {
-            return .orange.opacity(0.15)
+            return Palette.pauseTint.opacity(0.15)
         }
         return state.phase.isBreak
             ? Palette.breakTint.opacity(0.15)
@@ -378,7 +479,7 @@ private struct LockScreenRoundBar: View {
     }
 
     private func segmentFill(for round: Int) -> some ShapeStyle {
-        let vivid = Palette.phaseVivid(for: phase, isPaused: isPaused)
+        let vivid = Palette.accentVivid(for: phase, isPaused: isPaused)
         if round < currentRound {
             return AnyShapeStyle(vivid)
         } else if round == currentRound {
@@ -400,28 +501,32 @@ private extension TimerActivityAttributes.ContentState {
         phase: .focus,
         currentRound: 2,
         targetEndDate: .now.addingTimeInterval(25 * 60),
-        isPaused: false
+        isPaused: false,
+        phaseDuration: 25 * 60
     )
 
     static let shortBreakActive = TimerActivityAttributes.ContentState(
         phase: .shortBreak,
         currentRound: 2,
         targetEndDate: .now.addingTimeInterval(5 * 60),
-        isPaused: false
+        isPaused: false,
+        phaseDuration: 5 * 60
     )
 
     static let longBreakActive = TimerActivityAttributes.ContentState(
         phase: .longBreak,
         currentRound: 4,
         targetEndDate: .now.addingTimeInterval(15 * 60),
-        isPaused: false
+        isPaused: false,
+        phaseDuration: 15 * 60
     )
 
     static let paused = TimerActivityAttributes.ContentState(
         phase: .focus,
         currentRound: 3,
         targetEndDate: .now,
-        isPaused: true
+        isPaused: true,
+        phaseDuration: 25 * 60
     )
 }
 

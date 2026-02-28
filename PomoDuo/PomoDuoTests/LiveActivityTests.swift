@@ -44,7 +44,8 @@ struct TimerActivityPhaseTests {
             phase: .focus,
             currentRound: 2,
             targetEndDate: .init(timeIntervalSince1970: 1_700_000_000),
-            isPaused: false
+            isPaused: false,
+            phaseDuration: 25 * 60
         )
 
         let data = try JSONEncoder().encode(state)
@@ -64,14 +65,16 @@ struct TimerActivityPhaseTests {
             phase: .focus,
             currentRound: 1,
             targetEndDate: date,
-            isPaused: false
+            isPaused: false,
+            phaseDuration: 25 * 60
         )
 
         let paused = TimerActivityAttributes.ContentState(
             phase: .focus,
             currentRound: 1,
             targetEndDate: date,
-            isPaused: true
+            isPaused: true,
+            phaseDuration: 25 * 60
         )
 
         #expect(running != paused)
@@ -98,7 +101,8 @@ struct LiveActivityManagerTests {
             phase: .focus,
             currentRound: 1,
             targetEndDate: .now.addingTimeInterval(60),
-            isPaused: false
+            isPaused: false,
+            phaseDuration: 25 * 60
         )
 
         #expect(manager.isActivityActive == false)

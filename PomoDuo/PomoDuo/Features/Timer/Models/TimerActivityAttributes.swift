@@ -45,5 +45,8 @@ struct TimerActivityAttributes: ActivityAttributes {
         let currentRound: Int
         let targetEndDate: Date
         let isPaused: Bool
+        /// Total duration of the current phase in seconds.
+        /// Used to derive the timer interval start for the Dynamic Island progress ring.
+        let phaseDuration: TimeInterval
     }
 }

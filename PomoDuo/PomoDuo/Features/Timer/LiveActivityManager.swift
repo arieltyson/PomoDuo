@@ -32,7 +32,8 @@ final class LiveActivityManager {
         phase: TimerActivityAttributes.Phase,
         currentRound: Int,
         totalRounds: Int,
-        targetEndDate: Date
+        targetEndDate: Date,
+        phaseDuration: TimeInterval
     ) {
         endAllActivities()
 
@@ -46,7 +47,8 @@ final class LiveActivityManager {
             phase: phase,
             currentRound: currentRound,
             targetEndDate: targetEndDate,
-            isPaused: false
+            isPaused: false,
+            phaseDuration: phaseDuration
         )
 
         do {
@@ -73,7 +75,8 @@ final class LiveActivityManager {
         phase: TimerActivityAttributes.Phase,
         currentRound: Int,
         targetEndDate: Date,
-        isPaused: Bool
+        isPaused: Bool,
+        phaseDuration: TimeInterval
     ) {
         guard let activity = currentActivity else {
             return
@@ -83,7 +86,8 @@ final class LiveActivityManager {
             phase: phase,
             currentRound: currentRound,
             targetEndDate: targetEndDate,
-            isPaused: isPaused
+            isPaused: isPaused,
+            phaseDuration: phaseDuration
         )
         let staleDate = isPaused ? nil : targetEndDate
 
@@ -199,7 +203,8 @@ final class LiveActivityManager {
             phase: state.phase,
             currentRound: state.currentRound,
             targetEndDate: .now,
-            isPaused: false
+            isPaused: false,
+            phaseDuration: state.phaseDuration
         )
         return ActivityContent(state: finalState, staleDate: nil)
     }
