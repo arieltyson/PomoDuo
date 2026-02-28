@@ -1,4 +1,5 @@
 import FirebaseCore
+import ManagedSettings
 import SwiftData
 import SwiftUI
 
@@ -18,6 +19,7 @@ struct PomoDuoApp: App {
     @State private var focusIntentState = FocusIntentState.shared
     @State private var screenTimeManager: ScreenTimeManager
     @State private var restrictionCoordinator: RestrictionCoordinator
+    @State private var powerStateMonitor = PowerStateMonitor()
     @State private var onboardingManager = OnboardingManager()
     @State private var appearanceManager = AppearanceManager()
     private let pairingService: any PairingService
@@ -38,13 +40,9 @@ struct PomoDuoApp: App {
         )
         self.pairingService = pairingService
 
-        let screenTimeManager = ScreenTimeManager()
+        let managedSettingsStore = ManagedSettingsStore()
+        let screenTimeManager = ScreenTimeManager(store: managedSettingsStore)
         _screenTimeManager = State(initialValue: screenTimeManager)
-        _restrictionCoordinator = State(
-            initialValue: RestrictionCoordinator(
-                screenTimeManager: screenTimeManager
-            )
-        )
 
         // The restriction and notification services are shared between
         // SessionManager (for paired sessions) and the solo timer flow.
@@ -52,7 +50,14 @@ struct PomoDuoApp: App {
         // center, so the last writer wins - which is correct because solo
         // and paired sessions are mutually exclusive.
         let restrictionService = ManagedSettingsRestrictionService(
-            screenTimeManager: screenTimeManager
+            screenTimeManager: screenTimeManager,
+            store: managedSettingsStore
+        )
+        _restrictionCoordinator = State(
+            initialValue: RestrictionCoordinator(
+                screenTimeManager: screenTimeManager,
+                restrictionService: restrictionService
+            )
         )
 
         // Push notification sender writes requests to Firestore; a Cloud
@@ -99,6 +104,7 @@ struct PomoDuoApp: App {
                 .environment(focusIntentState)
                 .environment(screenTimeManager)
                 .environment(restrictionCoordinator)
+                .environment(powerStateMonitor)
                 .onChange(of: screenTimeManager.activitySelection) { _, _ in
                     restrictionCoordinator.refreshRestrictions()
                 }

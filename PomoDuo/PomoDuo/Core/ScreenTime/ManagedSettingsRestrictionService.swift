@@ -9,7 +9,7 @@ final class ManagedSettingsRestrictionService: RestrictionService {
 
     init(
         screenTimeManager: ScreenTimeManager,
-        store: ManagedSettingsStore = ManagedSettingsStore()
+        store: ManagedSettingsStore
     ) {
         self.screenTimeManager = screenTimeManager
         self.store = store

@@ -25,6 +25,16 @@ struct PairedPartnerView: View {
         activeConfiguration?.roundsBeforeLongBreak ?? 4
     }
 
+    private var pairedAtDescription: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        let relativeText = formatter.localizedString(
+            for: partner.pairedAt,
+            relativeTo: .now
+        )
+        return "Paired \(relativeText)"
+    }
+
     var body: some View {
         VStack {
             Spacer()
@@ -35,9 +45,7 @@ struct PairedPartnerView: View {
                 .font(.title2)
                 .bold()
 
-            Text(
-                "Paired \(partner.pairedAt, format: .relative(presentation: .named))"
-            )
+            Text(pairedAtDescription)
             .font(.subheadline)
             .foregroundStyle(.secondary)
 

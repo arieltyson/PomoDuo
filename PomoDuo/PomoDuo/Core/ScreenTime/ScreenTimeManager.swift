@@ -30,7 +30,7 @@ final class ScreenTimeManager {
 
     private static let selectionDefaultsKey = "com.pomoduo.screentime.selection"
 
-    init(store: ManagedSettingsStore = ManagedSettingsStore()) {
+    init(store: ManagedSettingsStore) {
         self.store = store
         authorizationStatus = AuthorizationCenter.shared.authorizationStatus
         restoreSelection()

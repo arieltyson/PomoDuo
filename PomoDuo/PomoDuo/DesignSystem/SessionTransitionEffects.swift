@@ -10,6 +10,7 @@ struct PauseBreathingEffect: ViewModifier {
 
     @State private var isExpanded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(PowerStateMonitor.self) private var powerStateMonitor
 
     func body(content: Content) -> some View {
         content
@@ -17,14 +18,26 @@ struct PauseBreathingEffect: ViewModifier {
             .opacity(isActive ? (isExpanded ? 0.72 : 0.9) : 1)
             .animation(.easeOut(duration: 0.2), value: isActive)
             .animation(
-                isActive && !reduceMotion
+                isActive
+                    && !reduceMotion
+                    && !powerStateMonitor.isLowPowerModeEnabled
                     ? .easeInOut(duration: 1.5)
                         .repeatForever(autoreverses: true)
                     : .easeOut(duration: 0.2),
                 value: isExpanded
             )
-            .task(id: AnimationTaskID(isActive: isActive, reduceMotion: reduceMotion)) {
-                guard isActive, !reduceMotion else {
+            .task(
+                id: AnimationTaskID(
+                    isActive: isActive,
+                    reduceMotion: reduceMotion,
+                    isLowPowerModeEnabled: powerStateMonitor.isLowPowerModeEnabled
+                )
+            ) {
+                guard
+                    isActive,
+                    !reduceMotion,
+                    !powerStateMonitor.isLowPowerModeEnabled
+                else {
                     isExpanded = false
                     return
                 }
@@ -39,6 +52,7 @@ struct PauseBreathingEffect: ViewModifier {
     private struct AnimationTaskID: Equatable {
         let isActive: Bool
         let reduceMotion: Bool
+        let isLowPowerModeEnabled: Bool
     }
 }
 

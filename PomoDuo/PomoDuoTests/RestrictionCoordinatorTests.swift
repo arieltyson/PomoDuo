@@ -1,4 +1,5 @@
 import Foundation
+import ManagedSettings
 import Testing
 
 @testable import PomoDuo
@@ -19,7 +20,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func initialStateIsNotRestricting() {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
             restrictionService: MockRestrictionService(),
@@ -31,7 +32,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func enforceNoOpsWhenCannotRestrict() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
@@ -49,7 +50,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func enforceAppliesRestrictionsWhenEligible() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
@@ -66,7 +67,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func enforceDoesNotApplyTwiceWhenAlreadyRestricting() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
@@ -84,7 +85,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func liftNoOpsWhenNotRestricting() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
@@ -99,7 +100,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func liftRemovesRestrictionsWhenActive() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
@@ -119,7 +120,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func forceRemoveAlwaysCallsService() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
@@ -135,7 +136,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func refreshNoOpsWhenNotRestricting() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
@@ -151,7 +152,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func refreshReappliesRestrictionsWhenActive() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,
@@ -171,7 +172,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func applyFailureSetsLastError() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         await service.setApplyError(NSError(domain: "tests", code: 41))
         let coordinator = RestrictionCoordinator(
@@ -189,7 +190,7 @@ struct RestrictionCoordinatorTests {
     }
 
     @Test func removeFailureKeepsRestrictingStateAndSetsError() async throws {
-        let manager = ScreenTimeManager()
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
         let service = MockRestrictionService()
         let coordinator = RestrictionCoordinator(
             screenTimeManager: manager,

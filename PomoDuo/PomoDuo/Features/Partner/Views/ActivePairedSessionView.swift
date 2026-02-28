@@ -418,6 +418,7 @@ private struct PartnerPresenceIndicator: View {
     let isActive: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(PowerStateMonitor.self) private var powerStateMonitor
 
     var body: some View {
         HStack(spacing: 6) {
@@ -425,7 +426,10 @@ private struct PartnerPresenceIndicator: View {
                 .fill(isActive ? .green : .orange)
                 .frame(width: 10, height: 10)
                 .overlay {
-                    if isActive && !reduceMotion {
+                    if isActive
+                        && !reduceMotion
+                        && !powerStateMonitor.isLowPowerModeEnabled
+                    {
                         PulsingRing()
                     }
                 }
@@ -442,6 +446,8 @@ private struct PartnerPresenceIndicator: View {
 /// presence dot while the partner is active.
 private struct PulsingRing: View {
     @State private var isPulsing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(PowerStateMonitor.self) private var powerStateMonitor
 
     var body: some View {
         Circle()
@@ -449,7 +455,16 @@ private struct PulsingRing: View {
             .frame(width: 18, height: 18)
             .scaleEffect(isPulsing ? 1.3 : 1.0)
             .opacity(isPulsing ? 0.0 : 0.6)
-            .task {
+            .task(
+                id: AnimationTaskID(
+                    reduceMotion: reduceMotion,
+                    isLowPowerModeEnabled: powerStateMonitor.isLowPowerModeEnabled
+                )
+            ) {
+                guard !reduceMotion, !powerStateMonitor.isLowPowerModeEnabled else {
+                    isPulsing = false
+                    return
+                }
                 withAnimation(
                     .easeInOut(duration: 1.5)
                         .repeatForever(autoreverses: false)
@@ -457,6 +472,11 @@ private struct PulsingRing: View {
                     isPulsing = true
                 }
             }
+    }
+
+    private struct AnimationTaskID: Equatable {
+        let reduceMotion: Bool
+        let isLowPowerModeEnabled: Bool
     }
 }
 
@@ -643,6 +663,7 @@ private struct PausedCountdownView: View {
 
     @State private var breatheOpacity = 1.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(PowerStateMonitor.self) private var powerStateMonitor
 
     var body: some View {
         Text(remainingText)
@@ -651,8 +672,16 @@ private struct PausedCountdownView: View {
             .foregroundStyle(.secondary)
             .opacity(breatheOpacity)
             .accessibilityValue(remainingText)
-            .task {
-                guard !reduceMotion else { return }
+            .task(
+                id: AnimationTaskID(
+                    reduceMotion: reduceMotion,
+                    isLowPowerModeEnabled: powerStateMonitor.isLowPowerModeEnabled
+                )
+            ) {
+                guard !reduceMotion, !powerStateMonitor.isLowPowerModeEnabled else {
+                    breatheOpacity = 1.0
+                    return
+                }
                 withAnimation(
                     .easeInOut(duration: 1.5)
                         .repeatForever(autoreverses: true)
@@ -670,6 +699,11 @@ private struct PausedCountdownView: View {
         let minutesText = minutes < 10 ? "0\(minutes)" : "\(minutes)"
         let secondsText = seconds < 10 ? "0\(seconds)" : "\(seconds)"
         return "\(minutesText):\(secondsText)"
+    }
+
+    private struct AnimationTaskID: Equatable {
+        let reduceMotion: Bool
+        let isLowPowerModeEnabled: Bool
     }
 }
 

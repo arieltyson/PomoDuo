@@ -14,6 +14,8 @@ final class LiveActivityManager {
 
     /// Grace period after the target date before auto-end cleanup fires.
     private static let autoEndGracePeriod: TimeInterval = 2
+    /// Minimum cadence for cosmetic-only lock-screen updates.
+    private static let cosmeticUpdateMinimumInterval: TimeInterval = 2
 
     /// Whether a timer Live Activity is currently active.
     private(set) var isActivityActive = false
@@ -21,6 +23,8 @@ final class LiveActivityManager {
     private var currentActivity: Activity<TimerActivityAttributes>?
     private var autoEndTask: Task<Void, Never>?
     private var autoEndScheduleID: UInt64 = 0
+    private var lastCosmeticUpdateDate: Date?
+    private var lastDispatchedState: TimerActivityAttributes.ContentState?
 
     init() {
         endAllOrphanedActivities()
@@ -59,6 +63,8 @@ final class LiveActivityManager {
             )
             currentActivity = activity
             isActivityActive = true
+            lastDispatchedState = state
+            lastCosmeticUpdateDate = nil
             scheduleAutoEnd(at: targetEndDate)
         } catch {
             Self.logger.warning(
@@ -66,6 +72,8 @@ final class LiveActivityManager {
             )
             currentActivity = nil
             isActivityActive = false
+            lastDispatchedState = nil
+            lastCosmeticUpdateDate = nil
             cancelAutoEnd()
         }
     }
@@ -83,6 +91,19 @@ final class LiveActivityManager {
         guard let activity = currentActivity else {
             return
         }
+        let previousState = lastDispatchedState ?? activity.content.state
+        let isStateChanging = previousState.phase != phase
+            || previousState.currentRound != currentRound
+            || previousState.isPaused != isPaused
+        let now = Date.now
+
+        if !isStateChanging,
+            let lastCosmeticUpdateDate,
+            now.timeIntervalSince(lastCosmeticUpdateDate)
+                < Self.cosmeticUpdateMinimumInterval
+        {
+            return
+        }
 
         let state = TimerActivityAttributes.ContentState(
             phase: phase,
@@ -98,6 +119,8 @@ final class LiveActivityManager {
         Task {
             await activity.update(.init(state: state, staleDate: staleDate))
         }
+        lastDispatchedState = state
+        lastCosmeticUpdateDate = now
 
         if isPaused {
             cancelAutoEnd()
@@ -159,6 +182,8 @@ final class LiveActivityManager {
         )
         currentActivity = nil
         isActivityActive = false
+        lastDispatchedState = nil
+        lastCosmeticUpdateDate = nil
 
         Task {
             if let trackedActivity {

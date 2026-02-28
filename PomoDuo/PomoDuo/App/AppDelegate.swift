@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
         Messaging.messaging().delegate = self
         UNUserNotificationCenter.current().delegate = self
+        MetricKitSubscriber.shared.start()
 
         QuickAction.registerAll(in: application)
 

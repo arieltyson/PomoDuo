@@ -1,3 +1,4 @@
+import ManagedSettings
 import Observation
 
 /// Coordinates restriction enforcement for the solo timer lifecycle.
@@ -26,13 +27,18 @@ final class RestrictionCoordinator {
     init(
         screenTimeManager: ScreenTimeManager,
         restrictionService: (any RestrictionService)? = nil,
+        managedSettingsStore: ManagedSettingsStore? = nil,
         canRestrictEvaluator: (@MainActor () -> Bool)? = nil
     ) {
-        self.restrictionService =
-            restrictionService
-            ?? ManagedSettingsRestrictionService(
-                screenTimeManager: screenTimeManager
+        if let restrictionService {
+            self.restrictionService = restrictionService
+        } else {
+            let resolvedStore = managedSettingsStore ?? ManagedSettingsStore()
+            self.restrictionService = ManagedSettingsRestrictionService(
+                screenTimeManager: screenTimeManager,
+                store: resolvedStore
             )
+        }
 
         self.canRestrictEvaluator =
             canRestrictEvaluator ?? { [weak screenTimeManager] in

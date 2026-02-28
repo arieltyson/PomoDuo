@@ -102,6 +102,7 @@ private struct TimerCenterView: View {
 private struct PausedIndicator: View {
     @State private var dotOpacity = 1.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(PowerStateMonitor.self) private var powerStateMonitor
 
     var body: some View {
         HStack(spacing: 6) {
@@ -122,8 +123,16 @@ private struct PausedIndicator: View {
                     removal: .opacity
                 )
         )
-        .task {
-            guard !reduceMotion else { return }
+        .task(
+            id: AnimationTaskID(
+                reduceMotion: reduceMotion,
+                isLowPowerModeEnabled: powerStateMonitor.isLowPowerModeEnabled
+            )
+        ) {
+            guard !reduceMotion, !powerStateMonitor.isLowPowerModeEnabled else {
+                dotOpacity = 1.0
+                return
+            }
             withAnimation(
                 .easeInOut(duration: 0.8)
                     .repeatForever(autoreverses: true)
@@ -131,5 +140,10 @@ private struct PausedIndicator: View {
                 dotOpacity = 0.3
             }
         }
+    }
+
+    private struct AnimationTaskID: Equatable {
+        let reduceMotion: Bool
+        let isLowPowerModeEnabled: Bool
     }
 }

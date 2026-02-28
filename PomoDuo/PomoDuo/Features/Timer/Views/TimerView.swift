@@ -10,6 +10,7 @@ struct TimerView: View {
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(FocusIntentState.self) private var focusIntentState
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
+    @Environment(PowerStateMonitor.self) private var powerStateMonitor
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var activeConfiguration: TimerConfiguration?
@@ -528,6 +529,8 @@ struct TimerView: View {
 
         guard oldWholeSeconds != newWholeSeconds else { return }
         guard newWholeSeconds > 0 else { return }
+        let pulseIntervalSeconds = powerStateMonitor.isLowPowerModeEnabled ? 30 : 5
+        guard newWholeSeconds.isMultiple(of: pulseIntervalSeconds) else { return }
 
         lockScreenPulsePhase.toggle()
 

@@ -91,6 +91,7 @@ private struct RoundDot: View {
 private struct CurrentRoundPulse: View {
     @State private var isPulsing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(PowerStateMonitor.self) private var powerStateMonitor
 
     var body: some View {
         Circle()
@@ -98,8 +99,17 @@ private struct CurrentRoundPulse: View {
             .frame(width: 18, height: 18)
             .scaleEffect(isPulsing ? 1.4 : 1)
             .opacity(isPulsing ? 0 : 0.5)
-            .task {
-                guard !reduceMotion else { return }
+            .task(
+                id: AnimationTaskID(
+                    reduceMotion: reduceMotion,
+                    isLowPowerModeEnabled: powerStateMonitor
+                        .isLowPowerModeEnabled
+                )
+            ) {
+                guard !reduceMotion, !powerStateMonitor.isLowPowerModeEnabled else {
+                    isPulsing = false
+                    return
+                }
                 withAnimation(
                     .easeOut(duration: 1.8)
                         .repeatForever(autoreverses: false)
@@ -107,5 +117,10 @@ private struct CurrentRoundPulse: View {
                     isPulsing = true
                 }
             }
+    }
+
+    private struct AnimationTaskID: Equatable {
+        let reduceMotion: Bool
+        let isLowPowerModeEnabled: Bool
     }
 }
