@@ -569,12 +569,12 @@ private struct LockScreenRoundBar: View {
 
 // MARK: - Preview Data
 
-private extension TimerActivityAttributes {
-    static let preview = TimerActivityAttributes(totalRounds: 4)
+extension TimerActivityAttributes {
+    fileprivate static let preview = TimerActivityAttributes(totalRounds: 4)
 }
 
-private extension TimerActivityAttributes.ContentState {
-    static let focusActive = TimerActivityAttributes.ContentState(
+extension TimerActivityAttributes.ContentState {
+    fileprivate static let focusActive = TimerActivityAttributes.ContentState(
         phase: .focus,
         currentRound: 2,
         targetEndDate: .now.addingTimeInterval(25 * 60),
@@ -582,23 +582,25 @@ private extension TimerActivityAttributes.ContentState {
         phaseDuration: 25 * 60
     )
 
-    static let shortBreakActive = TimerActivityAttributes.ContentState(
-        phase: .shortBreak,
-        currentRound: 2,
-        targetEndDate: .now.addingTimeInterval(5 * 60),
-        isPaused: false,
-        phaseDuration: 5 * 60
-    )
+    fileprivate static let shortBreakActive =
+        TimerActivityAttributes.ContentState(
+            phase: .shortBreak,
+            currentRound: 2,
+            targetEndDate: .now.addingTimeInterval(5 * 60),
+            isPaused: false,
+            phaseDuration: 5 * 60
+        )
 
-    static let longBreakActive = TimerActivityAttributes.ContentState(
-        phase: .longBreak,
-        currentRound: 4,
-        targetEndDate: .now.addingTimeInterval(15 * 60),
-        isPaused: false,
-        phaseDuration: 15 * 60
-    )
+    fileprivate static let longBreakActive =
+        TimerActivityAttributes.ContentState(
+            phase: .longBreak,
+            currentRound: 4,
+            targetEndDate: .now.addingTimeInterval(15 * 60),
+            isPaused: false,
+            phaseDuration: 15 * 60
+        )
 
-    static let paused = TimerActivityAttributes.ContentState(
+    fileprivate static let paused = TimerActivityAttributes.ContentState(
         phase: .focus,
         currentRound: 3,
         targetEndDate: .now.addingTimeInterval(12 * 60 + 45),
@@ -610,7 +612,11 @@ private extension TimerActivityAttributes.ContentState {
 
 // MARK: - Dynamic Island Previews
 
-#Preview("Expanded", as: .dynamicIsland(.expanded), using: TimerActivityAttributes.preview) {
+#Preview(
+    "Expanded",
+    as: .dynamicIsland(.expanded),
+    using: TimerActivityAttributes.preview
+) {
     PomoDuoLiveActivity()
 } contentStates: {
     TimerActivityAttributes.ContentState.focusActive
@@ -619,7 +625,11 @@ private extension TimerActivityAttributes.ContentState {
     TimerActivityAttributes.ContentState.paused
 }
 
-#Preview("Compact", as: .dynamicIsland(.compact), using: TimerActivityAttributes.preview) {
+#Preview(
+    "Compact",
+    as: .dynamicIsland(.compact),
+    using: TimerActivityAttributes.preview
+) {
     PomoDuoLiveActivity()
 } contentStates: {
     TimerActivityAttributes.ContentState.focusActive
@@ -628,7 +638,11 @@ private extension TimerActivityAttributes.ContentState {
     TimerActivityAttributes.ContentState.paused
 }
 
-#Preview("Minimal", as: .dynamicIsland(.minimal), using: TimerActivityAttributes.preview) {
+#Preview(
+    "Minimal",
+    as: .dynamicIsland(.minimal),
+    using: TimerActivityAttributes.preview
+) {
     PomoDuoLiveActivity()
 } contentStates: {
     TimerActivityAttributes.ContentState.focusActive

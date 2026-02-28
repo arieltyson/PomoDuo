@@ -41,7 +41,8 @@ struct TogglePauseIntent: LiveActivityIntent {
         } else {
             // Pause: capture the exact remaining time and freeze.
             let remaining = max(
-                0, state.targetEndDate.timeIntervalSinceNow
+                0,
+                state.targetEndDate.timeIntervalSinceNow
             )
 
             let newState = TimerActivityAttributes.ContentState(
