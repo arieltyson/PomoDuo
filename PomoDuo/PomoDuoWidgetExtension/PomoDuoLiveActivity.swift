@@ -231,30 +231,48 @@ private struct CompactTrailingView: View {
     let state: TimerActivityAttributes.ContentState
 
     var body: some View {
-        if state.isPaused {
-            Text(pausedTimeText(for: state))
-                .font(.headline)
-                .bold()
-                .monospacedDigit()
-                .fixedSize(horizontal: true, vertical: false)
-                .foregroundStyle(Palette.focusTint)
-                .contentTransition(.numericText())
-                .accessibilityLabel(
-                    "Paused, \(pausedTimeText(for: state)) remaining"
-                )
-        } else {
-            Text(
-                timerInterval: safeTimerInterval(until: state.targetEndDate),
-                countsDown: true
-            )
+        CompactCountdownValueView(state: state)
+    }
+}
+
+/// Trailing compact countdown with a fixed footprint in both running/paused states.
+///
+/// Keeping a stable width prevents single-sided compact island collapse when
+/// the running timer text updates.
+private struct CompactCountdownValueView: View {
+    let state: TimerActivityAttributes.ContentState
+
+    private var placeholderTime: String {
+        state.phaseDuration >= 3600 ? "00:00:00" : "00:00"
+    }
+
+    var body: some View {
+        Text(placeholderTime)
             .font(.headline)
             .bold()
             .monospacedDigit()
-            .fixedSize(horizontal: true, vertical: false)
-            .foregroundStyle(Palette.focusTint)
-            .contentTransition(.numericText())
-            .accessibilityLabel("Time remaining")
-        }
+            .hidden()
+            .overlay(alignment: .trailing) {
+                Group {
+                    if state.isPaused {
+                        Text(pausedTimeText(for: state))
+                            .accessibilityLabel(
+                                "Paused, \(pausedTimeText(for: state)) remaining"
+                            )
+                    } else {
+                        Text(state.targetEndDate, style: .timer)
+                            .accessibilityLabel("Time remaining")
+                    }
+                }
+                .font(.headline)
+                .bold()
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .foregroundStyle(Palette.focusTint)
+                .contentTransition(.numericText())
+            }
+            .layoutPriority(1)
     }
 }
 
