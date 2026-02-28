@@ -18,6 +18,7 @@ struct TimerView: View {
     @State private var phase: TimerPhase = .idle
     @State private var haptic = HapticTrigger()
     @State private var focusStartedAt: Date?
+    @State private var lockScreenPulsePhase = false
 
     var body: some View {
         Group {
@@ -68,6 +69,9 @@ struct TimerView: View {
                 restrictionCoordinator.liftRestrictions()
                 AccessibilityAnnouncer.announceRoundComplete()
             }
+        }
+        .onChange(of: viewModel.currentTick) { previousTick, currentTick in
+            syncLockScreenPulse(previousTick: previousTick, currentTick: currentTick)
         }
         .onChange(of: focusIntentState.pendingFocusRequest) { _, isPending in
             if isPending {
@@ -149,6 +153,7 @@ struct TimerView: View {
     }
 
     private func startFocus(using configuration: TimerConfiguration) {
+        lockScreenPulsePhase = false
         phase = .focus
         focusStartedAt = .now
         viewModel.startFocus(with: configuration)
@@ -183,6 +188,7 @@ struct TimerView: View {
             0,
             viewModel.currentTick?.remainingSeconds ?? 0
         )
+        lockScreenPulsePhase = false
         viewModel.pause()
         haptic.fire(.pause)
         liveActivityManager.update(
@@ -191,7 +197,8 @@ struct TimerView: View {
             targetEndDate: .now.addingTimeInterval(remainingSeconds),
             isPaused: true,
             phaseDuration: phaseDuration(for: phase),
-            pausedRemainingSeconds: remainingSeconds
+            pausedRemainingSeconds: remainingSeconds,
+            pulsePhase: false
         )
         cancelNotification()
         AccessibilityAnnouncer.announcePause()
@@ -202,6 +209,7 @@ struct TimerView: View {
             0,
             viewModel.currentTick?.remainingSeconds ?? 0
         )
+        lockScreenPulsePhase = false
         viewModel.unpause()
         haptic.fire(.resume)
 
@@ -216,7 +224,8 @@ struct TimerView: View {
             currentRound: currentRound,
             targetEndDate: targetEndDate,
             isPaused: false,
-            phaseDuration: phaseDuration(for: phase)
+            phaseDuration: phaseDuration(for: phase),
+            pulsePhase: false
         )
 
         let message =
@@ -228,6 +237,7 @@ struct TimerView: View {
     }
 
     private func stopTimer() {
+        lockScreenPulsePhase = false
         viewModel.stop()
         phase = .idle
         currentRound = 1
@@ -241,6 +251,7 @@ struct TimerView: View {
 
     private func advancePhase(using configuration: TimerConfiguration) {
         haptic.fire(.phaseChange)
+        lockScreenPulsePhase = false
 
         switch phase {
         case .idle, .focus:
@@ -490,6 +501,44 @@ struct TimerView: View {
         case .longBreak:
             return configuration.longBreakDuration
         }
+    }
+
+    /// Updates a lightweight pulse token for lock-screen Live Activity icon motion.
+    ///
+    /// Live Activities don't reliably run arbitrary continuous animations.
+    /// Toggling this token through content updates gives the system concrete
+    /// state changes it can render even in constrained lock-screen contexts.
+    private func syncLockScreenPulse(
+        previousTick: TimerTick?,
+        currentTick: TimerTick?
+    ) {
+        guard viewModel.isRunning,
+            let currentTick,
+            !currentTick.isPaused,
+            phase == .focus,
+            liveActivityManager.isActivityActive
+        else {
+            return
+        }
+
+        let oldWholeSeconds = previousTick.map {
+            Int(max(0, $0.remainingSeconds).rounded(.down))
+        }
+        let newWholeSeconds = Int(max(0, currentTick.remainingSeconds).rounded(.down))
+
+        guard oldWholeSeconds != newWholeSeconds else { return }
+        guard newWholeSeconds > 0 else { return }
+
+        lockScreenPulsePhase.toggle()
+
+        liveActivityManager.update(
+            phase: phase.activityPhase,
+            currentRound: currentRound,
+            targetEndDate: .now.addingTimeInterval(currentTick.remainingSeconds),
+            isPaused: false,
+            phaseDuration: phaseDuration(for: phase),
+            pulsePhase: lockScreenPulsePhase
+        )
     }
 
     private func idleTimeString(

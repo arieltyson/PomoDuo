@@ -445,7 +445,7 @@ private struct ExpandedBottomControlsView: View {
 /// to claim remaining space and right-align, avoiding `Spacer()` which
 /// does not reliably expand in Live Activity Lock Screen contexts.
 ///
-/// Layout: `[ring] [phase / round] ———[countdown]`
+/// Layout: `[icon] [phase / round] ———[countdown]`
 ///         `[====  round bar segments  ====]`
 private struct LockScreenBanner: View {
     let state: TimerActivityAttributes.ContentState
@@ -458,22 +458,10 @@ private struct LockScreenBanner: View {
     var body: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                Group {
-                    if state.isPaused {
-                        PausedRingView(
-                            tint: accentColor,
-                            lineWidth: 2.5,
-                            iconFont: .system(size: 12, weight: .bold)
-                        )
-                    } else {
-                        LockScreenRunningRingView(
-                            state: state,
-                            tint: accentColor
-                        )
-                    }
-                }
-                .frame(width: 36, height: 36)
-                .accessibilityHidden(true)
+                LockScreenPhaseIconBadgeView(
+                    state: state,
+                    tint: accentColor
+                )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(state.isPaused ? "Paused" : state.phase.label)
@@ -521,86 +509,51 @@ private struct LockScreenBanner: View {
     }
 }
 
-/// Running lock-screen ring with the phase glyph centered inside.
+/// Leading lock-screen glyph with a deterministic pulse phase.
 ///
-/// Focus uses the same pulsing "mind" symbol language as the in-app header.
-private struct LockScreenRunningRingView: View {
+/// Lock-screen Live Activities don't reliably run continuous custom animation
+/// loops. Instead this view reacts to ``TimerActivityAttributes.ContentState``
+/// pulse-phase updates produced by the app timer flow.
+private struct LockScreenPhaseIconBadgeView: View {
     let state: TimerActivityAttributes.ContentState
     let tint: Color
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var symbolName: String {
-        state.phase.systemImage
+        if state.isPaused { return "pause.fill" }
+        if state.phase == .focus && state.pulsePhase {
+            return "brain.head.profile.fill"
+        }
+        return state.phase.systemImage
     }
 
     private var shouldPulse: Bool {
-        !reduceMotion && state.phase == .focus
+        !reduceMotion && !state.isPaused && state.phase == .focus
     }
 
     var body: some View {
+        let isPulsed = shouldPulse && state.pulsePhase
+
         ZStack {
-            TimerRingView(
-                fraction: remainingFraction(for: state),
-                tint: tint,
-                lineWidth: 2.5
-            )
+            Circle()
+                .stroke(
+                    tint.opacity(isPulsed ? 0.35 : 0.14),
+                    lineWidth: 1.2
+                )
+                .scaleEffect(isPulsed ? 1.22 : 1.0)
 
-            LockScreenPhaseIconView(
-                symbolName: symbolName,
-                tint: tint,
-                shouldPulse: shouldPulse
-            )
+            Image(systemName: symbolName)
+                .symbolRenderingMode(.hierarchical)
+                .font(.title3)
+                .bold()
+                .foregroundStyle(tint)
+                .scaleEffect(isPulsed ? 1.16 : 1.0)
+                .opacity(isPulsed ? 1.0 : 0.86)
         }
-    }
-}
-
-/// Center glyph inside the running lock-screen ring.
-///
-/// Uses a timeline-driven pulse so the effect remains visible in Live Activity
-/// rendering where implicit symbol effects may not animate reliably.
-private struct LockScreenPhaseIconView: View {
-    let symbolName: String
-    let tint: Color
-    let shouldPulse: Bool
-
-    var body: some View {
-        Group {
-            if shouldPulse {
-                TimelineView(.periodic(from: .now, by: 0.6)) { context in
-                    phaseIcon
-                        .scaleEffect(pulseScale(at: context.date))
-                        .opacity(pulseOpacity(at: context.date))
-                }
-            } else {
-                phaseIcon
-            }
-        }
-    }
-
-    private var phaseIcon: some View {
-        Image(systemName: symbolName)
-            .font(.callout)
-            .bold()
-            .foregroundStyle(tint)
-    }
-
-    private func pulseScale(at date: Date) -> Double {
-        let wave = pulseWave(at: date)
-        return 1 + (0.16 * wave)
-    }
-
-    private func pulseOpacity(at date: Date) -> Double {
-        let wave = pulseWave(at: date)
-        return 0.82 + (0.18 * wave)
-    }
-
-    private func pulseWave(at date: Date) -> Double {
-        let cycleDuration = 1.2
-        let phase =
-            date.timeIntervalSinceReferenceDate
-            .truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
-        return 0.5 - (0.5 * cos(2 * .pi * phase))
+        .frame(width: 36, height: 36)
+        .background(tint.opacity(0.25), in: .circle)
+        .accessibilityHidden(true)
     }
 }
 
