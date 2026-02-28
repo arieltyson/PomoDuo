@@ -388,3 +388,79 @@ private struct LockScreenRoundBar: View {
         }
     }
 }
+
+// MARK: - Preview Data
+
+private extension TimerActivityAttributes {
+    static let preview = TimerActivityAttributes(totalRounds: 4)
+}
+
+private extension TimerActivityAttributes.ContentState {
+    static let focusActive = TimerActivityAttributes.ContentState(
+        phase: .focus,
+        currentRound: 2,
+        targetEndDate: .now.addingTimeInterval(25 * 60),
+        isPaused: false
+    )
+
+    static let shortBreakActive = TimerActivityAttributes.ContentState(
+        phase: .shortBreak,
+        currentRound: 2,
+        targetEndDate: .now.addingTimeInterval(5 * 60),
+        isPaused: false
+    )
+
+    static let longBreakActive = TimerActivityAttributes.ContentState(
+        phase: .longBreak,
+        currentRound: 4,
+        targetEndDate: .now.addingTimeInterval(15 * 60),
+        isPaused: false
+    )
+
+    static let paused = TimerActivityAttributes.ContentState(
+        phase: .focus,
+        currentRound: 3,
+        targetEndDate: .now,
+        isPaused: true
+    )
+}
+
+// MARK: - Dynamic Island Previews
+
+#Preview("Expanded", as: .dynamicIsland(.expanded), using: TimerActivityAttributes.preview) {
+    PomoDuoLiveActivity()
+} contentStates: {
+    TimerActivityAttributes.ContentState.focusActive
+    TimerActivityAttributes.ContentState.shortBreakActive
+    TimerActivityAttributes.ContentState.longBreakActive
+    TimerActivityAttributes.ContentState.paused
+}
+
+#Preview("Compact", as: .dynamicIsland(.compact), using: TimerActivityAttributes.preview) {
+    PomoDuoLiveActivity()
+} contentStates: {
+    TimerActivityAttributes.ContentState.focusActive
+    TimerActivityAttributes.ContentState.shortBreakActive
+    TimerActivityAttributes.ContentState.longBreakActive
+    TimerActivityAttributes.ContentState.paused
+}
+
+#Preview("Minimal", as: .dynamicIsland(.minimal), using: TimerActivityAttributes.preview) {
+    PomoDuoLiveActivity()
+} contentStates: {
+    TimerActivityAttributes.ContentState.focusActive
+    TimerActivityAttributes.ContentState.shortBreakActive
+    TimerActivityAttributes.ContentState.longBreakActive
+    TimerActivityAttributes.ContentState.paused
+}
+
+// MARK: - Lock Screen Preview
+
+#Preview("Lock Screen", as: .content, using: TimerActivityAttributes.preview) {
+    PomoDuoLiveActivity()
+} contentStates: {
+    TimerActivityAttributes.ContentState.focusActive
+    TimerActivityAttributes.ContentState.shortBreakActive
+    TimerActivityAttributes.ContentState.longBreakActive
+    TimerActivityAttributes.ContentState.paused
+}
