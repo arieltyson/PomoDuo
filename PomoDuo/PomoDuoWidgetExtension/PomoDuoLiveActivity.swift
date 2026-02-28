@@ -374,21 +374,27 @@ private struct ExpandedBottomControlsView: View {
         HStack(spacing: 12) {
             Button(intent: StopTimerIntent()) {
                 Text("Cancel")
-                    .font(.subheadline)
-                    .bold()
+                    .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 36)
+                    .contentShape(.capsule)
             }
-            .tint(Color.white.opacity(0.25))
+            .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
+            .tint(.white.opacity(0.18))
+            .frame(maxWidth: .infinity)
 
             Button(intent: TogglePauseIntent()) {
                 Text(state.isPaused ? "Resume" : "Pause")
-                    .font(.subheadline)
-                    .bold()
+                    .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
+                    .frame(minHeight: 36)
+                    .contentShape(.capsule)
             }
-            .tint(tint)
+            .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
+            .tint(tint.opacity(0.82))
+            .frame(maxWidth: .infinity)
         }
         .padding(.top, 4)
     }

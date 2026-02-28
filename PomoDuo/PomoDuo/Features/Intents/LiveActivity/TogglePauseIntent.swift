@@ -1,20 +1,21 @@
 import ActivityKit
 import AppIntents
 
-/// Live Activity intent that toggles the timer between paused and running.
+/// Shared Live Activity action that toggles pause/resume.
 ///
-/// Triggered by the Pause / Resume button in the Dynamic Island's expanded
-/// view. Updates the Live Activity inline and writes a bridge command for
-/// the main app to process on next foreground transition.
+/// This app-target counterpart mirrors the widget-extension intent so
+/// execution succeeds even when the system resolves actions in app process.
 struct TogglePauseIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Toggle Pause"
     static var description: IntentDescription? = IntentDescription(
         "Pause or resume the Pomodoro timer."
     )
+
     static var openAppWhenRun: Bool { false }
     static var authenticationPolicy: IntentAuthenticationPolicy {
         .alwaysAllowed
     }
+
     @available(iOS 18.0, *)
     static var supportedModes: IntentModes {
         [.background, .foreground(.dynamic)]
@@ -34,7 +35,6 @@ struct TogglePauseIntent: LiveActivityIntent {
         let state = activity.content.state
 
         if state.isPaused {
-            // Resume: restart the countdown from the frozen remaining time.
             let remaining = state.pausedRemainingSeconds
             let newTargetEndDate = Date.now.addingTimeInterval(remaining)
 
@@ -52,7 +52,6 @@ struct TogglePauseIntent: LiveActivityIntent {
 
             LiveActivityBridge.write(.resume, remainingSeconds: remaining)
         } else {
-            // Pause: capture the exact remaining time and freeze.
             let remaining = max(
                 0,
                 state.targetEndDate.timeIntervalSinceNow

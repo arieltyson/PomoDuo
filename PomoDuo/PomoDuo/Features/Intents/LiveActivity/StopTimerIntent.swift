@@ -1,27 +1,27 @@
 import ActivityKit
 import AppIntents
 
-/// Live Activity intent that stops the timer and ends all activities.
+/// Shared Live Activity action that stops the running timer.
 ///
-/// Triggered by the Stop button in the Dynamic Island's expanded view.
-/// Writes a bridge command for the main app, then ends every active
-/// timer Live Activity.
+/// This app-target counterpart mirrors the widget-extension intent so
+/// execution succeeds even when the system resolves actions in app process.
 struct StopTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Timer"
     static var description: IntentDescription? = IntentDescription(
         "Stop the Pomodoro timer."
     )
+
     static var openAppWhenRun: Bool { false }
     static var authenticationPolicy: IntentAuthenticationPolicy {
         .alwaysAllowed
     }
+
     @available(iOS 18.0, *)
     static var supportedModes: IntentModes {
         [.background, .foreground(.dynamic)]
     }
 
     func perform() async throws -> some IntentResult {
-        // Write bridge command before ending so the main app can sync.
         LiveActivityBridge.write(.stop)
 
         for activity in Activity<TimerActivityAttributes>.activities {
