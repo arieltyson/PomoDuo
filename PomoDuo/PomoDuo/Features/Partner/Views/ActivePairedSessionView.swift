@@ -333,12 +333,17 @@ struct ActivePairedSessionView: View {
         )
 
         if isPaused {
+            let remaining = max(
+                0,
+                session.targetEndDate.timeIntervalSinceNow
+            )
             liveActivityManager.update(
                 phase: .focus,
                 currentRound: session.currentRound,
                 targetEndDate: session.targetEndDate,
                 isPaused: true,
-                phaseDuration: session.duration
+                phaseDuration: session.duration,
+                pausedRemainingSeconds: remaining
             )
         }
     }
@@ -354,12 +359,17 @@ struct ActivePairedSessionView: View {
     }
 
     private func updateLiveActivityPaused(_ isPaused: Bool) {
+        let remaining =
+            isPaused
+            ? max(0, session.targetEndDate.timeIntervalSinceNow)
+            : 0
         liveActivityManager.update(
             phase: .focus,
             currentRound: session.currentRound,
             targetEndDate: session.targetEndDate,
             isPaused: isPaused,
-            phaseDuration: session.duration
+            phaseDuration: session.duration,
+            pausedRemainingSeconds: remaining
         )
     }
 }

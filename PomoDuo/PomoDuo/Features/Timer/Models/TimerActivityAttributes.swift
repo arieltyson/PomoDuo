@@ -48,5 +48,8 @@ struct TimerActivityAttributes: ActivityAttributes {
         /// Total duration of the current phase in seconds.
         /// Used to derive the timer interval start for the Dynamic Island progress ring.
         let phaseDuration: TimeInterval
+        /// Frozen remaining seconds captured at the moment of pausing.
+        /// Only meaningful when ``isPaused`` is `true`; defaults to `0` for running states.
+        var pausedRemainingSeconds: TimeInterval = 0
     }
 }

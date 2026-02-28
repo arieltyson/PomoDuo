@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -12,7 +13,7 @@ import WidgetKit
 /// - Cohesive compact leading + trailing forming a single visual thought
 /// - Dynamic content in minimal (progress ring, not a static logo)
 /// - Expanded view adds detail without duplicating the compact view
-/// - No interactive controls — tapping opens the app
+/// - Interactive pause/resume and stop controls in the expanded bottom region
 struct PomoDuoLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TimerActivityAttributes.self) { context in
@@ -37,6 +38,10 @@ struct PomoDuoLiveActivity: Widget {
                         state: context.state,
                         totalRounds: context.attributes.totalRounds
                     )
+                }
+
+                DynamicIslandExpandedRegion(.bottom) {
+                    ExpandedBottomControlsView(state: context.state)
                 }
             } compactLeading: {
                 CompactLeadingView(state: context.state)
@@ -122,8 +127,22 @@ private func remainingFraction(
     for state: TimerActivityAttributes.ContentState
 ) -> Double {
     guard state.phaseDuration > 0 else { return 0 }
+    if state.isPaused {
+        return min(1, state.pausedRemainingSeconds / state.phaseDuration)
+    }
     let remaining = max(0, state.targetEndDate.timeIntervalSinceNow)
     return min(1, remaining / state.phaseDuration)
+}
+
+/// Formats the frozen remaining time for paused-state display.
+///
+/// Uses ``TimerActivityAttributes/ContentState/pausedRemainingSeconds``
+/// captured at the moment of pausing — the value does not drift.
+private func pausedTimeText(
+    for state: TimerActivityAttributes.ContentState
+) -> String {
+    let duration = Duration.seconds(Int(state.pausedRemainingSeconds))
+    return duration.formatted(.time(pattern: .minuteSecond))
 }
 
 // MARK: - Timer Ring Components
@@ -219,10 +238,15 @@ private struct CompactTrailingView: View {
 
     var body: some View {
         if state.isPaused {
-            Image(systemName: "pause.fill")
+            Text(pausedTimeText(for: state))
                 .font(.caption2)
+                .bold()
+                .monospacedDigit()
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(tint)
-                .accessibilityLabel("Paused")
+                .accessibilityLabel(
+                    "Paused, \(pausedTimeText(for: state)) remaining"
+                )
         } else {
             Text(
                 timerInterval: safeTimerInterval(until: state.targetEndDate),
@@ -256,18 +280,18 @@ private struct MinimalView: View {
             if state.isPaused {
                 PausedRingView(
                     tint: tint,
-                    lineWidth: 1.5,
-                    iconFont: .system(size: 6, weight: .bold)
+                    lineWidth: 2,
+                    iconFont: .system(size: 8, weight: .bold)
                 )
             } else {
                 TimerRingView(
                     fraction: remainingFraction(for: state),
                     tint: tint,
-                    lineWidth: 1.5
+                    lineWidth: 2
                 )
             }
         }
-        .frame(width: 16, height: 16)
+        .frame(width: 24, height: 24)
         .accessibilityLabel(
             state.isPaused ? "Focus session paused" : "Time remaining"
         )
@@ -315,9 +339,17 @@ private struct ExpandedTrailingView: View {
 
     var body: some View {
         if state.isPaused {
-            Text("Paused")
-                .font(.headline)
-                .foregroundStyle(tint)
+            VStack(spacing: 2) {
+                Text(pausedTimeText(for: state))
+                    .font(.title3)
+                    .bold()
+                    .monospacedDigit()
+                    .foregroundStyle(tint)
+
+                Text("Paused")
+                    .font(.caption2)
+                    .foregroundStyle(tint.opacity(0.7))
+            }
         } else {
             Text(
                 timerInterval: safeTimerInterval(until: state.targetEndDate),
@@ -358,6 +390,51 @@ private struct ExpandedCenterView: View {
         .accessibilityLabel(
             "Round \(state.currentRound) of \(totalRounds)"
         )
+    }
+}
+
+// MARK: - Dynamic Island — Expanded Bottom Controls
+
+/// Interactive controls in the expanded Dynamic Island's bottom region.
+///
+/// Provides Pause/Resume and Stop buttons powered by ``LiveActivityIntent``
+/// conformances. These execute in the widget extension process, update the
+/// Live Activity inline, and write a bridge command for the main app.
+private struct ExpandedBottomControlsView: View {
+    let state: TimerActivityAttributes.ContentState
+
+    private var tint: Color {
+        Palette.accentTint(for: state)
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            Button(intent: StopTimerIntent()) {
+                Label("Stop", systemImage: "stop.fill")
+                    .font(.caption)
+                    .bold()
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(.red.opacity(0.6), in: .capsule)
+            }
+            .buttonStyle(.plain)
+
+            Button(intent: TogglePauseIntent()) {
+                Label(
+                    state.isPaused ? "Resume" : "Pause",
+                    systemImage: state.isPaused ? "play.fill" : "pause.fill"
+                )
+                .font(.caption)
+                .bold()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(tint.opacity(0.6), in: .capsule)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 4)
     }
 }
 
@@ -524,9 +601,10 @@ private extension TimerActivityAttributes.ContentState {
     static let paused = TimerActivityAttributes.ContentState(
         phase: .focus,
         currentRound: 3,
-        targetEndDate: .now,
+        targetEndDate: .now.addingTimeInterval(12 * 60 + 45),
         isPaused: true,
-        phaseDuration: 25 * 60
+        phaseDuration: 25 * 60,
+        pausedRemainingSeconds: 12 * 60 + 45
     )
 }
 

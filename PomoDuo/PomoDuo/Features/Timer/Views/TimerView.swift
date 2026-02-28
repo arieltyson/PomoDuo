@@ -10,6 +10,7 @@ struct TimerView: View {
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(FocusIntentState.self) private var focusIntentState
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var activeConfiguration: TimerConfiguration?
     @State private var viewModel = TimerViewModel()
@@ -73,6 +74,11 @@ struct TimerView: View {
                 consumePendingFocusRequest()
             }
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                processLiveActivityBridgeCommands()
+            }
+        }
         .navigationTitle("Focus")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: configurations.count) {
@@ -96,6 +102,37 @@ struct TimerView: View {
         }
 
         startFocus(using: configuration)
+    }
+
+    /// Reads and processes any pending command written by a Live Activity intent.
+    ///
+    /// Called when the app transitions to `.active` so that Pause / Resume / Stop
+    /// actions triggered from the Dynamic Island are reflected in the app's state.
+    private func processLiveActivityBridgeCommands() {
+        guard let pending = LiveActivityBridge.read() else { return }
+        defer { LiveActivityBridge.clear() }
+
+        // Ignore stale commands (older than 60 seconds).
+        guard Date.now.timeIntervalSince(pending.timestamp) < 60 else { return }
+
+        switch pending.command {
+        case .pause:
+            if viewModel.isRunning
+                && !(viewModel.currentTick?.isPaused ?? true)
+            {
+                pauseTimer()
+            }
+        case .resume:
+            if viewModel.isRunning
+                && (viewModel.currentTick?.isPaused ?? false)
+            {
+                resumeTimer()
+            }
+        case .stop:
+            if viewModel.isRunning {
+                stopTimer()
+            }
+        }
     }
 
     @MainActor
@@ -142,14 +179,19 @@ struct TimerView: View {
     }
 
     private func pauseTimer() {
+        let remainingSeconds = max(
+            0,
+            viewModel.currentTick?.remainingSeconds ?? 0
+        )
         viewModel.pause()
         haptic.fire(.pause)
         liveActivityManager.update(
             phase: phase.activityPhase,
             currentRound: currentRound,
-            targetEndDate: .now,
+            targetEndDate: .now.addingTimeInterval(remainingSeconds),
             isPaused: true,
-            phaseDuration: phaseDuration(for: phase)
+            phaseDuration: phaseDuration(for: phase),
+            pausedRemainingSeconds: remainingSeconds
         )
         cancelNotification()
         AccessibilityAnnouncer.announcePause()

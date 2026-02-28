@@ -99,6 +99,7 @@
 		AF1471492F465E0800BB4819 /* Exceptions for "PomoDuo" folder in "PomoDuoWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Core/Storage/LiveActivityBridge.swift,
 				Features/Timer/Models/TimerActivityAttributes.swift,
 			);
 			target = AF14711F2F465CC600BB4819 /* PomoDuoWidgetExtension */;
