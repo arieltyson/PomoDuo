@@ -546,12 +546,61 @@ private struct LockScreenRunningRingView: View {
                 lineWidth: 2.5
             )
 
-            Image(systemName: symbolName)
-                .font(.caption)
-                .bold()
-                .foregroundStyle(tint)
-                .symbolEffect(.pulse, isActive: shouldPulse)
+            LockScreenPhaseIconView(
+                symbolName: symbolName,
+                tint: tint,
+                shouldPulse: shouldPulse
+            )
         }
+    }
+}
+
+/// Center glyph inside the running lock-screen ring.
+///
+/// Uses a timeline-driven pulse so the effect remains visible in Live Activity
+/// rendering where implicit symbol effects may not animate reliably.
+private struct LockScreenPhaseIconView: View {
+    let symbolName: String
+    let tint: Color
+    let shouldPulse: Bool
+
+    var body: some View {
+        Group {
+            if shouldPulse {
+                TimelineView(.periodic(from: .now, by: 0.6)) { context in
+                    phaseIcon
+                        .scaleEffect(pulseScale(at: context.date))
+                        .opacity(pulseOpacity(at: context.date))
+                }
+            } else {
+                phaseIcon
+            }
+        }
+    }
+
+    private var phaseIcon: some View {
+        Image(systemName: symbolName)
+            .font(.callout)
+            .bold()
+            .foregroundStyle(tint)
+    }
+
+    private func pulseScale(at date: Date) -> Double {
+        let wave = pulseWave(at: date)
+        return 1 + (0.16 * wave)
+    }
+
+    private func pulseOpacity(at date: Date) -> Double {
+        let wave = pulseWave(at: date)
+        return 0.82 + (0.18 * wave)
+    }
+
+    private func pulseWave(at date: Date) -> Double {
+        let cycleDuration = 1.2
+        let phase =
+            date.timeIntervalSinceReferenceDate
+            .truncatingRemainder(dividingBy: cycleDuration) / cycleDuration
+        return 0.5 - (0.5 * cos(2 * .pi * phase))
     }
 }
 
