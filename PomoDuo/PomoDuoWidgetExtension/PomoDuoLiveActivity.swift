@@ -485,6 +485,7 @@ private struct LockScreenBanner: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                .layoutPriority(1)
 
                 if state.isPaused {
                     Text("Paused")
@@ -494,21 +495,10 @@ private struct LockScreenBanner: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .accessibilityLabel("Timer paused")
                 } else {
-                    Text(
-                        timerInterval: safeTimerInterval(
-                            until: state.targetEndDate
-                        ),
-                        countsDown: true
-                    )
-                    .font(.system(.title, design: .rounded))
-                    .bold()
-                    .monospacedDigit()
-                    .foregroundStyle(.primary)
-                    .contentTransition(.numericText())
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .accessibilityLabel("Time remaining")
+                    LockScreenRunningCountdownView(state: state)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             LockScreenRoundBar(
                 currentRound: state.currentRound,
@@ -529,6 +519,40 @@ private struct LockScreenBanner: View {
         return state.phase.isBreak
             ? Palette.breakTint.opacity(0.15)
             : Palette.focusTint.opacity(0.15)
+    }
+}
+
+/// Running-state lock screen countdown pinned to the trailing edge.
+///
+/// Uses a hidden monospaced template to stabilize width as values tick.
+private struct LockScreenRunningCountdownView: View {
+    let state: TimerActivityAttributes.ContentState
+
+    private var placeholderTime: String {
+        state.phaseDuration >= 3600 ? "00:00:00" : "00:00"
+    }
+
+    var body: some View {
+        Text(placeholderTime)
+            .font(.system(.title, design: .rounded))
+            .bold()
+            .monospacedDigit()
+            .hidden()
+            .overlay(alignment: .trailing) {
+                Text(
+                    timerInterval: safeTimerInterval(until: state.targetEndDate),
+                    countsDown: true
+                )
+                .font(.system(.title, design: .rounded))
+                .bold()
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .foregroundStyle(.primary)
+                .contentTransition(.numericText())
+                .accessibilityLabel("Time remaining")
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
