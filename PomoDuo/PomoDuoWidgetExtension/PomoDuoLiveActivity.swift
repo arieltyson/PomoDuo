@@ -466,10 +466,9 @@ private struct LockScreenBanner: View {
                             iconFont: .system(size: 12, weight: .bold)
                         )
                     } else {
-                        TimerRingView(
-                            fraction: remainingFraction(for: state),
-                            tint: accentColor,
-                            lineWidth: 2.5
+                        LockScreenRunningRingView(
+                            state: state,
+                            tint: accentColor
                         )
                     }
                 }
@@ -519,6 +518,40 @@ private struct LockScreenBanner: View {
         return state.phase.isBreak
             ? Palette.breakTint.opacity(0.15)
             : Palette.focusTint.opacity(0.15)
+    }
+}
+
+/// Running lock-screen ring with the phase glyph centered inside.
+///
+/// Focus uses the same pulsing "mind" symbol language as the in-app header.
+private struct LockScreenRunningRingView: View {
+    let state: TimerActivityAttributes.ContentState
+    let tint: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var symbolName: String {
+        state.phase.systemImage
+    }
+
+    private var shouldPulse: Bool {
+        !reduceMotion && state.phase == .focus
+    }
+
+    var body: some View {
+        ZStack {
+            TimerRingView(
+                fraction: remainingFraction(for: state),
+                tint: tint,
+                lineWidth: 2.5
+            )
+
+            Image(systemName: symbolName)
+                .font(.caption)
+                .bold()
+                .foregroundStyle(tint)
+                .symbolEffect(.pulse, isActive: shouldPulse)
+        }
     }
 }
 
