@@ -319,12 +319,12 @@ private struct ExpandedTrailingView: View {
                 .accessibilityLabel("Time remaining")
             }
         }
-        .font(.system(.title2, design: .rounded))
+        .font(.system(.title3, design: .rounded))
         .bold()
         .monospacedDigit()
         .foregroundStyle(.white)
         .lineLimit(1)
-        .minimumScaleFactor(0.9)
+        .minimumScaleFactor(0.7)
         .contentTransition(.numericText())
     }
 }
@@ -349,7 +349,6 @@ private struct ExpandedCenterView: View {
                 .monospacedDigit()
                 .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             "Round \(state.currentRound) of \(totalRounds)"
@@ -375,27 +374,21 @@ private struct ExpandedBottomControlsView: View {
         HStack(spacing: 12) {
             Button(intent: StopTimerIntent()) {
                 Text("Cancel")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .font(.subheadline)
+                    .bold()
                     .frame(maxWidth: .infinity)
-                    .frame(height: 36)
-                    .background(.white.opacity(0.15), in: .capsule)
-                    .contentShape(.capsule)
             }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity)
+            .tint(Color.white.opacity(0.25))
+            .buttonBorderShape(.capsule)
 
             Button(intent: TogglePauseIntent()) {
                 Text(state.isPaused ? "Resume" : "Pause")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .font(.subheadline)
+                    .bold()
                     .frame(maxWidth: .infinity)
-                    .frame(height: 36)
-                    .background(tint.opacity(0.7), in: .capsule)
-                    .contentShape(.capsule)
             }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity)
+            .tint(tint)
+            .buttonBorderShape(.capsule)
         }
         .padding(.top, 4)
     }
