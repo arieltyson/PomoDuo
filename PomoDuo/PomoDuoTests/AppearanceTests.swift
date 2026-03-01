@@ -99,7 +99,7 @@ struct AdaptiveColorTests {
         #expect(secondaryLuminance > surfaceLuminance)
     }
 
-    // MARK: - WCAG Contrast Compliance
+    // MARK: - WCAG Contrast Compliance (Secondary Label)
 
     @Test func secondaryLabelMeetsWCAGAAInLightMode() {
         let label = resolvedColor(AppColors.secondaryLabel, style: .light)
@@ -115,6 +115,78 @@ struct AdaptiveColorTests {
         #expect(ratio >= 4.5, "Dark mode secondaryLabel contrast \(ratio) < 4.5:1")
     }
 
+    // MARK: - WCAG Contrast Compliance (Brand Colors — High Contrast)
+
+    @Test func lavenderMeetsWCAGAAInLightHighContrast() {
+        let fg = resolvedColor(AppColors.lavender, style: .light, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .light, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Light high-contrast lavender \(ratio) < 4.5:1")
+    }
+
+    @Test func lavenderMeetsWCAGAAInDarkHighContrast() {
+        let fg = resolvedColor(AppColors.lavender, style: .dark, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .dark, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Dark high-contrast lavender \(ratio) < 4.5:1")
+    }
+
+    @Test func lilacMeetsWCAGAAInLightHighContrast() {
+        let fg = resolvedColor(AppColors.lilac, style: .light, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .light, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Light high-contrast lilac \(ratio) < 4.5:1")
+    }
+
+    @Test func lilacMeetsWCAGAAInDarkHighContrast() {
+        let fg = resolvedColor(AppColors.lilac, style: .dark, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .dark, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Dark high-contrast lilac \(ratio) < 4.5:1")
+    }
+
+    @Test func successMeetsWCAGAAInLightHighContrast() {
+        let fg = resolvedColor(AppColors.success, style: .light, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .light, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Light high-contrast success \(ratio) < 4.5:1")
+    }
+
+    @Test func successMeetsWCAGAAInDarkHighContrast() {
+        let fg = resolvedColor(AppColors.success, style: .dark, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .dark, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Dark high-contrast success \(ratio) < 4.5:1")
+    }
+
+    @Test func pauseTintMeetsWCAGAAInLightHighContrast() {
+        let fg = resolvedColor(AppColors.pauseTint, style: .light, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .light, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Light high-contrast pauseTint \(ratio) < 4.5:1")
+    }
+
+    @Test func pauseTintMeetsWCAGAAInDarkHighContrast() {
+        let fg = resolvedColor(AppColors.pauseTint, style: .dark, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .dark, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Dark high-contrast pauseTint \(ratio) < 4.5:1")
+    }
+
+    @Test func stopTintMeetsWCAGAAInLightHighContrast() {
+        let fg = resolvedColor(AppColors.stopTint, style: .light, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .light, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Light high-contrast stopTint \(ratio) < 4.5:1")
+    }
+
+    @Test func stopTintMeetsWCAGAAInDarkHighContrast() {
+        let fg = resolvedColor(AppColors.stopTint, style: .dark, contrast: .high)
+        let bg = resolvedColor(AppColors.surface, style: .dark, contrast: .high)
+        let ratio = contrastRatio(fg, bg)
+        #expect(ratio >= 4.5, "Dark high-contrast stopTint \(ratio) < 4.5:1")
+    }
+
     // MARK: - Helpers
 
     private struct RGBComponents {
@@ -125,9 +197,13 @@ struct AdaptiveColorTests {
 
     private func resolvedColor(
         _ color: Color,
-        style: UIUserInterfaceStyle
+        style: UIUserInterfaceStyle,
+        contrast: UIAccessibilityContrast = .unspecified
     ) -> RGBComponents {
-        let traits = UITraitCollection(userInterfaceStyle: style)
+        let traits = UITraitCollection(traitsFrom: [
+            UITraitCollection(userInterfaceStyle: style),
+            UITraitCollection(accessibilityContrast: contrast),
+        ])
         let resolved = UIColor(color).resolvedColor(with: traits)
 
         var r: CGFloat = 0
