@@ -375,26 +375,43 @@ private struct ExpandedBottomControlsView: View {
             Button(intent: StopTimerIntent()) {
                 Text("Cancel")
                     .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 36)
-                    .contentShape(.capsule)
-            }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .tint(.white.opacity(0.18))
-            .frame(maxWidth: .infinity)
-
-            Button(intent: TogglePauseIntent(shouldPause: !state.isPaused)) {
-                Text(state.isPaused ? "Resume" : "Pause")
-                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 36)
                     .contentShape(.capsule)
             }
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
-            .tint(tint.opacity(0.82))
+            .tint(.white.opacity(0.36))
             .frame(maxWidth: .infinity)
+
+            if state.isPaused {
+                Button(intent: ResumeTimerIntent()) {
+                    Text("Resume")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 36)
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .tint(tint.opacity(0.9))
+                .frame(maxWidth: .infinity)
+            } else {
+                Button(intent: PauseTimerIntent()) {
+                    Text("Pause")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 36)
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .tint(tint.opacity(0.82))
+                .frame(maxWidth: .infinity)
+            }
         }
         .padding(.top, 4)
     }
