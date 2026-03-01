@@ -7,6 +7,7 @@ struct SessionHeaderView: View {
     let totalRounds: Int
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack {
@@ -42,7 +43,7 @@ struct SessionHeaderView: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppGradients.banner)
+        .background(AppGradients.banner(for: colorScheme))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             "\(phaseName), round \(currentRound) of \(totalRounds)"

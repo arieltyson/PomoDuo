@@ -598,6 +598,8 @@ private struct TimerCanvasView: View {
     let onStop: () -> Void
     let onSkip: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         VStack(spacing: 0) {
             SessionHeaderView(
@@ -607,7 +609,7 @@ private struct TimerCanvasView: View {
             )
 
             Rectangle()
-                .fill(AppGradients.bannerFade)
+                .fill(AppGradients.bannerFade(for: colorScheme))
                 .frame(height: 40)
 
             Spacer()

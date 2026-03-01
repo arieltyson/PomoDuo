@@ -1,6 +1,12 @@
 import SwiftUI
+import UIKit
 
 /// PomoDuo's brand and semantic color system.
+///
+/// Brand and semantic colors are fixed mid-range accents that read well
+/// on both light and dark surfaces. Surface and label colors resolve
+/// dynamically via ``UIColor`` trait collection so they adapt when the
+/// user switches between light and dark mode.
 enum AppColors {
     // MARK: - Brand
 
@@ -21,11 +27,35 @@ enum AppColors {
     static let pauseTint = Color(red: 0.90, green: 0.70, blue: 0.40)
     static let stopTint = Color(red: 0.82, green: 0.34, blue: 0.38)
 
-    // MARK: - Surfaces
+    // MARK: - Surfaces (Adaptive)
 
-    /// Requested main surface style.
-    static let surface = Color.white
+    /// Main content surface. White in light mode, near-black with a faint
+    /// violet undertone in dark mode matching HIG elevated surfaces.
+    static let surface = Color(
+        uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.11, green: 0.11, blue: 0.14, alpha: 1)
+                : .white
+        }
+    )
 
-    static let surfaceSecondary = Color(red: 0.97, green: 0.96, blue: 0.99)
-    static let secondaryLabel = Color(red: 0.42, green: 0.40, blue: 0.50)
+    /// Secondary surface one step above ``surface``. Faint lavender tint in
+    /// light mode, slightly lifted violet-charcoal in dark mode.
+    static let surfaceSecondary = Color(
+        uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.15, green: 0.14, blue: 0.19, alpha: 1)
+                : UIColor(red: 0.97, green: 0.96, blue: 0.99, alpha: 1)
+        }
+    )
+
+    /// Muted text for secondary information. Maintains ≥ 4.5:1 contrast
+    /// against ``surface`` in both light and dark modes (WCAG AA).
+    static let secondaryLabel = Color(
+        uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.68, green: 0.64, blue: 0.78, alpha: 1)
+                : UIColor(red: 0.42, green: 0.40, blue: 0.50, alpha: 1)
+        }
+    )
 }
