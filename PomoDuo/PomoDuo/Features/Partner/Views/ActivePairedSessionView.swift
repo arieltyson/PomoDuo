@@ -414,25 +414,37 @@ private struct PartnerBannerView: View {
 ///
 /// Green pulsing dot when the partner's heartbeat is recent;
 /// static orange dot when the partner may be offline.
+/// When the Differentiate Without Color setting is on, the offline
+/// dot gains a "!" mark so its state is conveyed by shape, not color.
 private struct PartnerPresenceIndicator: View {
     let isActive: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor)
+    private var differentiateWithoutColor
     @Environment(PowerStateMonitor.self) private var powerStateMonitor
 
     var body: some View {
         HStack(spacing: 6) {
-            Circle()
-                .fill(isActive ? .green : .orange)
-                .frame(width: 10, height: 10)
-                .overlay {
-                    if isActive
-                        && !reduceMotion
-                        && !powerStateMonitor.isLowPowerModeEnabled
-                    {
-                        PulsingRing()
-                    }
+            ZStack {
+                Circle()
+                    .fill(isActive ? .green : .orange)
+                    .frame(width: 10, height: 10)
+
+                if !isActive && differentiateWithoutColor {
+                    Text("!")
+                        .font(.system(size: 7, weight: .black))
+                        .foregroundStyle(.white)
                 }
+            }
+            .overlay {
+                if isActive
+                    && !reduceMotion
+                    && !powerStateMonitor.isLowPowerModeEnabled
+                {
+                    PulsingRing()
+                }
+            }
 
             Text(isActive ? "Active" : "Offline?")
                 .font(.caption2)

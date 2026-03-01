@@ -4,9 +4,15 @@ import SwiftUI
 /// Weekly bar chart of completed focus minutes.
 ///
 /// With `.all`, bars are stacked by solo and paired contributions.
+/// When the Differentiate Without Color accessibility setting is on,
+/// small person/person.2 icons overlay bar segments so the two series
+/// are distinguishable without relying on color.
 struct FocusStreakChartView: View {
     let summaries: [DailyFocusSummary]
     var filter: SessionTypeFilter = .all
+
+    @Environment(\.accessibilityDifferentiateWithoutColor)
+    private var differentiateWithoutColor
 
     var body: some View {
         Chart(summaries) { summary in
@@ -19,6 +25,13 @@ struct FocusStreakChartView: View {
                         yEnd: .value("Minutes", summary.soloMinutes)
                     )
                     .foregroundStyle(soloGradient)
+                    .annotation(position: .overlay) {
+                        if differentiateWithoutColor {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.9))
+                        }
+                    }
                     .accessibilityLabel(
                         "\(summary.dayLabel): \(summary.soloMinutes) solo minutes"
                     )
@@ -31,6 +44,13 @@ struct FocusStreakChartView: View {
                         yEnd: .value("Minutes", summary.totalMinutes)
                     )
                     .foregroundStyle(pairedGradient)
+                    .annotation(position: .overlay) {
+                        if differentiateWithoutColor {
+                            Image(systemName: "person.2.fill")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.9))
+                        }
+                    }
                     .accessibilityLabel(
                         "\(summary.dayLabel): \(summary.pairedMinutes) paired minutes"
                     )
