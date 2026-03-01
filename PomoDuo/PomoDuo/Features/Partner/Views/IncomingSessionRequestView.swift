@@ -53,6 +53,8 @@ struct IncomingSessionRequestView: View {
 // MARK: - Subviews
 
 private struct IncomingRequestIllustration: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             Circle()
@@ -69,9 +71,9 @@ private struct IncomingRequestIllustration: View {
                 .frame(width: 140, height: 140)
 
             Image(systemName: "person.2.wave.2.fill")
-                .font(.system(size: 52))
+                .font(.largeTitle)
                 .foregroundStyle(AppColors.lavender)
-                .symbolEffect(.pulse, options: .repeating)
+                .symbolEffect(.pulse, options: .repeating, isActive: !reduceMotion)
         }
         .padding(.bottom)
         .accessibilityHidden(true)

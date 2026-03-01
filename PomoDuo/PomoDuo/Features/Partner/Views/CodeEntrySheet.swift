@@ -50,6 +50,9 @@ struct CodeEntrySheet: View {
                 .tint(AppColors.lavender)
                 .controlSize(.large)
                 .disabled(viewModel.codeInput.count < PairCode.length)
+                .accessibilityHint(
+                    "Connects to your study partner using the entered code."
+                )
                 .padding(.bottom)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

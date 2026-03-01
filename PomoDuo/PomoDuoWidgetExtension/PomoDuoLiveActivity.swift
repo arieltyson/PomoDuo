@@ -341,6 +341,7 @@ private struct ExpandedCenterView: View {
                 .bold()
                 .foregroundStyle(.white)
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .accessibilityAddTraits(.isHeader)
 
             Text("Round \(state.currentRound) of \(totalRounds)")
@@ -348,6 +349,7 @@ private struct ExpandedCenterView: View {
                 .foregroundStyle(.white.opacity(0.6))
                 .monospacedDigit()
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(

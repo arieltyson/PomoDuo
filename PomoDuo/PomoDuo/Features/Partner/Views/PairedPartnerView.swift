@@ -44,10 +44,11 @@ struct PairedPartnerView: View {
             Text(partner.displayName)
                 .font(.title2)
                 .bold()
+                .accessibilityAddTraits(.isHeader)
 
             Text(pairedAtDescription)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
 
             SessionConfigurationSummary(
                 focusDuration: focusDuration,
@@ -70,6 +71,9 @@ struct PairedPartnerView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(AppColors.lavender)
                 .disabled(sessionViewModel.isStartingSession)
+                .accessibilityHint(
+                    "Sends a session request to \(partner.displayName)."
+                )
 
                 Button(
                     "Disconnect",
@@ -79,6 +83,9 @@ struct PairedPartnerView: View {
                     showUnpairConfirmation = true
                 }
                 .buttonStyle(.bordered)
+                .accessibilityHint(
+                    "Unpairs from \(partner.displayName). You can reconnect later."
+                )
             }
             .controlSize(.large)
             .padding(.bottom)
@@ -133,6 +140,7 @@ private struct SessionConfigurationSummary: View {
 
             Text("·")
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
 
             Label(
                 "\(totalRounds) rounds",
@@ -141,5 +149,9 @@ private struct SessionConfigurationSummary: View {
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(Int(focusDuration / 60)) minute focus, \(totalRounds) rounds"
+        )
     }
 }

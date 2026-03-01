@@ -134,6 +134,13 @@ private struct OnboardingProgressHeader: View {
             ProgressView(value: viewModel.progressValue)
                 .tint(AppColors.lavender)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "Getting Started, step \(viewModel.currentIndex + 1) of \(viewModel.steps.count)"
+        )
+        .accessibilityValue(
+            "\(Int(viewModel.progressValue * 100)) percent complete"
+        )
     }
 }
 
@@ -150,6 +157,7 @@ private struct OnboardingStepCard: View {
                 .bold()
                 .multilineTextAlignment(.center)
                 .padding(.top)
+                .accessibilityAddTraits(.isHeader)
 
             Text(step.message)
                 .font(.body)
@@ -171,6 +179,7 @@ private struct OnboardingStepCard: View {
                 .stroke(AppColors.lavender.opacity(0.2), lineWidth: 1)
         }
         .clipShape(.rect(cornerRadius: 28))
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -264,6 +273,7 @@ private struct OnboardingActionBar: View {
                 if shouldShowBack {
                     Button("Back", systemImage: "chevron.left", action: onBack)
                         .buttonStyle(.bordered)
+                        .accessibilityHint("Returns to the previous onboarding step.")
                 }
 
                 Spacer()
@@ -276,6 +286,7 @@ private struct OnboardingActionBar: View {
                     )
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
+                    .accessibilityHint("Skips to the final onboarding step.")
                 }
             }
             .padding(.top, 10)

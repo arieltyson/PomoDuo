@@ -36,7 +36,7 @@ struct SessionHeaderView: View {
                 )
                 .symbolEffect(
                     .bounce,
-                    value: phaseName
+                    value: reduceMotion ? "" : phaseName
                 )
                 .accessibilityHidden(true)
         }

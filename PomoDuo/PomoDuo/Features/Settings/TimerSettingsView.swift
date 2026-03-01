@@ -91,6 +91,7 @@ private struct DurationPicker: View {
                     .tag(duration)
             }
         }
+        .accessibilityHint("Adjusts the \(title.lowercased()) for each session.")
     }
 }
 
@@ -106,5 +107,6 @@ private struct RoundPicker: View {
                     .tag(count)
             }
         }
+        .accessibilityHint("Sets how many focus rounds before a long break.")
     }
 }

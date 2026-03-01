@@ -79,10 +79,15 @@ private struct AccountHeaderSection: View {
                 Text(user.displayName)
                     .font(.title3)
                     .bold()
+                    .accessibilityAddTraits(.isHeader)
 
                 AccountTypeBadge(user: user)
             }
             .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "\(user.displayName), \(user.isAnonymous ? "Guest Account" : "Apple ID")"
+            )
         }
     }
 }
@@ -188,6 +193,7 @@ private struct DisplayNameSection: View {
                     Button("Revert", role: .cancel) {
                         viewModel.resetDisplayName()
                     }
+                    .accessibilityHint("Discards display name changes.")
 
                     Spacer()
 
@@ -200,6 +206,7 @@ private struct DisplayNameSection: View {
                         viewModel.nameValidationError != nil
                             || viewModel.isSaving
                     )
+                    .accessibilityHint("Saves the new display name.")
                 }
             }
         } header: {
@@ -257,6 +264,7 @@ private struct SignOutSection: View {
                 }
             }
             .disabled(viewModel.isSaving)
+            .accessibilityHint("Signs out and returns to anonymous mode.")
         }
     }
 }
@@ -270,6 +278,9 @@ private struct DeleteAccountSection: View {
                 viewModel.isShowingDeleteConfirmation = true
             }
             .disabled(viewModel.isSaving)
+            .accessibilityHint(
+                "Permanently deletes your profile, partnerships, and session history."
+            )
         } footer: {
             Text(
                 "Deleting your account removes your profile, partnerships, and session history permanently."
