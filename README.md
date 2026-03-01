@@ -33,9 +33,15 @@ The app combines Apple's Screen Time API stack (`FamilyControls`, `ManagedSettin
 - **ActivityKit** support brings live timer updates and session status directly to the **Dynamic Island** and Lock Screen.
 - Provides immediate glanceability and quick controls without requiring the user to unlock their device or open the app.
 
-### Production Hardening & Accessibility 🦾
-- **Accessibility-first design** ensures full support for VoiceOver and Dynamic Type, making the focus tools usable for everyone.
-- **App Store hardening** includes rigorous edge-case handling and performance optimization, ensuring a stable, production-ready experience.
+### Accessibility 🦾
+- **Full [Accessibility Nutrition Label](https://arieltyson.github.io/pomoduo-accessibility/) coverage** across all nine App Store categories — VoiceOver, Voice Control, Dynamic Type, Dark Mode, Increase Contrast (WCAG 2.1 AA), Differentiate Without Color, and Reduce Motion.
+- **Trait-adaptive color system** shifts brand colors to higher-contrast variants automatically based on user settings.
+- **Voice Control input labels** provide short spoken alternatives for every high-traffic control.
+
+### Production Hardening 🔩
+- **MetricKit** diagnostics capture hang rates, launch times, and crash reports in production.
+- **Network path monitoring** gracefully handles offline and constrained connectivity states.
+- **Low Power Mode awareness** suppresses cosmetic animations to conserve battery.
 
 </div>
 
@@ -69,25 +75,53 @@ The app combines Apple's Screen Time API stack (`FamilyControls`, `ManagedSettin
 
 This project leverages modern Swift, SwiftUI, and Apple platform APIs for a native, privacy-first collaboration experience.
 
+**Language & Frameworks**
 - [x] Swift 6
 - [x] SwiftUI
+- [x] UIKit (App Delegate, Quick Actions, Trait-Adaptive Colors)
 - [x] Observation framework
 - [x] Swift Concurrency (`async/await`, actors)
-- [x] Swift Testing + XCTest UI Testing
+
+**Screen Time**
 - [x] FamilyControls
 - [x] ManagedSettings
+- [x] ManagedSettingsUI (Shield Customization)
 - [x] DeviceActivity
-- [x] ActivityKit + WidgetKit (Live Activities)
-- [x] FirebaseAuth
-- [x] Firestore
-- [x] FirebaseMessaging (FCM)
-- [x] SwiftData
-- [x] UserNotifications
+
+**Live Activities & Widgets**
+- [x] ActivityKit + WidgetKit (Dynamic Island & Lock Screen)
 - [x] AppIntents + Shortcuts
-- [x] Charts
+
+**Data & Networking**
+- [x] SwiftData (Local Persistence)
+- [x] FirebaseAuth
+- [x] Firestore (Real-Time Sync)
+- [x] FirebaseMessaging (FCM)
+- [x] Network framework (Connectivity Monitoring)
+- [x] CryptoKit (Secure Pairing)
+
+**Notifications & Auth**
+- [x] UserNotifications
 - [x] AuthenticationServices (Sign in with Apple)
-- [x] StoreKit (App Rating)
+
+**Accessibility**
+- [x] UIAccessibility (Labels, Hints, Traits, Input Labels, Announcements)
+- [x] Dynamic Type & Scalable Fonts
+- [x] Trait-Adaptive Colors (`UITraitCollection` — Dark Mode, Increase Contrast)
+- [x] Reduce Motion & Differentiate Without Color Environment Support
+
+**Performance & Diagnostics**
+- [x] MetricKit (Hang Rate, Launch Time, Crash Reports)
 - [x] OSLog (Structured Logging)
+- [x] ProcessInfo (Low Power Mode Monitoring)
+
+**UI & Data Visualization**
+- [x] Charts (Weekly Focus Streak)
+- [x] StoreKit (App Rating)
+
+**Testing**
+- [x] Swift Testing + XCTest UI Testing
+- [x] WCAG 2.1 AA Contrast Ratio Tests
 
 ## Skills Demonstrated 🥋
 
@@ -96,9 +130,10 @@ This project is designed to showcase high-quality iOS engineering practices:
 - [x] **SYSTEM DESIGN**: Local-first architecture with real-time synchronization for a shared state machine.
 - [x] **STATE MANAGEMENT**: Explicit session events and deterministic transitions across two devices.
 - [x] **PLATFORM INTEGRATION**: Deep integration with Screen Time APIs and Live Activities.
-- [x] **PERFORMANCE/COST AWARENESS**: Transition-based Firestore sync (not per-second timer writes).
+- [x] **PERFORMANCE/COST AWARENESS**: Transition-based Firestore sync (not per-second timer writes). MetricKit diagnostics and Low Power Mode awareness.
+- [x] **ACCESSIBILITY**: Full App Store Nutrition Label coverage — VoiceOver, Voice Control, Dynamic Type, Dark Mode, Increase Contrast (WCAG AA), Differentiate Without Color, and Reduce Motion.
 - [x] **PRIVACY & CONSENT**: Collaborative control model aligned with Apple policy constraints.
-- [x] **TESTABILITY**: Protocol-oriented abstractions and pure domain logic for unit testing.
+- [x] **TESTABILITY**: Protocol-oriented abstractions, pure domain logic, and automated WCAG contrast verification.
 
 ## Contributing ⚙️
 
