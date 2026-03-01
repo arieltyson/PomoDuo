@@ -72,6 +72,9 @@ struct TimerView: View {
             }
         }
         .onChange(of: viewModel.currentTick) { previousTick, currentTick in
+            if processLiveActivityBridgeCommands() {
+                return
+            }
             syncLockScreenPulse(previousTick: previousTick, currentTick: currentTick)
         }
         .onChange(of: focusIntentState.pendingFocusRequest) { _, isPending in
@@ -81,7 +84,7 @@ struct TimerView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                processLiveActivityBridgeCommands()
+                _ = processLiveActivityBridgeCommands()
             }
         }
         .navigationTitle("Focus")
@@ -111,14 +114,17 @@ struct TimerView: View {
 
     /// Reads and processes any pending command written by a Live Activity intent.
     ///
-    /// Called when the app transitions to `.active` so that Pause / Resume / Stop
-    /// actions triggered from the Dynamic Island are reflected in the app's state.
-    private func processLiveActivityBridgeCommands() {
-        guard let pending = LiveActivityBridge.read() else { return }
+    /// Called when the app transitions to `.active` and on timer ticks so that
+    /// Pause / Resume / Stop actions triggered from the Dynamic Island are
+    /// reflected in the app's state before lock-screen sync updates run.
+    private func processLiveActivityBridgeCommands() -> Bool {
+        guard let pending = LiveActivityBridge.read() else { return false }
         defer { LiveActivityBridge.clear() }
 
         // Ignore stale commands (older than 60 seconds).
-        guard Date.now.timeIntervalSince(pending.timestamp) < 60 else { return }
+        guard Date.now.timeIntervalSince(pending.timestamp) < 60 else {
+            return true
+        }
 
         switch pending.command {
         case .pause:
@@ -138,6 +144,8 @@ struct TimerView: View {
                 stopTimer()
             }
         }
+
+        return true
     }
 
     @MainActor

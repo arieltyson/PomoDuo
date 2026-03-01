@@ -1,7 +1,7 @@
 import ActivityKit
 import AppIntents
 
-/// Live Activity intent that toggles the timer between paused and running.
+/// Live Activity intent that sets the timer paused state.
 ///
 /// Triggered by the Pause / Resume button in the Dynamic Island's expanded
 /// view. Updates the Live Activity inline and writes a bridge command for
@@ -20,6 +20,17 @@ struct TogglePauseIntent: LiveActivityIntent {
         [.background, .foreground(.dynamic)]
     }
 
+    /// Desired paused state. `true` pauses, `false` resumes.
+    var shouldPause: Bool
+
+    init() {
+        self.shouldPause = true
+    }
+
+    init(shouldPause: Bool) {
+        self.shouldPause = shouldPause
+    }
+
     func perform() async throws -> some IntentResult {
         guard
             let activity = Activity<TimerActivityAttributes>.activities.max(
@@ -33,26 +44,9 @@ struct TogglePauseIntent: LiveActivityIntent {
 
         let state = activity.content.state
 
-        if state.isPaused {
-            // Resume: restart the countdown from the frozen remaining time.
-            let remaining = state.pausedRemainingSeconds
-            let newTargetEndDate = Date.now.addingTimeInterval(remaining)
+        if shouldPause {
+            guard !state.isPaused else { return .result() }
 
-            let newState = TimerActivityAttributes.ContentState(
-                phase: state.phase,
-                currentRound: state.currentRound,
-                targetEndDate: newTargetEndDate,
-                isPaused: false,
-                phaseDuration: state.phaseDuration
-            )
-
-            await activity.update(
-                ActivityContent(state: newState, staleDate: newTargetEndDate)
-            )
-
-            LiveActivityBridge.write(.resume, remainingSeconds: remaining)
-        } else {
-            // Pause: capture the exact remaining time and freeze.
             let remaining = max(
                 0,
                 state.targetEndDate.timeIntervalSinceNow
@@ -72,6 +66,25 @@ struct TogglePauseIntent: LiveActivityIntent {
             )
 
             LiveActivityBridge.write(.pause, remainingSeconds: remaining)
+        } else {
+            guard state.isPaused else { return .result() }
+
+            let remaining = state.pausedRemainingSeconds
+            let newTargetEndDate = Date.now.addingTimeInterval(remaining)
+
+            let newState = TimerActivityAttributes.ContentState(
+                phase: state.phase,
+                currentRound: state.currentRound,
+                targetEndDate: newTargetEndDate,
+                isPaused: false,
+                phaseDuration: state.phaseDuration
+            )
+
+            await activity.update(
+                ActivityContent(state: newState, staleDate: newTargetEndDate)
+            )
+
+            LiveActivityBridge.write(.resume, remainingSeconds: remaining)
         }
 
         return .result()

@@ -384,7 +384,7 @@ private struct ExpandedBottomControlsView: View {
             .tint(.white.opacity(0.18))
             .frame(maxWidth: .infinity)
 
-            Button(intent: TogglePauseIntent()) {
+            Button(intent: TogglePauseIntent(shouldPause: !state.isPaused)) {
                 Text(state.isPaused ? "Resume" : "Pause")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
