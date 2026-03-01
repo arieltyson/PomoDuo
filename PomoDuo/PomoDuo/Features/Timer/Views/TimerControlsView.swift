@@ -82,6 +82,7 @@ private struct IdleControls: View {
             .tint(AppColors.lavender)
             .controlSize(.large)
             .accessibilityHint("Begins a new focus session.")
+            .accessibilityInputLabels(["Start Focus", "Start", "Begin", "Go"])
     }
 }
 
@@ -101,6 +102,7 @@ private struct ActiveControls: View {
                     SecondaryControlButtonStyle(tint: AppColors.stopTint)
                 )
                 .accessibilityHint("Ends the session and resets the timer.")
+                .accessibilityInputLabels(["Stop", "End"])
 
             if isPaused {
                 Button("Resume", systemImage: "play.fill", action: onResume)
@@ -113,6 +115,7 @@ private struct ActiveControls: View {
                             : .scale(scale: 0.92).combined(with: .opacity)
                     )
                     .accessibilityHint("Continues the paused timer.")
+                    .accessibilityInputLabels(["Resume", "Play", "Continue"])
             } else {
                 Button("Pause", systemImage: "pause.fill", action: onPause)
                     .buttonStyle(.borderedProminent)
@@ -131,6 +134,7 @@ private struct ActiveControls: View {
                     SecondaryControlButtonStyle(tint: AppColors.lavender)
                 )
                 .accessibilityHint("Skips to the next phase.")
+                .accessibilityInputLabels(["Skip", "Next"])
         }
     }
 }
@@ -144,6 +148,7 @@ private struct CompletedControls: View {
             .tint(AppColors.success)
             .controlSize(.large)
             .accessibilityHint("Moves to the next phase.")
+            .accessibilityInputLabels(["Continue", "Next", "Done"])
     }
 }
 

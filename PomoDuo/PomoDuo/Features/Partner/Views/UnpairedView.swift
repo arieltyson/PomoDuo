@@ -33,6 +33,9 @@ struct UnpairedView: View {
                 )
                 .buttonStyle(.borderedProminent)
                 .tint(AppColors.lavender)
+                .accessibilityInputLabels([
+                    "Generate Pairing Code", "Generate", "Code",
+                ])
 
                 Button(
                     "Enter Partner's Code",
@@ -41,6 +44,9 @@ struct UnpairedView: View {
                 )
                 .buttonStyle(.bordered)
                 .tint(AppColors.lavender)
+                .accessibilityInputLabels([
+                    "Enter Partner's Code", "Enter Code", "Enter",
+                ])
             }
             .controlSize(.large)
             .padding(.bottom)

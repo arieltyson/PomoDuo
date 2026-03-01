@@ -13,6 +13,7 @@ struct FocusStreakChartView: View {
 
     @Environment(\.accessibilityDifferentiateWithoutColor)
     private var differentiateWithoutColor
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Chart(summaries) { summary in
@@ -121,7 +122,7 @@ struct FocusStreakChartView: View {
         .padding(.horizontal)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilitySummary)
-        .animation(.default, value: filter)
+        .animation(reduceMotion ? .none : .default, value: filter)
     }
 
     // MARK: - Gradients

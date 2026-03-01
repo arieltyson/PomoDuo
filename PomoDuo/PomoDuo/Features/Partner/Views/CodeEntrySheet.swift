@@ -53,6 +53,7 @@ struct CodeEntrySheet: View {
                 .accessibilityHint(
                     "Connects to your study partner using the entered code."
                 )
+                .accessibilityInputLabels(["Connect", "Join", "Pair"])
                 .padding(.bottom)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

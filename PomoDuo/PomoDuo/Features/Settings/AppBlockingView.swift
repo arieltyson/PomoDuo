@@ -96,6 +96,9 @@ private struct UnauthorizedAppBlockingContent: View {
                 .accessibilityHint(
                     "Requests Screen Time authorization for app blocking."
                 )
+                .accessibilityInputLabels([
+                    "Enable App Blocking", "Enable", "Block",
+                ])
                 .disabled(screenTimeManager.isRequestingAuthorization)
             }
             .frame(maxWidth: .infinity)
@@ -129,6 +132,9 @@ private struct AuthorizedAppBlockingContent: View {
                 action: onPickApps
             )
             .accessibilityHint("Opens Apple's app picker.")
+            .accessibilityInputLabels([
+                "Choose Apps to Block", "Choose Apps", "Select",
+            ])
 
             if screenTimeManager.hasSelectedApps {
                 BlockSelectionSummary(screenTimeManager: screenTimeManager)
@@ -141,6 +147,7 @@ private struct AuthorizedAppBlockingContent: View {
                     screenTimeManager.clearSelection()
                 }
                 .accessibilityHint("Removes all blocked app selections.")
+                .accessibilityInputLabels(["Clear Selection", "Clear", "Reset"])
             }
         }
 

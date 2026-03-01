@@ -265,6 +265,7 @@ private struct SignOutSection: View {
             }
             .disabled(viewModel.isSaving)
             .accessibilityHint("Signs out and returns to anonymous mode.")
+            .accessibilityInputLabels(["Sign Out", "Logout", "Exit"])
         }
     }
 }
@@ -281,6 +282,7 @@ private struct DeleteAccountSection: View {
             .accessibilityHint(
                 "Permanently deletes your profile, partnerships, and session history."
             )
+            .accessibilityInputLabels(["Delete Account", "Delete"])
         } footer: {
             Text(
                 "Deleting your account removes your profile, partnerships, and session history permanently."

@@ -96,6 +96,7 @@ private struct IncomingRequestActions: View {
             .accessibilityHint(
                 "Starts a focus session with \(partnerName)."
             )
+            .accessibilityInputLabels(["Accept", "Yes", "OK"])
 
             Button(
                 "Decline",
@@ -108,6 +109,7 @@ private struct IncomingRequestActions: View {
             }
             .buttonStyle(.bordered)
             .accessibilityHint("Declines the session request.")
+            .accessibilityInputLabels(["Decline", "No", "Reject"])
         }
         .controlSize(.large)
     }

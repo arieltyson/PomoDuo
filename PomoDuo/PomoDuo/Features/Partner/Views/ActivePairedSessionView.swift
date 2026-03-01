@@ -831,6 +831,7 @@ private struct PairedSessionControls: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(AppColors.lavender)
+                        .accessibilityInputLabels(["Resume", "Play", "Continue"])
 
                         Button(
                             "End Session",
@@ -840,6 +841,7 @@ private struct PairedSessionControls: View {
                             isShowingEndConfirmation = true
                         }
                         .buttonStyle(.bordered)
+                        .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
                     .transition(
                         reduceMotion
@@ -863,6 +865,7 @@ private struct PairedSessionControls: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(.teal)
+                        .accessibilityInputLabels(["Skip to Break", "Skip", "Break"])
                     }
                     .transition(
                         reduceMotion
@@ -879,6 +882,7 @@ private struct PairedSessionControls: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(AppColors.lavender)
+                        .accessibilityInputLabels(["Next Round", "Next", "Continue"])
 
                         Button(
                             "End Session",
@@ -888,6 +892,7 @@ private struct PairedSessionControls: View {
                             isShowingEndConfirmation = true
                         }
                         .buttonStyle(.bordered)
+                        .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
 
                 case .completed:

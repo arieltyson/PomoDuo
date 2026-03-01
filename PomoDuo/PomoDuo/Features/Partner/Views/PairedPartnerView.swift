@@ -74,6 +74,7 @@ struct PairedPartnerView: View {
                 .accessibilityHint(
                     "Sends a session request to \(partner.displayName)."
                 )
+                .accessibilityInputLabels(["Start Session", "Start", "Begin"])
 
                 Button(
                     "Disconnect",
@@ -86,6 +87,7 @@ struct PairedPartnerView: View {
                 .accessibilityHint(
                     "Unpairs from \(partner.displayName). You can reconnect later."
                 )
+                .accessibilityInputLabels(["Disconnect", "Unpair", "Remove"])
             }
             .controlSize(.large)
             .padding(.bottom)

@@ -48,7 +48,7 @@ struct LaunchAnimationView: View {
 
                     // App icon.
                     Image(systemName: "brain.head.profile")
-                        .font(.system(size: 34))
+                        .font(.largeTitle)
                         .foregroundStyle(AppColors.lavender)
                         .opacity(iconOpacity)
                 }
