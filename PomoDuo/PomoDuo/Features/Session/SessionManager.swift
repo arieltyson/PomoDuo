@@ -274,7 +274,17 @@ final class SessionManager {
             focusScheduler?.stopMonitoring()
             ShieldSessionContext.clearSession()
 
-        case .shortBreak, .longBreak where session.targetEndDate > .now:
+        case .shortBreak where session.targetEndDate > .now:
+            try? await restrictionService?.removeRestrictions()
+            try? await notificationService?.scheduleTimerEndNotification(
+                at: session.targetEndDate,
+                message: "Break's over! Ready to focus?"
+            )
+            // Shields are removed during breaks; clear the monitor schedule.
+            focusScheduler?.stopMonitoring()
+            ShieldSessionContext.clearSession()
+
+        case .longBreak where session.targetEndDate > .now:
             try? await restrictionService?.removeRestrictions()
             try? await notificationService?.scheduleTimerEndNotification(
                 at: session.targetEndDate,
