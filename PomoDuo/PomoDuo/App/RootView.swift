@@ -116,6 +116,13 @@ struct RootView: View {
         ) { _ in
             selectedTab = .partner
         }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .didTapTimerNotification
+            )
+        ) { _ in
+            selectedTab = .timer
+        }
         .sheet(item: $feedbackCategory) { category in
             FeedbackView(category: category)
         }
@@ -246,5 +253,8 @@ extension Notification.Name {
     /// push notification, signaling ``RootView`` to switch to the Partner tab.
     static let didTapPartnerNotification = Notification.Name(
         "didTapPartnerNotification"
+    )
+    static let didTapTimerNotification = Notification.Name(
+        "didTapTimerNotification"
     )
 }

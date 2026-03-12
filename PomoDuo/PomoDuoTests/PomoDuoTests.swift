@@ -15,7 +15,9 @@ struct SessionStateMachineTests {
         pausedBy: String? = nil,
         currentRound: Int = 1,
         totalRounds: Int = 4,
-        duration: TimeInterval = 25 * 60
+        duration: TimeInterval = 25 * 60,
+        shortBreakDuration: TimeInterval = 5 * 60,
+        longBreakDuration: TimeInterval = 15 * 60
     ) -> StudySession {
         StudySession(
             id: "test-session",
@@ -25,6 +27,8 @@ struct SessionStateMachineTests {
             startTime: .now,
             targetEndDate: .now.addingTimeInterval(duration),
             duration: duration,
+            shortBreakDuration: shortBreakDuration,
+            longBreakDuration: longBreakDuration,
             isPaused: isPaused,
             pausedBy: pausedBy,
             currentRound: currentRound,
@@ -119,20 +123,32 @@ struct SessionStateMachineTests {
         let session = makeSession(
             state: .focus,
             currentRound: 1,
-            totalRounds: 4
+            totalRounds: 4,
+            shortBreakDuration: 3 * 60
         )
         let result = try SessionStateMachine.apply(.breakBegan, to: session)
         #expect(result.state == .shortBreak)
+        #expect(
+            abs(
+                result.targetEndDate.timeIntervalSinceNow - TimeInterval(3 * 60)
+            ) < 2
+        )
     }
 
     @Test func focusToLongBreakOnFinalRound() throws {
         let session = makeSession(
             state: .focus,
             currentRound: 4,
-            totalRounds: 4
+            totalRounds: 4,
+            longBreakDuration: 12 * 60
         )
         let result = try SessionStateMachine.apply(.breakBegan, to: session)
         #expect(result.state == .longBreak)
+        #expect(
+            abs(
+                result.targetEndDate.timeIntervalSinceNow - TimeInterval(12 * 60)
+            ) < 2
+        )
     }
 
     @Test func focusBreakWhilePausedThrows() {

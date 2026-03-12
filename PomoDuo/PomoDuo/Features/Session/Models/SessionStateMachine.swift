@@ -76,7 +76,16 @@ enum SessionStateMachine {
                 )
             }
             let isLongBreak = session.currentRound >= session.totalRounds
+            let breakDuration =
+                isLongBreak
+                ? session.longBreakDuration
+                : session.shortBreakDuration
+
             next.state = isLongBreak ? .longBreak : .shortBreak
+            next.startTime = .now
+            next.targetEndDate = .now.addingTimeInterval(breakDuration)
+            next.isPaused = false
+            next.pausedBy = nil
 
         case (.focus, .completed):
             next.state = .completed
@@ -88,6 +97,8 @@ enum SessionStateMachine {
             next.startTime = .now
             next.targetEndDate = .now.addingTimeInterval(session.duration)
             next.currentRound = session.currentRound + 1
+            next.isPaused = false
+            next.pausedBy = nil
 
         // MARK: - Long Break
 
@@ -100,6 +111,8 @@ enum SessionStateMachine {
             next.startTime = .now
             next.targetEndDate = .now.addingTimeInterval(session.duration)
             next.currentRound = 1
+            next.isPaused = false
+            next.pausedBy = nil
 
         // MARK: - Invalid
 

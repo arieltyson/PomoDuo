@@ -25,6 +25,14 @@ struct PairedPartnerView: View {
         activeConfiguration?.roundsBeforeLongBreak ?? 4
     }
 
+    private var shortBreakDuration: TimeInterval {
+        activeConfiguration?.shortBreakDuration ?? 5 * 60
+    }
+
+    private var longBreakDuration: TimeInterval {
+        activeConfiguration?.longBreakDuration ?? 15 * 60
+    }
+
     private var pairedAtDescription: String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
@@ -64,6 +72,8 @@ struct PairedPartnerView: View {
                         await sessionViewModel.startSession(
                             with: partner,
                             duration: focusDuration,
+                            shortBreakDuration: shortBreakDuration,
+                            longBreakDuration: longBreakDuration,
                             totalRounds: totalRounds
                         )
                     }

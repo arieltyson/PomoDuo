@@ -146,11 +146,15 @@ struct PairedSessionLifecycleTests {
         await viewModel.startSession(
             with: testPartner,
             duration: 50 * 60,
+            shortBreakDuration: 8 * 60,
+            longBreakDuration: 18 * 60,
             totalRounds: 6
         )
         await manager.acceptSession()
 
         #expect(viewModel.activeSession?.duration == TimeInterval(50 * 60))
+        #expect(viewModel.activeSession?.shortBreakDuration == TimeInterval(8 * 60))
+        #expect(viewModel.activeSession?.longBreakDuration == TimeInterval(18 * 60))
         #expect(viewModel.activeSession?.totalRounds == 6)
     }
 

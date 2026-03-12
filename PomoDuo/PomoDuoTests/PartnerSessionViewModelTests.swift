@@ -144,15 +144,21 @@ struct PartnerSessionViewModelTests {
         let manager = makeSessionManager()
         let viewModel = makeViewModel(manager: manager)
         let configuredDuration = TimeInterval(45 * 60)
+        let configuredShortBreak = TimeInterval(7 * 60)
+        let configuredLongBreak = TimeInterval(20 * 60)
         let configuredRounds = 6
 
         await viewModel.startSession(
             with: testPartner,
             duration: configuredDuration,
+            shortBreakDuration: configuredShortBreak,
+            longBreakDuration: configuredLongBreak,
             totalRounds: configuredRounds
         )
 
         #expect(viewModel.activeSession?.duration == configuredDuration)
+        #expect(viewModel.activeSession?.shortBreakDuration == configuredShortBreak)
+        #expect(viewModel.activeSession?.longBreakDuration == configuredLongBreak)
         #expect(viewModel.activeSession?.totalRounds == configuredRounds)
     }
 
@@ -214,12 +220,21 @@ struct PartnerSessionViewModelTests {
         let manager = makeSessionManager()
         let viewModel = makeViewModel(manager: manager)
 
-        await viewModel.startSession(with: testPartner)
+        await viewModel.startSession(
+            with: testPartner,
+            shortBreakDuration: 3 * 60
+        )
         await manager.acceptSession()
 
         await viewModel.beginBreak()
 
         #expect(viewModel.isOnBreak)
+        #expect(
+            abs(
+                (viewModel.activeSession?.targetEndDate.timeIntervalSinceNow ?? 0)
+                    - TimeInterval(3 * 60)
+            ) < 2
+        )
     }
 
     @Test("beginFocus transitions from break to next round")

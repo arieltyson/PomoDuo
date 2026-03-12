@@ -45,6 +45,8 @@ final class SessionManager {
     func requestSession(
         partnerID: String,
         duration: TimeInterval = 25 * 60,
+        shortBreakDuration: TimeInterval = 5 * 60,
+        longBreakDuration: TimeInterval = 15 * 60,
         totalRounds: Int = 4
     ) async {
         guard let userID = currentUserID else { return }
@@ -57,6 +59,8 @@ final class SessionManager {
             startTime: .now,
             targetEndDate: .now.addingTimeInterval(duration),
             duration: duration,
+            shortBreakDuration: shortBreakDuration,
+            longBreakDuration: longBreakDuration,
             isPaused: false,
             pausedBy: nil,
             currentRound: 1,
@@ -247,12 +251,14 @@ final class SessionManager {
     /// and schedules/cancels DeviceActivity monitoring for the Monitor extension.
     private func enforceRestrictions(for session: StudySession) async {
         switch session.state {
-        case .focus where !session.isPaused:
+        case .focus where !session.isPaused && !session.hasReachedPhaseEnd():
             try? await restrictionService?.applyRestrictions()
-            try? await notificationService?.scheduleTimerEndNotification(
-                at: session.targetEndDate,
-                message: "Focus session complete! Time for a break."
-            )
+            if session.targetEndDate > .now {
+                try? await notificationService?.scheduleTimerEndNotification(
+                    at: session.targetEndDate,
+                    message: "Focus session complete! Time for a break."
+                )
+            }
             // Write context so the Shield extension shows the right message
             // and the Monitor extension can reapply shields if the app is killed.
             ShieldSessionContext.writeSession(
@@ -262,19 +268,25 @@ final class SessionManager {
             )
             focusScheduler?.scheduleMonitoring(until: session.targetEndDate)
 
-        case .focus where session.isPaused:
+        case .focus:
             try? await restrictionService?.removeRestrictions()
             try? await notificationService?.cancelPendingNotifications()
             focusScheduler?.stopMonitoring()
             ShieldSessionContext.clearSession()
 
-        case .shortBreak, .longBreak:
+        case .shortBreak, .longBreak where session.targetEndDate > .now:
             try? await restrictionService?.removeRestrictions()
             try? await notificationService?.scheduleTimerEndNotification(
                 at: session.targetEndDate,
                 message: "Break's over! Ready to focus?"
             )
             // Shields are removed during breaks; clear the monitor schedule.
+            focusScheduler?.stopMonitoring()
+            ShieldSessionContext.clearSession()
+
+        case .shortBreak, .longBreak:
+            try? await restrictionService?.removeRestrictions()
+            try? await notificationService?.cancelPendingNotifications()
             focusScheduler?.stopMonitoring()
             ShieldSessionContext.clearSession()
 

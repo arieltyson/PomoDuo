@@ -14,10 +14,44 @@ struct StudySession: Codable, Sendable, Identifiable, Equatable {
     /// The configured focus duration in seconds (for example, 1500 for 25 minutes).
     /// Used to compute `targetEndDate` on state transitions.
     var duration: TimeInterval
+    /// The configured short-break duration in seconds.
+    var shortBreakDuration: TimeInterval
+    /// The configured long-break duration in seconds.
+    var longBreakDuration: TimeInterval
     var isPaused: Bool
     var pausedBy: String?
     var currentRound: Int
     var totalRounds: Int
+
+    nonisolated init(
+        id: String,
+        partnerA: String,
+        partnerB: String,
+        state: SessionState,
+        startTime: Date,
+        targetEndDate: Date,
+        duration: TimeInterval,
+        shortBreakDuration: TimeInterval = 5 * 60,
+        longBreakDuration: TimeInterval = 15 * 60,
+        isPaused: Bool,
+        pausedBy: String?,
+        currentRound: Int,
+        totalRounds: Int
+    ) {
+        self.id = id
+        self.partnerA = partnerA
+        self.partnerB = partnerB
+        self.state = state
+        self.startTime = startTime
+        self.targetEndDate = targetEndDate
+        self.duration = duration
+        self.shortBreakDuration = shortBreakDuration
+        self.longBreakDuration = longBreakDuration
+        self.isPaused = isPaused
+        self.pausedBy = pausedBy
+        self.currentRound = currentRound
+        self.totalRounds = totalRounds
+    }
 
     /// Returns whether the given user ID is a member of this session.
     func isMember(_ userID: String) -> Bool {
@@ -33,6 +67,37 @@ struct StudySession: Codable, Sendable, Identifiable, Equatable {
             partnerA
         default:
             nil
+        }
+    }
+
+    /// Returns the expected duration for the session's current phase.
+    var currentPhaseDuration: TimeInterval {
+        switch state {
+        case .shortBreak:
+            shortBreakDuration
+        case .longBreak:
+            longBreakDuration
+        case .idle, .requesting, .focus, .completed:
+            duration
+        }
+    }
+
+    /// Returns `true` when the current timed phase has already elapsed.
+    func hasReachedPhaseEnd(asOf date: Date = .now) -> Bool {
+        guard supportsCountdown else {
+            return false
+        }
+
+        return !isPaused && targetEndDate <= date
+    }
+
+    /// Returns `true` when the session represents a timed phase.
+    var supportsCountdown: Bool {
+        switch state {
+        case .focus, .shortBreak, .longBreak:
+            true
+        case .idle, .requesting, .completed:
+            false
         }
     }
 }

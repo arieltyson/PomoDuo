@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         "session_paused",
         "session_resumed",
     ]
+    private static let timerEndCategory = "TIMER_END"
 
     /// Bridge used to deliver quick actions to SwiftUI views.
     var quickActionManager: QuickActionManager? {
@@ -174,6 +175,11 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         if let category, Self.partnerCategories.contains(category) {
             NotificationCenter.default.post(
                 name: .didTapPartnerNotification,
+                object: nil
+            )
+        } else if category == Self.timerEndCategory {
+            NotificationCenter.default.post(
+                name: .didTapTimerNotification,
                 object: nil
             )
         }

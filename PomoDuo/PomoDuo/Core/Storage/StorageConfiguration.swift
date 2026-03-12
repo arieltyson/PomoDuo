@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 /// Defines the SwiftData schema and provides the shared model container.
-enum StorageConfiguration {
+nonisolated enum StorageConfiguration {
     /// Shared app group used for widget data exchange.
     static let widgetAppGroupID = "group.com.arieljtyson.pomoduo"
 

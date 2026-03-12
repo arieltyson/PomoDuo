@@ -10,7 +10,8 @@ struct SessionManagerRemoteSyncTests {
         id: String = "session-1",
         state: SessionState = .idle,
         isPaused: Bool = false,
-        pausedBy: String? = nil
+        pausedBy: String? = nil,
+        targetEndDate: Date = .now.addingTimeInterval(25 * 60)
     ) -> StudySession {
         StudySession(
             id: id,
@@ -18,7 +19,7 @@ struct SessionManagerRemoteSyncTests {
             partnerB: "user-b",
             state: state,
             startTime: .now,
-            targetEndDate: .now.addingTimeInterval(25 * 60),
+            targetEndDate: targetEndDate,
             duration: 25 * 60,
             isPaused: isPaused,
             pausedBy: pausedBy,
@@ -113,6 +114,26 @@ struct SessionManagerRemoteSyncTests {
             scheduled.last?.message
                 == "Focus session complete! Time for a break."
         )
+    }
+
+    @Test("expired remote focus removes restrictions and skips scheduling")
+    func expiredRemoteFocusSkipsScheduling() async {
+        let (manager, restrictions, notifications) = makeDependencies()
+
+        await manager.handleRemoteUpdate(
+            makeSession(
+                state: .focus,
+                targetEndDate: .now.addingTimeInterval(-5)
+            )
+        )
+
+        let removed = await restrictions.removeCallCount
+        let scheduled = await notifications.scheduledNotifications
+        let cancelCount = await notifications.cancelCallCount
+
+        #expect(removed == 1)
+        #expect(scheduled.isEmpty)
+        #expect(cancelCount == 1)
     }
 
     @Test("remote break schedules break-end notification")

@@ -16,6 +16,8 @@ actor FirebaseSessionSyncService: SessionSyncService {
         static let startTime = "startTime"
         static let targetEndDate = "targetEndDate"
         static let duration = "duration"
+        static let shortBreakDuration = "shortBreakDuration"
+        static let longBreakDuration = "longBreakDuration"
         static let isPaused = "isPaused"
         static let pausedBy = "pausedBy"
         static let currentRound = "currentRound"
@@ -126,6 +128,8 @@ actor FirebaseSessionSyncService: SessionSyncService {
             Fields.startTime: session.startTime,
             Fields.targetEndDate: session.targetEndDate,
             Fields.duration: session.duration,
+            Fields.shortBreakDuration: session.shortBreakDuration,
+            Fields.longBreakDuration: session.longBreakDuration,
             Fields.isPaused: session.isPaused,
             Fields.currentRound: session.currentRound,
             Fields.totalRounds: session.totalRounds,
@@ -160,6 +164,10 @@ actor FirebaseSessionSyncService: SessionSyncService {
         }
 
         let pausedBy = data[Fields.pausedBy] as? String
+        let shortBreakDuration =
+            doubleValue(for: data[Fields.shortBreakDuration]) ?? 5 * 60
+        let longBreakDuration =
+            doubleValue(for: data[Fields.longBreakDuration]) ?? 15 * 60
 
         return StudySession(
             id: id,
@@ -169,6 +177,8 @@ actor FirebaseSessionSyncService: SessionSyncService {
             startTime: startTimeTimestamp.dateValue(),
             targetEndDate: targetEndTimestamp.dateValue(),
             duration: duration,
+            shortBreakDuration: shortBreakDuration,
+            longBreakDuration: longBreakDuration,
             isPaused: isPaused,
             pausedBy: pausedBy,
             currentRound: currentRound,

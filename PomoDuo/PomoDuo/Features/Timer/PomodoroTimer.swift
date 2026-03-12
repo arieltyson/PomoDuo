@@ -66,6 +66,32 @@ actor PomodoroTimer {
         return stream
     }
 
+    /// Restores a paused timer so the UI can render it and later resume it.
+    func restorePaused(
+        remainingSeconds: TimeInterval,
+        totalDuration: TimeInterval
+    ) -> AsyncStream<TimerTick> {
+        stop()
+
+        self.totalDuration = max(0, totalDuration)
+        isPaused = true
+        remainingAtPause = max(0, remainingSeconds)
+        targetEndDate = nil
+
+        let (stream, continuation) = AsyncStream.makeStream(of: TimerTick.self)
+        self.continuation = continuation
+
+        continuation.yield(
+            TimerTick(
+                remainingSeconds: remainingAtPause,
+                totalDuration: self.totalDuration,
+                isPaused: true
+            )
+        )
+
+        return stream
+    }
+
     /// Pauses the timer while preserving remaining time.
     func pause() {
         guard let targetEndDate, !isPaused else { return }

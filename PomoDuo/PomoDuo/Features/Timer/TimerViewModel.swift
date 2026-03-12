@@ -65,6 +65,37 @@ final class TimerViewModel {
         }
     }
 
+    /// Restores a paused timer without advancing it.
+    func restorePaused(remainingSeconds: TimeInterval, totalDuration: TimeInterval) {
+        let runIdentifier = beginNewRun()
+
+        tickTask = Task { [runIdentifier] in
+            await timer.stop()
+            let stream = await timer.restorePaused(
+                remainingSeconds: remainingSeconds,
+                totalDuration: totalDuration
+            )
+            await consume(stream: stream, for: runIdentifier)
+        }
+    }
+
+    /// Shows a completed phase while waiting for the user to continue.
+    func restoreCompleted(totalDuration: TimeInterval) {
+        tickTask?.cancel()
+        tickTask = nil
+        runID = UUID()
+
+        Task { await timer.stop() }
+
+        currentTick = TimerTick(
+            remainingSeconds: 0,
+            totalDuration: max(0, totalDuration),
+            isPaused: false
+        )
+        isRunning = false
+        isComplete = true
+    }
+
     /// Pauses the active timer.
     func pause() {
         Task { await timer.pause() }

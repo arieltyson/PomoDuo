@@ -21,6 +21,7 @@ struct ActivePairedSessionView: View {
     @State private var haptic = HapticTrigger()
     @State private var focusStartedAt: Date?
     @State private var hasAnnouncedRequestState = false
+    @State private var hasReachedPhaseEnd = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,9 +34,15 @@ struct ActivePairedSessionView: View {
 
             Spacer()
 
-            SessionPhaseBadge(session: session)
+            SessionPhaseBadge(
+                session: session,
+                hasReachedPhaseEnd: currentPhaseHasEnded
+            )
 
-            PairedCountdownView(session: session)
+            PairedCountdownView(
+                session: session,
+                hasReachedPhaseEnd: currentPhaseHasEnded
+            )
 
             PairedRoundProgress(
                 currentRound: session.currentRound,
@@ -47,7 +54,8 @@ struct ActivePairedSessionView: View {
             VStack {
                 PairedSessionControls(
                     session: session,
-                    viewModel: viewModel
+                    viewModel: viewModel,
+                    hasReachedPhaseEnd: currentPhaseHasEnded
                 )
 
                 if restrictionCoordinator.isRestricting {
@@ -98,9 +106,22 @@ struct ActivePairedSessionView: View {
             ShieldSessionContext.writePartnerName(partner.displayName)
             configureForInitialState()
         }
+        .task(
+            id: PhaseDeadlineTaskID(
+                state: session.state,
+                isPaused: session.isPaused,
+                targetEndDate: session.targetEndDate
+            )
+        ) {
+            await observePhaseDeadline()
+        }
         .onDisappear {
             updateIdleTimer(isDisabled: false)
         }
+    }
+
+    private var currentPhaseHasEnded: Bool {
+        hasReachedPhaseEnd || session.hasReachedPhaseEnd()
     }
 
     private var sessionErrorIsPresented: Binding<Bool> {
@@ -117,10 +138,50 @@ struct ActivePairedSessionView: View {
     private var sessionKeepsScreenAwake: Bool {
         switch session.state {
         case .focus, .shortBreak, .longBreak:
-            true
+            !currentPhaseHasEnded
         case .idle, .requesting, .completed:
             false
         }
+    }
+
+    private func observePhaseDeadline() async {
+        hasReachedPhaseEnd = session.hasReachedPhaseEnd()
+
+        guard session.supportsCountdown else {
+            return
+        }
+
+        guard !session.isPaused, !hasReachedPhaseEnd else {
+            return
+        }
+
+        let remaining = session.targetEndDate.timeIntervalSinceNow
+        guard remaining > 0 else {
+            return
+        }
+
+        do {
+            try await Task.sleep(for: .seconds(remaining))
+        } catch {
+            return
+        }
+
+        guard !Task.isCancelled else {
+            return
+        }
+
+        hasReachedPhaseEnd = true
+        liveActivityManager.end()
+
+        if session.state == .focus {
+            restrictionCoordinator.liftRestrictions()
+        }
+    }
+
+    private struct PhaseDeadlineTaskID: Equatable {
+        let state: SessionState
+        let isPaused: Bool
+        let targetEndDate: Date
     }
 
     private func updateIdleTimer(isDisabled: Bool) {
@@ -130,6 +191,8 @@ struct ActivePairedSessionView: View {
     // MARK: - State Transitions
 
     private func configureForInitialState() {
+        hasReachedPhaseEnd = session.hasReachedPhaseEnd()
+
         switch session.state {
         case .requesting:
             if !hasAnnouncedRequestState {
@@ -140,12 +203,37 @@ struct ActivePairedSessionView: View {
             }
         case .focus:
             focusStartedAt = session.startTime
+            guard !currentPhaseHasEnded else {
+                liveActivityManager.end()
+                restrictionCoordinator.liftRestrictions()
+                return
+            }
+
             startLiveActivityForFocus(isPaused: session.isPaused)
             if !session.isPaused {
                 restrictionCoordinator.enforceFocusRestrictions()
             }
-        default:
-            break
+        case .shortBreak:
+            guard !currentPhaseHasEnded else {
+                liveActivityManager.end()
+                restrictionCoordinator.liftRestrictions()
+                return
+            }
+
+            updateLiveActivityForBreak(isLong: false)
+            restrictionCoordinator.liftRestrictions()
+        case .longBreak:
+            guard !currentPhaseHasEnded else {
+                liveActivityManager.end()
+                restrictionCoordinator.liftRestrictions()
+                return
+            }
+
+            updateLiveActivityForBreak(isLong: true)
+            restrictionCoordinator.liftRestrictions()
+        case .idle, .completed:
+            liveActivityManager.end()
+            restrictionCoordinator.liftRestrictions()
         }
     }
 
@@ -153,6 +241,8 @@ struct ActivePairedSessionView: View {
         from oldState: SessionState,
         to newState: SessionState
     ) {
+        hasReachedPhaseEnd = session.hasReachedPhaseEnd()
+
         switch (oldState, newState) {
 
         case (.requesting, .focus):
@@ -354,7 +444,7 @@ struct ActivePairedSessionView: View {
             currentRound: session.currentRound,
             targetEndDate: session.targetEndDate,
             isPaused: false,
-            phaseDuration: session.duration
+            phaseDuration: session.currentPhaseDuration
         )
     }
 
@@ -534,6 +624,7 @@ private struct PartnerInitialAvatar: View {
 
 private struct SessionPhaseBadge: View {
     let session: StudySession
+    let hasReachedPhaseEnd: Bool
 
     var body: some View {
         Label(phaseLabel, systemImage: phaseSymbol)
@@ -551,8 +642,13 @@ private struct SessionPhaseBadge: View {
             "Waiting for Partner"
         case .focus where session.isPaused:
             "Paused"
+        case .focus where hasReachedPhaseEnd:
+            "Focus Complete"
         case .focus:
             "Focus"
+        case .shortBreak where hasReachedPhaseEnd,
+                .longBreak where hasReachedPhaseEnd:
+            "Break Complete"
         case .shortBreak:
             "Short Break"
         case .longBreak:
@@ -570,8 +666,13 @@ private struct SessionPhaseBadge: View {
             "person.wave.2.fill"
         case .focus where session.isPaused:
             "pause.circle.fill"
+        case .focus where hasReachedPhaseEnd:
+            "checkmark.circle.fill"
         case .focus:
             "brain.head.profile"
+        case .shortBreak where hasReachedPhaseEnd,
+                .longBreak where hasReachedPhaseEnd:
+            "checkmark.circle.fill"
         case .shortBreak, .longBreak:
             "cup.and.saucer.fill"
         case .completed:
@@ -587,8 +688,13 @@ private struct SessionPhaseBadge: View {
             .orange
         case .focus where session.isPaused:
             AppColors.pauseTint
+        case .focus where hasReachedPhaseEnd:
+            AppColors.success
         case .focus:
             AppColors.lavender
+        case .shortBreak where hasReachedPhaseEnd,
+                .longBreak where hasReachedPhaseEnd:
+            AppColors.success
         case .shortBreak, .longBreak:
             .teal
         case .completed:
@@ -601,6 +707,7 @@ private struct SessionPhaseBadge: View {
 
 private struct PairedCountdownView: View {
     let session: StudySession
+    let hasReachedPhaseEnd: Bool
 
     var body: some View {
         Group {
@@ -610,7 +717,9 @@ private struct PairedCountdownView: View {
             case .completed:
                 CompletedCountdownView()
             default:
-                if session.isPaused {
+                if hasReachedPhaseEnd {
+                    ElapsedCountdownView()
+                } else if session.isPaused {
                     PausedCountdownView(targetEndDate: session.targetEndDate)
                 } else {
                     LiveCountdownView(targetEndDate: session.targetEndDate)
@@ -670,6 +779,16 @@ private struct CompletedCountdownView: View {
     }
 }
 
+private struct ElapsedCountdownView: View {
+    var body: some View {
+        Text("00:00")
+            .font(.largeTitle)
+            .monospacedDigit()
+            .bold()
+            .accessibilityValue("00:00")
+    }
+}
+
 private struct PausedCountdownView: View {
     let targetEndDate: Date
 
@@ -723,11 +842,19 @@ private struct LiveCountdownView: View {
     let targetEndDate: Date
 
     var body: some View {
-        Text(timerInterval: Date.now...targetEndDate, countsDown: true)
+        Text(
+            timerInterval: safeTimerInterval(until: targetEndDate),
+            countsDown: true
+        )
             .font(.largeTitle)
             .monospacedDigit()
             .bold()
             .contentTransition(.numericText())
+    }
+
+    private func safeTimerInterval(until targetEndDate: Date) -> ClosedRange<Date> {
+        let now = Date.now
+        return now...max(now, targetEndDate)
     }
 }
 
@@ -802,6 +929,7 @@ private struct RoundStatusDot: View {
 private struct PairedSessionControls: View {
     let session: StudySession
     let viewModel: PartnerSessionViewModel
+    let hasReachedPhaseEnd: Bool
 
     @State private var isShowingEndConfirmation = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -851,21 +979,53 @@ private struct PairedSessionControls: View {
 
                 case .focus:
                     HStack {
-                        Button("Pause", systemImage: "pause.fill") {
-                            Task {
-                                await viewModel.pauseSession()
+                        if hasReachedPhaseEnd {
+                            Button(
+                                "Continue to Break",
+                                systemImage: "arrow.right"
+                            ) {
+                                Task {
+                                    await viewModel.beginBreak()
+                                }
                             }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.teal)
+                            .accessibilityInputLabels([
+                                "Continue to Break",
+                                "Continue",
+                                "Break",
+                            ])
+                        } else {
+                            Button("Pause", systemImage: "pause.fill") {
+                                Task {
+                                    await viewModel.pauseSession()
+                                }
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button("Skip to Break", systemImage: "forward.fill") {
+                                Task {
+                                    await viewModel.beginBreak()
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.teal)
+                            .accessibilityInputLabels([
+                                "Skip to Break",
+                                "Skip",
+                                "Break",
+                            ])
+                        }
+
+                        Button(
+                            "End Session",
+                            systemImage: "stop.fill",
+                            role: .destructive
+                        ) {
+                            isShowingEndConfirmation = true
                         }
                         .buttonStyle(.bordered)
-
-                        Button("Skip to Break", systemImage: "forward.fill") {
-                            Task {
-                                await viewModel.beginBreak()
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.teal)
-                        .accessibilityInputLabels(["Skip to Break", "Skip", "Break"])
+                        .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
                     .transition(
                         reduceMotion
@@ -875,14 +1035,25 @@ private struct PairedSessionControls: View {
 
                 case .shortBreak, .longBreak:
                     HStack {
-                        Button("Next Round", systemImage: "play.fill") {
+                        Button(
+                            hasReachedPhaseEnd
+                                ? "Continue to Focus"
+                                : "Next Round",
+                            systemImage: hasReachedPhaseEnd
+                                ? "arrow.right"
+                                : "play.fill"
+                        ) {
                             Task {
                                 await viewModel.beginFocus()
                             }
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(AppColors.lavender)
-                        .accessibilityInputLabels(["Next Round", "Next", "Continue"])
+                        .accessibilityInputLabels([
+                            hasReachedPhaseEnd ? "Continue to Focus" : "Next Round",
+                            "Next",
+                            "Continue",
+                        ])
 
                         Button(
                             "End Session",

@@ -115,6 +115,11 @@ actor LocalNotificationService: LocalNotificationManaging {
             Self.timerEndRequestID
         ])
 
+        let interval = date.timeIntervalSinceNow
+        guard interval > 0 else {
+            return
+        }
+
         let content = UNMutableNotificationContent()
         content.title = "PomoDuo"
         content.body = message
@@ -122,9 +127,8 @@ actor LocalNotificationService: LocalNotificationManaging {
         content.categoryIdentifier = Self.timerEndCategoryID
         content.interruptionLevel = .timeSensitive
 
-        let interval = max(1, date.timeIntervalSinceNow)
         let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: interval,
+            timeInterval: max(1, interval),
             repeats: false
         )
         let request = UNNotificationRequest(

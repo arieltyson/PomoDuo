@@ -20,6 +20,9 @@ struct TimerView: View {
     @State private var haptic = HapticTrigger()
     @State private var focusStartedAt: Date?
     @State private var lockScreenPulsePhase = false
+    @State private var suppressNextCompletionHandling = false
+
+    private let sessionStore = SoloTimerSessionStore()
 
     var body: some View {
         Group {
@@ -64,11 +67,11 @@ struct TimerView: View {
         }
         .onChange(of: viewModel.isComplete) { wasComplete, isNowComplete in
             if !wasComplete && isNowComplete {
-                haptic.fire(.complete)
-                liveActivityManager.end()
-                recordCompletedFocusIfNeeded()
-                restrictionCoordinator.liftRestrictions()
-                AccessibilityAnnouncer.announceRoundComplete()
+                if suppressNextCompletionHandling {
+                    suppressNextCompletionHandling = false
+                    return
+                }
+                handleForegroundPhaseCompletion()
             }
         }
         .onChange(of: viewModel.currentTick) { previousTick, currentTick in
@@ -85,6 +88,7 @@ struct TimerView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 _ = processLiveActivityBridgeCommands()
+                syncTimerStateFromPersistence()
             }
         }
         .navigationTitle("Focus")
@@ -159,6 +163,7 @@ struct TimerView: View {
         }
 
         consumePendingFocusRequest()
+        syncTimerStateFromPersistence()
     }
 
     private func startFocus(using configuration: TimerConfiguration) {
@@ -182,6 +187,11 @@ struct TimerView: View {
         scheduleNotification(
             duration: configuration.focusDuration,
             message: "Focus session complete! Time for a break. 🎉"
+        )
+        persistSession(
+            status: .running,
+            targetEndDate: targetEndDate,
+            phaseDuration: configuration.focusDuration
         )
 
         restrictionCoordinator.enforceFocusRestrictions()
@@ -208,6 +218,12 @@ struct TimerView: View {
             phaseDuration: phaseDuration(for: phase),
             pausedRemainingSeconds: remainingSeconds,
             pulsePhase: false
+        )
+        persistSession(
+            status: .paused,
+            targetEndDate: .now.addingTimeInterval(remainingSeconds),
+            phaseDuration: phaseDuration(for: phase),
+            pausedRemainingSeconds: remainingSeconds
         )
         cancelNotification()
         AccessibilityAnnouncer.announcePause()
@@ -242,6 +258,11 @@ struct TimerView: View {
             ? "Break's over! Ready to focus? 📚"
             : "Focus session complete! Time for a break. 🎉"
         scheduleNotification(duration: remainingSeconds, message: message)
+        persistSession(
+            status: .running,
+            targetEndDate: targetEndDate,
+            phaseDuration: phaseDuration(for: phase)
+        )
         AccessibilityAnnouncer.announceResume()
     }
 
@@ -253,6 +274,7 @@ struct TimerView: View {
         focusStartedAt = nil
         haptic.fire(.stop)
         liveActivityManager.end()
+        clearPersistedSession()
         cancelNotification()
         restrictionCoordinator.forceRemoveRestrictions()
         AccessibilityAnnouncer.announceStop()
@@ -285,6 +307,11 @@ struct TimerView: View {
                     duration: configuration.longBreakDuration,
                     message: "Long break is over! Ready for another round? 💪"
                 )
+                persistSession(
+                    status: .running,
+                    targetEndDate: targetEndDate,
+                    phaseDuration: configuration.longBreakDuration
+                )
                 AccessibilityAnnouncer.announceBreakStarted(isLong: true)
             } else {
                 phase = .shortBreak
@@ -304,6 +331,11 @@ struct TimerView: View {
                 scheduleNotification(
                     duration: configuration.shortBreakDuration,
                     message: "Break's over! Ready to focus? 📚"
+                )
+                persistSession(
+                    status: .running,
+                    targetEndDate: targetEndDate,
+                    phaseDuration: configuration.shortBreakDuration
                 )
                 AccessibilityAnnouncer.announceBreakStarted(isLong: false)
             }
@@ -327,6 +359,11 @@ struct TimerView: View {
             scheduleNotification(
                 duration: configuration.focusDuration,
                 message: "Focus session complete! Time for a break. 🎉"
+            )
+            persistSession(
+                status: .running,
+                targetEndDate: targetEndDate,
+                phaseDuration: configuration.focusDuration
             )
 
             restrictionCoordinator.enforceFocusRestrictions()
@@ -355,6 +392,11 @@ struct TimerView: View {
             scheduleNotification(
                 duration: configuration.focusDuration,
                 message: "Focus session complete! Time for a break. 🎉"
+            )
+            persistSession(
+                status: .running,
+                targetEndDate: targetEndDate,
+                phaseDuration: configuration.focusDuration
             )
 
             restrictionCoordinator.enforceFocusRestrictions()
@@ -471,6 +513,184 @@ struct TimerView: View {
         Task {
             await notificationManager.cancelTimerEnd()
         }
+    }
+
+    private func handleForegroundPhaseCompletion() {
+        haptic.fire(.complete)
+        lockScreenPulsePhase = false
+        liveActivityManager.end()
+        recordCompletedFocusIfNeeded()
+        persistSession(
+            status: .awaitingContinuation,
+            targetEndDate: .now,
+            phaseDuration: phaseDuration(for: phase)
+        )
+        cancelNotification()
+        restrictionCoordinator.liftRestrictions()
+        AccessibilityAnnouncer.announceRoundComplete()
+    }
+
+    private func syncTimerStateFromPersistence() {
+        guard activeConfiguration != nil, let snapshot = sessionStore.load() else {
+            return
+        }
+
+        if snapshot.status == .running && snapshot.targetEndDate <= .now {
+            restoreAwaitingContinuation(from: snapshot)
+            return
+        }
+
+        switch snapshot.status {
+        case .running:
+            guard !isDisplayingRunningSnapshot(snapshot) else {
+                return
+            }
+            restoreRunning(from: snapshot)
+        case .paused:
+            guard !isDisplayingPausedSnapshot(snapshot) else {
+                return
+            }
+            restorePaused(from: snapshot)
+        case .awaitingContinuation:
+            guard !isDisplayingAwaitingContinuation(snapshot) else {
+                return
+            }
+            restoreAwaitingContinuation(from: snapshot)
+        }
+    }
+
+    private func restoreRunning(from snapshot: SoloTimerSessionSnapshot) {
+        lockScreenPulsePhase = false
+        phase = snapshot.phase
+        currentRound = snapshot.currentRound
+        focusStartedAt = snapshot.focusStartedAt
+        viewModel.syncToRemote(
+            targetEndDate: snapshot.targetEndDate,
+            totalDuration: snapshot.phaseDuration
+        )
+        liveActivityManager.start(
+            phase: snapshot.phase.activityPhase,
+            currentRound: snapshot.currentRound,
+            totalRounds: activeConfiguration?.roundsBeforeLongBreak ?? 4,
+            targetEndDate: snapshot.targetEndDate,
+            phaseDuration: snapshot.phaseDuration
+        )
+
+        if snapshot.phase == .focus {
+            restrictionCoordinator.enforceFocusRestrictions()
+        } else {
+            restrictionCoordinator.liftRestrictions()
+        }
+    }
+
+    private func restorePaused(from snapshot: SoloTimerSessionSnapshot) {
+        let pausedTargetEndDate = Date.now.addingTimeInterval(
+            snapshot.pausedRemainingSeconds
+        )
+
+        lockScreenPulsePhase = false
+        phase = snapshot.phase
+        currentRound = snapshot.currentRound
+        focusStartedAt = snapshot.focusStartedAt
+        viewModel.restorePaused(
+            remainingSeconds: snapshot.pausedRemainingSeconds,
+            totalDuration: snapshot.phaseDuration
+        )
+        liveActivityManager.start(
+            phase: snapshot.phase.activityPhase,
+            currentRound: snapshot.currentRound,
+            totalRounds: activeConfiguration?.roundsBeforeLongBreak ?? 4,
+            targetEndDate: pausedTargetEndDate,
+            phaseDuration: snapshot.phaseDuration
+        )
+        liveActivityManager.update(
+            phase: snapshot.phase.activityPhase,
+            currentRound: snapshot.currentRound,
+            targetEndDate: pausedTargetEndDate,
+            isPaused: true,
+            phaseDuration: snapshot.phaseDuration,
+            pausedRemainingSeconds: snapshot.pausedRemainingSeconds,
+            pulsePhase: false
+        )
+        cancelNotification()
+        restrictionCoordinator.liftRestrictions()
+    }
+
+    private func restoreAwaitingContinuation(
+        from snapshot: SoloTimerSessionSnapshot
+    ) {
+        lockScreenPulsePhase = false
+        phase = snapshot.phase
+        currentRound = snapshot.currentRound
+        focusStartedAt = snapshot.focusStartedAt
+        suppressNextCompletionHandling = true
+        viewModel.restoreCompleted(totalDuration: snapshot.phaseDuration)
+        liveActivityManager.end()
+        recordCompletedFocusIfNeeded()
+        persistSession(
+            status: .awaitingContinuation,
+            targetEndDate: snapshot.targetEndDate,
+            phaseDuration: snapshot.phaseDuration
+        )
+        cancelNotification()
+        restrictionCoordinator.liftRestrictions()
+    }
+
+    private func persistSession(
+        status: SoloTimerSessionSnapshot.Status,
+        targetEndDate: Date,
+        phaseDuration: TimeInterval,
+        pausedRemainingSeconds: TimeInterval = 0
+    ) {
+        guard phase != .idle else {
+            clearPersistedSession()
+            return
+        }
+
+        sessionStore.save(
+            SoloTimerSessionSnapshot(
+                phase: phase,
+                currentRound: currentRound,
+                focusStartedAt: focusStartedAt,
+                targetEndDate: targetEndDate,
+                phaseDuration: phaseDuration,
+                status: status,
+                pausedRemainingSeconds: pausedRemainingSeconds
+            )
+        )
+    }
+
+    private func clearPersistedSession() {
+        sessionStore.clear()
+    }
+
+    private func isDisplayingRunningSnapshot(
+        _ snapshot: SoloTimerSessionSnapshot
+    ) -> Bool {
+        viewModel.isRunning
+            && !viewModel.isComplete
+            && !(viewModel.currentTick?.isPaused ?? false)
+            && phase == snapshot.phase
+            && currentRound == snapshot.currentRound
+    }
+
+    private func isDisplayingPausedSnapshot(
+        _ snapshot: SoloTimerSessionSnapshot
+    ) -> Bool {
+        viewModel.isRunning
+            && !viewModel.isComplete
+            && (viewModel.currentTick?.isPaused ?? false)
+            && phase == snapshot.phase
+            && currentRound == snapshot.currentRound
+    }
+
+    private func isDisplayingAwaitingContinuation(
+        _ snapshot: SoloTimerSessionSnapshot
+    ) -> Bool {
+        !viewModel.isRunning
+            && viewModel.isComplete
+            && phase == snapshot.phase
+            && currentRound == snapshot.currentRound
     }
 
     private func phaseName(
@@ -734,46 +954,6 @@ private struct TimerConfigurationLoadingView: View {
             Label("Timer", systemImage: "timer")
         } description: {
             Text("Preparing your focus setup.")
-        }
-    }
-}
-
-private enum TimerPhase {
-    case idle
-    case focus
-    case shortBreak
-    case longBreak
-
-    var isBreak: Bool {
-        switch self {
-        case .shortBreak, .longBreak:
-            true
-        case .idle, .focus:
-            false
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .idle:
-            "Ready"
-        case .focus:
-            "Focus"
-        case .shortBreak:
-            "Short Break"
-        case .longBreak:
-            "Long Break"
-        }
-    }
-
-    var activityPhase: TimerActivityAttributes.Phase {
-        switch self {
-        case .idle, .focus:
-            .focus
-        case .shortBreak:
-            .shortBreak
-        case .longBreak:
-            .longBreak
         }
     }
 }

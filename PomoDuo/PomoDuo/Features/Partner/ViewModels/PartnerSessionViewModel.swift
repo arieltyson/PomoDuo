@@ -75,6 +75,8 @@ final class PartnerSessionViewModel {
     func startSession(
         with partner: PartnerProfile,
         duration: TimeInterval = 25 * 60,
+        shortBreakDuration: TimeInterval = 5 * 60,
+        longBreakDuration: TimeInterval = 15 * 60,
         totalRounds: Int = 4
     ) async {
         guard !isStartingSession else { return }
@@ -90,6 +92,8 @@ final class PartnerSessionViewModel {
         await sessionManager.requestSession(
             partnerID: partner.id,
             duration: duration,
+            shortBreakDuration: shortBreakDuration,
+            longBreakDuration: longBreakDuration,
             totalRounds: totalRounds
         )
         syncErrorFromManager()
