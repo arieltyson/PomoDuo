@@ -166,7 +166,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             ?? userInfo["action"] as? String
             ?? (userInfo["data"] as? [String: Any])?["action"] as? String
             ?? response.notification.request.content.categoryIdentifier
-                .nilIfEmpty
+            .nilIfEmpty
 
         Self.logger.debug(
             "Notification tapped - category: \(category ?? "none", privacy: .public)"
@@ -192,9 +192,9 @@ extension Notification.Name {
 
 // MARK: - Helpers
 
-private extension String {
+extension String {
     /// Returns `nil` if the string is empty, otherwise returns `self`.
-    var nilIfEmpty: String? {
+    fileprivate var nilIfEmpty: String? {
         isEmpty ? nil : self
     }
 }
