@@ -4,11 +4,15 @@ import SwiftUI
 struct RoundIndicatorView: View {
     let currentRound: Int
     let totalRounds: Int
+    let showsCurrentPulse: Bool
 
     var body: some View {
         HStack {
             ForEach(1...totalRounds, id: \.self) { round in
-                RoundDot(state: dotState(for: round))
+                RoundDot(
+                    state: dotState(for: round),
+                    showsCurrentPulse: showsCurrentPulse
+                )
             }
         }
         .accessibilityElement(children: .ignore)
@@ -34,6 +38,7 @@ private enum RoundDotState {
 
 private struct RoundDot: View {
     let state: RoundDotState
+    let showsCurrentPulse: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -64,7 +69,7 @@ private struct RoundDot: View {
             }
 
             // Pulse ring for current round.
-            if state == .current {
+            if state == .current && showsCurrentPulse {
                 CurrentRoundPulse()
             }
         }

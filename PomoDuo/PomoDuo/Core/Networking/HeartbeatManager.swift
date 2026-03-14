@@ -43,7 +43,7 @@ final class HeartbeatManager {
 
     private let database: Firestore
     private var heartbeatTask: Task<Void, Never>?
-    private var monitorTask: Task<Void, Never>?
+    private var sessionListener: ListenerRegistration?
     private var currentSessionID: String?
     private var currentUserID: String?
     private var currentPartnerID: String?
@@ -97,16 +97,15 @@ final class HeartbeatManager {
             }
         }
 
-        // Monitor partner's heartbeat every 60s.
-        monitorTask = Task { [weak self] in
-            guard let self else { return }
-
-            while !Task.isCancelled {
-                try? await Task.sleep(for: Self.beatInterval)
-                guard !Task.isCancelled else { return }
-                await self.checkPartnerHeartbeat()
+        sessionListener = database
+            .collection("sessions")
+            .document(sessionID)
+            .addSnapshotListener { [weak self] snapshot, error in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    await self.handleHeartbeatSnapshot(snapshot, error: error)
+                }
             }
-        }
     }
 
     /// Stops all heartbeat activity.
@@ -115,8 +114,8 @@ final class HeartbeatManager {
     func stopBeating() {
         heartbeatTask?.cancel()
         heartbeatTask = nil
-        monitorTask?.cancel()
-        monitorTask = nil
+        sessionListener?.remove()
+        sessionListener = nil
         currentSessionID = nil
         currentUserID = nil
         currentPartnerID = nil
@@ -149,53 +148,64 @@ final class HeartbeatManager {
         }
     }
 
-    private func checkPartnerHeartbeat() async {
-        guard let sessionID = currentSessionID,
-            let partnerID = currentPartnerID
-        else { return }
-
-        do {
-            let snapshot = try await database
-                .collection("sessions")
-                .document(sessionID)
-                .getDocument()
-
-            guard let data = snapshot.data(),
-                let heartbeats = data["heartbeats"] as? [String: Any],
-                let partnerTimestamp = heartbeats[partnerID] as? Timestamp
-            else {
-                // No heartbeat data yet - partner may not have written one.
-                return
-            }
-
-            let partnerDate = partnerTimestamp.dateValue()
-            partnerLastSeen = partnerDate
-
-            let elapsed = Date.now.timeIntervalSince(partnerDate)
-
-            if elapsed > Self.autoEndThreshold {
-                Self.logger.warning(
-                    "Partner heartbeat stale for \(Int(elapsed))s - triggering auto-end."
-                )
-                isPartnerActive = false
-
-                guard !didTriggerAutoEnd else { return }
-                didTriggerAutoEnd = true
-                await onPartnerStale?()
-            } else if elapsed > Self.staleThreshold {
-                Self.logger.notice(
-                    "Partner heartbeat stale for \(Int(elapsed))s - showing warning."
-                )
-                isPartnerActive = false
-                didTriggerAutoEnd = false
-            } else {
-                isPartnerActive = true
-                didTriggerAutoEnd = false
-            }
-        } catch {
+    private func handleHeartbeatSnapshot(
+        _ snapshot: DocumentSnapshot?,
+        error: Error?
+    ) async {
+        if let error {
             Self.logger.warning(
-                "Partner heartbeat check failed: \(error.localizedDescription, privacy: .public)"
+                "Partner heartbeat observation failed: \(error.localizedDescription, privacy: .public)"
             )
+            return
+        }
+
+        guard let partnerID = currentPartnerID,
+            let data = snapshot?.data(),
+            let heartbeats = data["heartbeats"] as? [String: Any]
+        else {
+            return
+        }
+
+        let partnerTimestamp = heartbeats[partnerID] as? Timestamp
+        await ingestPartnerHeartbeat(
+            partnerTimestamp?.dateValue()
+        )
+    }
+
+    /// Processes the latest known partner heartbeat timestamp.
+    ///
+    /// The active session document listener calls this whenever heartbeat data
+    /// changes so partner presence can be updated without an additional poll.
+    func ingestPartnerHeartbeat(
+        _ partnerDate: Date?,
+        referenceDate: Date = .now
+    ) async {
+        guard let partnerDate else {
+            return
+        }
+
+        partnerLastSeen = partnerDate
+
+        let elapsed = referenceDate.timeIntervalSince(partnerDate)
+
+        if elapsed > Self.autoEndThreshold {
+            Self.logger.warning(
+                "Partner heartbeat stale for \(Int(elapsed))s - triggering auto-end."
+            )
+            isPartnerActive = false
+
+            guard !didTriggerAutoEnd else { return }
+            didTriggerAutoEnd = true
+            await onPartnerStale?()
+        } else if elapsed > Self.staleThreshold {
+            Self.logger.notice(
+                "Partner heartbeat stale for \(Int(elapsed))s - showing warning."
+            )
+            isPartnerActive = false
+            didTriggerAutoEnd = false
+        } else {
+            isPartnerActive = true
+            didTriggerAutoEnd = false
         }
     }
 }

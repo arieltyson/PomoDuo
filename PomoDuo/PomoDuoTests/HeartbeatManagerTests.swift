@@ -100,4 +100,78 @@ struct HeartbeatManagerTests {
         )
         #expect(HeartbeatManager.beatInterval > .zero)
     }
+
+    @Test("Recent partner heartbeat keeps the partner active")
+    func recentPartnerHeartbeatKeepsPartnerActive() async {
+        let manager = HeartbeatManager()
+
+        manager.startBeating(
+            sessionID: "session-1",
+            userID: "user-a",
+            partnerID: "user-b",
+            onPartnerStale: {}
+        )
+
+        let heartbeatDate = Date.now.addingTimeInterval(-30)
+        await manager.ingestPartnerHeartbeat(
+            heartbeatDate,
+            referenceDate: .now
+        )
+
+        #expect(manager.isPartnerActive == true)
+        #expect(manager.partnerLastSeen == heartbeatDate)
+    }
+
+    @Test("Stale partner heartbeat marks the partner inactive")
+    func stalePartnerHeartbeatMarksPartnerInactive() async {
+        let manager = HeartbeatManager()
+
+        manager.startBeating(
+            sessionID: "session-1",
+            userID: "user-a",
+            partnerID: "user-b",
+            onPartnerStale: {}
+        )
+
+        let referenceDate = Date.now
+        let heartbeatDate = referenceDate.addingTimeInterval(
+            -(HeartbeatManager.staleThreshold + 30)
+        )
+        await manager.ingestPartnerHeartbeat(
+            heartbeatDate,
+            referenceDate: referenceDate
+        )
+
+        #expect(manager.isPartnerActive == false)
+        #expect(manager.partnerLastSeen == heartbeatDate)
+    }
+
+    @Test("Auto-end heartbeat threshold triggers the callback once")
+    func autoEndThresholdTriggersCallbackOnce() async {
+        let manager = HeartbeatManager()
+        let referenceDate = Date.now
+        let heartbeatDate = referenceDate.addingTimeInterval(
+            -(HeartbeatManager.autoEndThreshold + 30)
+        )
+        var callCount = 0
+
+        manager.startBeating(
+            sessionID: "session-1",
+            userID: "user-a",
+            partnerID: "user-b",
+            onPartnerStale: { callCount += 1 }
+        )
+
+        await manager.ingestPartnerHeartbeat(
+            heartbeatDate,
+            referenceDate: referenceDate
+        )
+        await manager.ingestPartnerHeartbeat(
+            heartbeatDate,
+            referenceDate: referenceDate
+        )
+
+        #expect(manager.isPartnerActive == false)
+        #expect(callCount == 1)
+    }
 }

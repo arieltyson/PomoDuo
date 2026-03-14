@@ -3,6 +3,38 @@ import Foundation
 
 /// Firestore-backed real-time sync implementation for paired sessions.
 actor FirebaseSessionSyncService: SessionSyncService {
+    private struct SessionEmissionKey: Equatable {
+        let id: String
+        let partnerA: String
+        let partnerB: String
+        let state: SessionState
+        let startTime: Date
+        let targetEndDate: Date
+        let duration: TimeInterval
+        let shortBreakDuration: TimeInterval
+        let longBreakDuration: TimeInterval
+        let isPaused: Bool
+        let pausedBy: String?
+        let currentRound: Int
+        let totalRounds: Int
+
+        init(session: StudySession) {
+            id = session.id
+            partnerA = session.partnerA
+            partnerB = session.partnerB
+            state = session.state
+            startTime = session.startTime
+            targetEndDate = session.targetEndDate
+            duration = session.duration
+            shortBreakDuration = session.shortBreakDuration
+            longBreakDuration = session.longBreakDuration
+            isPaused = session.isPaused
+            pausedBy = session.pausedBy
+            currentRound = session.currentRound
+            totalRounds = session.totalRounds
+        }
+    }
+
     private enum Collections {
         static let sessions = "sessions"
     }
@@ -48,6 +80,7 @@ actor FirebaseSessionSyncService: SessionSyncService {
         let reference = sessionReference(for: sessionID)
 
         return AsyncStream { continuation in
+            var lastYieldedKey: SessionEmissionKey?
             let listener = reference.addSnapshotListener { snapshot, error in
                 if error != nil {
                     continuation.finish()
@@ -68,6 +101,12 @@ actor FirebaseSessionSyncService: SessionSyncService {
                     return
                 }
 
+                let sessionKey = SessionEmissionKey(session: session)
+                guard sessionKey != lastYieldedKey else {
+                    return
+                }
+
+                lastYieldedKey = sessionKey
                 continuation.yield(session)
             }
 
@@ -94,17 +133,26 @@ actor FirebaseSessionSyncService: SessionSyncService {
             .whereField(Fields.members, arrayContains: userID)
 
         return AsyncStream { continuation in
+            var lastYieldedKey: SessionEmissionKey?
+            var hasYieldedSession = false
             let listener = query.addSnapshotListener { snapshot, error in
+                let activeSession: StudySession?
                 if error != nil {
-                    continuation.yield(nil)
+                    activeSession = nil
+                } else {
+                    activeSession = snapshot?.documents
+                        .compactMap(Self.decodeSession(from:))
+                        .filter { !Self.terminalStates.contains($0.state.rawValue) }
+                        .max(by: { $0.startTime < $1.startTime })
+                }
+
+                let sessionKey = activeSession.map(SessionEmissionKey.init(session:))
+                if hasYieldedSession && sessionKey == lastYieldedKey {
                     return
                 }
 
-                let activeSession = snapshot?.documents
-                    .compactMap(Self.decodeSession(from:))
-                    .filter { !Self.terminalStates.contains($0.state.rawValue) }
-                    .max(by: { $0.startTime < $1.startTime })
-
+                lastYieldedKey = sessionKey
+                hasYieldedSession = true
                 continuation.yield(activeSession)
             }
 

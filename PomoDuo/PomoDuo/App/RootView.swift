@@ -136,6 +136,7 @@ struct RootView: View {
         guard let session,
             let userID = authManager.currentUserID,
             let partnerID = session.partnerID(for: userID),
+            session.supportsCountdown,
             session.state != .idle,
             session.state != .completed
         else {
