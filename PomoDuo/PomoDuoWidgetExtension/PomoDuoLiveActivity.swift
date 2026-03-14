@@ -182,35 +182,46 @@ private struct CompactTrailingView: View {
 
 /// Trailing compact countdown tuned for Dynamic Island's tight trailing slot.
 ///
-/// Compact regions do not have enough width for an `HH:MM:SS` countdown. The
-/// compact presentation intentionally collapses to `MM:SS` using total minutes
-/// so the timer stays legible instead of truncating with an ellipsis.
+/// Compact regions do not have enough width for an `HH:MM:SS` countdown.
+/// Reserve the slot width with a hidden `MM:SS` template so the system keeps
+/// the island narrowly wrapped around the sensor while the live value updates.
 private struct CompactCountdownValueView: View {
     let state: TimerActivityAttributes.ContentState
 
+    private let placeholderTime = "00:00"
+
     var body: some View {
-        Group {
-            if state.isPaused {
-                Text(pausedTimeText(for: state))
-                    .accessibilityLabel(
-                        "Paused, \(pausedTimeText(for: state)) remaining"
-                    )
-            } else {
-                Text(
-                    timerInterval: state.countdownRange(),
-                    countsDown: true,
-                    showsHours: false
-                )
-                .accessibilityLabel("Time remaining")
+        Text(placeholderTime)
+            .font(.system(.subheadline, design: .rounded))
+            .bold()
+            .monospacedDigit()
+            .hidden()
+            .accessibilityHidden(true)
+            .overlay(alignment: .trailing) {
+                Group {
+                    if state.isPaused {
+                        Text(pausedTimeText(for: state))
+                            .accessibilityLabel(
+                                "Paused, \(pausedTimeText(for: state)) remaining"
+                            )
+                    } else {
+                        Text(
+                            timerInterval: state.countdownRange(),
+                            countsDown: true,
+                            showsHours: false
+                        )
+                        .accessibilityLabel("Time remaining")
+                    }
+                }
+                .font(.system(.subheadline, design: .rounded))
+                .bold()
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .foregroundStyle(Palette.accentTint(for: state))
+                .contentTransition(.numericText())
             }
-        }
-        .font(.system(.subheadline, design: .rounded))
-        .bold()
-        .monospacedDigit()
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-        .foregroundStyle(Palette.accentTint(for: state))
-        .contentTransition(.numericText())
+        .fixedSize(horizontal: true, vertical: false)
         .layoutPriority(1)
     }
 }
