@@ -74,4 +74,38 @@ struct TimerActivityDisplayStateTests {
             #expect(range.upperBound == referenceDate)
         }
     }
+
+    @Test func validPausedStatesRemainStableDuringSanitization() {
+        let state = TimerActivityAttributes.ContentState(
+            phase: .focus,
+            currentRound: 2,
+            targetEndDate: referenceDate.addingTimeInterval(14 * 60 + 46),
+            isPaused: true,
+            phaseDuration: 25 * 60,
+            pausedRemainingSeconds: 14 * 60 + 46
+        )
+
+        let sanitized = state.sanitizedForDisplay(referenceDate: referenceDate)
+
+        #expect(sanitized == state)
+        #expect(state.hasInvalidTimingInvariants(asOf: referenceDate) == false)
+    }
+
+    @Test func pausedStatesClampRemainingWithoutShiftingTargetEndDate() {
+        let targetEndDate = referenceDate.addingTimeInterval(8 * 60)
+        let state = TimerActivityAttributes.ContentState(
+            phase: .shortBreak,
+            currentRound: 1,
+            targetEndDate: targetEndDate,
+            isPaused: true,
+            phaseDuration: 5 * 60,
+            pausedRemainingSeconds: 8 * 60
+        )
+
+        let sanitized = state.sanitizedForDisplay(referenceDate: referenceDate)
+
+        #expect(sanitized.targetEndDate == targetEndDate)
+        #expect(sanitized.pausedRemainingSeconds == 5 * 60)
+        #expect(state.hasInvalidTimingInvariants(asOf: referenceDate))
+    }
 }

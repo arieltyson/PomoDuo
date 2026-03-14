@@ -80,6 +80,8 @@ extension TimerActivityAttributes.Phase {
 }
 
 extension TimerActivityAttributes.ContentState {
+    private static let invariantTolerance: TimeInterval = 0.001
+
     /// Remaining seconds the UI should render for this state.
     ///
     /// Running states collapse to `0` once the deadline has elapsed, preventing
@@ -105,13 +107,25 @@ extension TimerActivityAttributes.ContentState {
         )
         let remainingSeconds = remainingSecondsForDisplay(asOf: referenceDate)
 
+        if isPaused {
+            return Self(
+                phase: phase,
+                currentRound: currentRound,
+                targetEndDate: targetEndDate,
+                isPaused: true,
+                phaseDuration: cappedPhaseDuration,
+                pausedRemainingSeconds: remainingSeconds,
+                pulsePhase: pulsePhase
+            )
+        }
+
         return Self(
             phase: phase,
             currentRound: currentRound,
             targetEndDate: referenceDate.addingTimeInterval(remainingSeconds),
             isPaused: isPaused,
             phaseDuration: cappedPhaseDuration,
-            pausedRemainingSeconds: isPaused ? remainingSeconds : 0,
+            pausedRemainingSeconds: 0,
             pulsePhase: pulsePhase
         )
     }
@@ -123,5 +137,32 @@ extension TimerActivityAttributes.ContentState {
     func countdownRange(referenceDate: Date = .now) -> ClosedRange<Date> {
         let displayState = sanitizedForDisplay(referenceDate: referenceDate)
         return referenceDate...displayState.targetEndDate
+    }
+
+    /// Returns whether this content state violates product-level timer invariants.
+    ///
+    /// Benign drift, such as an expired running countdown that has not been
+    /// cleaned up yet, is intentionally not treated as an invariant failure.
+    func hasInvalidTimingInvariants(asOf referenceDate: Date = .now) -> Bool {
+        let maximumDuration = phase.maximumExpectedDuration
+
+        guard phaseDuration >= -Self.invariantTolerance else { return true }
+        guard phaseDuration <= maximumDuration + Self.invariantTolerance else {
+            return true
+        }
+
+        guard pausedRemainingSeconds >= -Self.invariantTolerance else {
+            return true
+        }
+
+        let cappedPhaseDuration = min(max(0, phaseDuration), maximumDuration)
+
+        if isPaused {
+            return pausedRemainingSeconds
+                > cappedPhaseDuration + Self.invariantTolerance
+        }
+
+        let remainingSeconds = targetEndDate.timeIntervalSince(referenceDate)
+        return remainingSeconds > cappedPhaseDuration + Self.invariantTolerance
     }
 }

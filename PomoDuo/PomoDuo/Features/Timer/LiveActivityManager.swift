@@ -244,32 +244,54 @@ final class LiveActivityManager {
     private func sanitize(
         _ rawState: TimerActivityAttributes.ContentState
     ) -> TimerActivityAttributes.ContentState {
-        let sanitizedState = rawState.sanitizedForDisplay()
+        let referenceDate = Date.now
+        let sanitizedState = rawState.sanitizedForDisplay(
+            referenceDate: referenceDate
+        )
         guard sanitizedState != rawState else {
             return rawState
         }
 
-        assertionFailure("Invalid Live Activity timer state was sanitized.")
+        let hasInvalidTimingInvariants = rawState.hasInvalidTimingInvariants(
+            asOf: referenceDate
+        )
+
+        if hasInvalidTimingInvariants {
+            assertionFailure("Invalid Live Activity timer state was sanitized.")
+        }
 
         let rawRemainingSeconds =
             rawState.isPaused
             ? rawState.pausedRemainingSeconds
-            : rawState.targetEndDate.timeIntervalSinceNow
+            : rawState.targetEndDate.timeIntervalSince(referenceDate)
         let sanitizedRemainingSeconds =
             sanitizedState.isPaused
             ? sanitizedState.pausedRemainingSeconds
-            : sanitizedState.targetEndDate.timeIntervalSinceNow
+            : sanitizedState.targetEndDate.timeIntervalSince(referenceDate)
 
-        Self.logger.error(
-            """
-            Sanitized invalid Live Activity state. phase=\(rawState.phase.rawValue, privacy: .public) \
-            round=\(rawState.currentRound, privacy: .public) \
-            rawRemaining=\(rawRemainingSeconds, privacy: .public) \
-            rawDuration=\(rawState.phaseDuration, privacy: .public) \
-            sanitizedRemaining=\(sanitizedRemainingSeconds, privacy: .public) \
-            sanitizedDuration=\(sanitizedState.phaseDuration, privacy: .public)
-            """
-        )
+        if hasInvalidTimingInvariants {
+            Self.logger.error(
+                """
+                Sanitized invalid Live Activity state. phase=\(rawState.phase.rawValue, privacy: .public) \
+                round=\(rawState.currentRound, privacy: .public) \
+                rawRemaining=\(rawRemainingSeconds, privacy: .public) \
+                rawDuration=\(rawState.phaseDuration, privacy: .public) \
+                sanitizedRemaining=\(sanitizedRemainingSeconds, privacy: .public) \
+                sanitizedDuration=\(sanitizedState.phaseDuration, privacy: .public)
+                """
+            )
+        } else {
+            Self.logger.notice(
+                """
+                Normalized Live Activity state. phase=\(rawState.phase.rawValue, privacy: .public) \
+                round=\(rawState.currentRound, privacy: .public) \
+                rawRemaining=\(rawRemainingSeconds, privacy: .public) \
+                rawDuration=\(rawState.phaseDuration, privacy: .public) \
+                normalizedRemaining=\(sanitizedRemainingSeconds, privacy: .public) \
+                normalizedDuration=\(sanitizedState.phaseDuration, privacy: .public)
+                """
+            )
+        }
 
         return sanitizedState
     }
