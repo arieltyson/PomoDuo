@@ -304,29 +304,41 @@ private struct ExpandedLeadingView: View {
 /// Trailing region: high-contrast countdown for readability.
 private struct ExpandedTrailingView: View {
     let state: TimerActivityAttributes.ContentState
+    private let placeholderTime = "00:00"
 
     var body: some View {
-        Group {
-            if state.isPaused {
-                Text(pausedTimeText(for: state))
-                    .accessibilityLabel(
-                        "Paused, \(pausedTimeText(for: state)) remaining"
-                    )
-            } else {
-                Text(
-                    timerInterval: state.countdownRange(),
-                    countsDown: true
-                )
-                .accessibilityLabel("Time remaining")
+        Text(placeholderTime)
+            .font(.system(.title3, design: .rounded))
+            .bold()
+            .monospacedDigit()
+            .hidden()
+            .accessibilityHidden(true)
+            .overlay(alignment: .trailing) {
+                Group {
+                    if state.isPaused {
+                        Text(pausedTimeText(for: state))
+                            .accessibilityLabel(
+                                "Paused, \(pausedTimeText(for: state)) remaining"
+                            )
+                    } else {
+                        Text(
+                            timerInterval: state.countdownRange(),
+                            countsDown: true,
+                            showsHours: false
+                        )
+                        .accessibilityLabel("Time remaining")
+                    }
+                }
+                .font(.system(.title3, design: .rounded))
+                .bold()
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .contentTransition(.numericText())
             }
-        }
-        .font(.system(.title3, design: .rounded))
-        .bold()
-        .monospacedDigit()
-        .foregroundStyle(.white)
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-        .contentTransition(.numericText())
+            .fixedSize(horizontal: true, vertical: false)
+            .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
