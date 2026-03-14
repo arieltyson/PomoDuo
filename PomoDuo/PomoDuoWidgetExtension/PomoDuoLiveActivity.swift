@@ -107,29 +107,24 @@ private enum Palette {
 
 // MARK: - Timer Helpers
 
-/// Ensures `Text(timerInterval:)` always receives a valid range.
-///
-/// If a Live Activity lingers briefly after the countdown expired, the raw
-/// range can become `Date.now...pastDate`, which is invalid.
-private func safeTimerInterval(
-    until targetEndDate: Date
-) -> ClosedRange<Date> {
-    let now = Date.now
-    return now...max(now, targetEndDate)
-}
-
 /// Calculates the remaining fraction (0…1) of the current timer phase.
 ///
 /// Returns 1.0 when the full duration remains and 0.0 at expiration.
 private func remainingFraction(
     for state: TimerActivityAttributes.ContentState
 ) -> Double {
-    guard state.phaseDuration > 0 else { return 0 }
-    if state.isPaused {
-        return min(1, state.pausedRemainingSeconds / state.phaseDuration)
+    let displayState = state.sanitizedForDisplay()
+    guard displayState.phaseDuration > 0 else { return 0 }
+
+    if displayState.isPaused {
+        return min(
+            1,
+            displayState.pausedRemainingSeconds / displayState.phaseDuration
+        )
     }
-    let remaining = max(0, state.targetEndDate.timeIntervalSinceNow)
-    return min(1, remaining / state.phaseDuration)
+
+    let remaining = displayState.targetEndDate.timeIntervalSinceNow
+    return min(1, remaining / displayState.phaseDuration)
 }
 
 /// Formats the frozen remaining time for paused-state display.
@@ -139,7 +134,8 @@ private func remainingFraction(
 private func pausedTimeText(
     for state: TimerActivityAttributes.ContentState
 ) -> String {
-    let duration = Duration.seconds(Int(state.pausedRemainingSeconds))
+    let displayState = state.sanitizedForDisplay()
+    let duration = Duration.seconds(Int(displayState.pausedRemainingSeconds))
     return duration.formatted(.time(pattern: .minuteSecond))
 }
 
@@ -201,7 +197,7 @@ private struct CompactCountdownValueView: View {
                     )
             } else {
                 Text(
-                    timerInterval: safeTimerInterval(until: state.targetEndDate),
+                    timerInterval: state.countdownRange(),
                     countsDown: true,
                     showsHours: false
                 )
@@ -307,7 +303,7 @@ private struct ExpandedTrailingView: View {
                     )
             } else {
                 Text(
-                    timerInterval: safeTimerInterval(until: state.targetEndDate),
+                    timerInterval: state.countdownRange(),
                     countsDown: true
                 )
                 .accessibilityLabel("Time remaining")
@@ -551,7 +547,7 @@ private struct LockScreenRunningCountdownView: View {
             .hidden()
             .overlay(alignment: .trailing) {
                 Text(
-                    timerInterval: safeTimerInterval(until: state.targetEndDate),
+                    timerInterval: state.countdownRange(),
                     countsDown: true
                 )
                 .font(.system(.title, design: .rounded))

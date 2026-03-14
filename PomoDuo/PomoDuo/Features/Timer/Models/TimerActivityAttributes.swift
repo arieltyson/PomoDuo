@@ -59,3 +59,69 @@ struct TimerActivityAttributes: ActivityAttributes {
         var pulsePhase: Bool = false
     }
 }
+
+extension TimerActivityAttributes.Phase {
+    /// Upper bound for durations the current product allows users to configure.
+    ///
+    /// The timer settings UI only exposes presets up to these values. Live
+    /// Activity rendering defensively clamps to the same bounds so a malformed
+    /// persisted or remotely-sourced state cannot produce impossible compact
+    /// countdowns such as multi-hour focus sessions.
+    var maximumExpectedDuration: TimeInterval {
+        switch self {
+        case .focus:
+            60 * 60
+        case .shortBreak:
+            10 * 60
+        case .longBreak:
+            30 * 60
+        }
+    }
+}
+
+extension TimerActivityAttributes.ContentState {
+    /// Remaining seconds the UI should render for this state.
+    ///
+    /// Running states collapse to `0` once the deadline has elapsed, preventing
+    /// timer presentations from flipping into a counting-up display.
+    func remainingSecondsForDisplay(asOf referenceDate: Date = .now) -> TimeInterval {
+        let cappedPhaseDuration = min(
+            max(0, phaseDuration),
+            phase.maximumExpectedDuration
+        )
+        let rawRemainingSeconds =
+            isPaused
+            ? pausedRemainingSeconds
+            : targetEndDate.timeIntervalSince(referenceDate)
+
+        return min(max(0, rawRemainingSeconds), cappedPhaseDuration)
+    }
+
+    /// Normalizes activity content before it is rendered or published.
+    func sanitizedForDisplay(referenceDate: Date = .now) -> Self {
+        let cappedPhaseDuration = min(
+            max(0, phaseDuration),
+            phase.maximumExpectedDuration
+        )
+        let remainingSeconds = remainingSecondsForDisplay(asOf: referenceDate)
+
+        return Self(
+            phase: phase,
+            currentRound: currentRound,
+            targetEndDate: referenceDate.addingTimeInterval(remainingSeconds),
+            isPaused: isPaused,
+            phaseDuration: cappedPhaseDuration,
+            pausedRemainingSeconds: isPaused ? remainingSeconds : 0,
+            pulsePhase: pulsePhase
+        )
+    }
+
+    /// Safe countdown interval for SwiftUI timer views.
+    ///
+    /// Expired states collapse to a zero-length interval at `referenceDate`,
+    /// which prevents any post-expiration count-up behavior.
+    func countdownRange(referenceDate: Date = .now) -> ClosedRange<Date> {
+        let displayState = sanitizedForDisplay(referenceDate: referenceDate)
+        return referenceDate...displayState.targetEndDate
+    }
+}

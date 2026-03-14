@@ -47,25 +47,26 @@ final class LiveActivityManager {
         }
 
         let attributes = TimerActivityAttributes(totalRounds: totalRounds)
-        let state = TimerActivityAttributes.ContentState(
+        let rawState = TimerActivityAttributes.ContentState(
             phase: phase,
             currentRound: currentRound,
             targetEndDate: targetEndDate,
             isPaused: false,
             phaseDuration: phaseDuration
         )
+        let state = sanitize(rawState)
 
         do {
             let activity = try Activity.request(
                 attributes: attributes,
-                content: .init(state: state, staleDate: targetEndDate),
+                content: .init(state: state, staleDate: state.targetEndDate),
                 pushType: nil
             )
             currentActivity = activity
             isActivityActive = true
             lastDispatchedState = state
             lastCosmeticUpdateDate = nil
-            scheduleAutoEnd(at: targetEndDate)
+            scheduleAutoEnd(at: state.targetEndDate)
         } catch {
             Self.logger.warning(
                 "Failed to start Live Activity: \(String(describing: error), privacy: .public)"
@@ -105,7 +106,7 @@ final class LiveActivityManager {
             return
         }
 
-        let state = TimerActivityAttributes.ContentState(
+        let rawState = TimerActivityAttributes.ContentState(
             phase: phase,
             currentRound: currentRound,
             targetEndDate: targetEndDate,
@@ -114,7 +115,8 @@ final class LiveActivityManager {
             pausedRemainingSeconds: pausedRemainingSeconds,
             pulsePhase: pulsePhase
         )
-        let staleDate = isPaused ? nil : targetEndDate
+        let state = sanitize(rawState)
+        let staleDate = isPaused ? nil : state.targetEndDate
 
         Task {
             await activity.update(.init(state: state, staleDate: staleDate))
@@ -125,7 +127,7 @@ final class LiveActivityManager {
         if isPaused {
             cancelAutoEnd()
         } else {
-            scheduleAutoEnd(at: targetEndDate)
+            scheduleAutoEnd(at: state.targetEndDate)
         }
     }
 
@@ -237,5 +239,38 @@ final class LiveActivityManager {
             pulsePhase: false
         )
         return ActivityContent(state: finalState, staleDate: nil)
+    }
+
+    private func sanitize(
+        _ rawState: TimerActivityAttributes.ContentState
+    ) -> TimerActivityAttributes.ContentState {
+        let sanitizedState = rawState.sanitizedForDisplay()
+        guard sanitizedState != rawState else {
+            return rawState
+        }
+
+        assertionFailure("Invalid Live Activity timer state was sanitized.")
+
+        let rawRemainingSeconds =
+            rawState.isPaused
+            ? rawState.pausedRemainingSeconds
+            : rawState.targetEndDate.timeIntervalSinceNow
+        let sanitizedRemainingSeconds =
+            sanitizedState.isPaused
+            ? sanitizedState.pausedRemainingSeconds
+            : sanitizedState.targetEndDate.timeIntervalSinceNow
+
+        Self.logger.error(
+            """
+            Sanitized invalid Live Activity state. phase=\(rawState.phase.rawValue, privacy: .public) \
+            round=\(rawState.currentRound, privacy: .public) \
+            rawRemaining=\(rawRemainingSeconds, privacy: .public) \
+            rawDuration=\(rawState.phaseDuration, privacy: .public) \
+            sanitizedRemaining=\(sanitizedRemainingSeconds, privacy: .public) \
+            sanitizedDuration=\(sanitizedState.phaseDuration, privacy: .public)
+            """
+        )
+
+        return sanitizedState
     }
 }
