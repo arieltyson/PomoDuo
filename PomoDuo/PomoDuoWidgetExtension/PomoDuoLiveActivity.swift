@@ -184,44 +184,38 @@ private struct CompactTrailingView: View {
     }
 }
 
-/// Trailing compact countdown with a fixed footprint in both running/paused states.
+/// Trailing compact countdown tuned for Dynamic Island's tight trailing slot.
 ///
-/// Keeping a stable width prevents single-sided compact island collapse when
-/// the running timer text updates.
+/// Compact regions do not have enough width for an `HH:MM:SS` countdown. The
+/// compact presentation intentionally collapses to `MM:SS` using total minutes
+/// so the timer stays legible instead of truncating with an ellipsis.
 private struct CompactCountdownValueView: View {
     let state: TimerActivityAttributes.ContentState
 
-    private var placeholderTime: String {
-        state.phaseDuration >= 3600 ? "00:00:00" : "00:00"
-    }
-
     var body: some View {
-        Text(placeholderTime)
-            .font(.headline)
-            .bold()
-            .monospacedDigit()
-            .hidden()
-            .overlay(alignment: .trailing) {
-                Group {
-                    if state.isPaused {
-                        Text(pausedTimeText(for: state))
-                            .accessibilityLabel(
-                                "Paused, \(pausedTimeText(for: state)) remaining"
-                            )
-                    } else {
-                        Text(state.targetEndDate, style: .timer)
-                            .accessibilityLabel("Time remaining")
-                    }
-                }
-                .font(.headline)
-                .bold()
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .foregroundStyle(Palette.accentTint(for: state))
-                .contentTransition(.numericText())
+        Group {
+            if state.isPaused {
+                Text(pausedTimeText(for: state))
+                    .accessibilityLabel(
+                        "Paused, \(pausedTimeText(for: state)) remaining"
+                    )
+            } else {
+                Text(
+                    timerInterval: safeTimerInterval(until: state.targetEndDate),
+                    countsDown: true,
+                    showsHours: false
+                )
+                .accessibilityLabel("Time remaining")
             }
-            .layoutPriority(1)
+        }
+        .font(.system(.subheadline, design: .rounded))
+        .bold()
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .foregroundStyle(Palette.accentTint(for: state))
+        .contentTransition(.numericText())
+        .layoutPriority(1)
     }
 }
 
