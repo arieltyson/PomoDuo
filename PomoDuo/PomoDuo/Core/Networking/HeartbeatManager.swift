@@ -3,7 +3,7 @@ import Observation
 import OSLog
 @preconcurrency import FirebaseFirestore
 
-/// Writes a once-per-minute heartbeat to the active session document
+/// Writes a heartbeat every two minutes to the active session document
 /// and monitors the partner's heartbeat for staleness.
 ///
 /// If the partner's heartbeat is older than ``staleThreshold``, the
@@ -12,7 +12,7 @@ import OSLog
 /// manager invokes the ``onPartnerStale`` callback so the session
 /// can be auto-ended gracefully.
 ///
-/// Cost impact: ~25 writes per 25-minute session per device (1/min),
+/// Cost impact: ~13 writes per 25-minute session per device (1/2min),
 /// well within Firestore Spark plan free tier.
 @MainActor
 @Observable
@@ -23,13 +23,13 @@ final class HeartbeatManager {
     )
 
     /// Duration between heartbeat writes.
-    static let beatInterval: Duration = .seconds(60)
+    static let beatInterval: Duration = .seconds(120)
 
     /// Partner heartbeat older than this -> show warning.
-    static let staleThreshold: TimeInterval = 3 * 60
+    static let staleThreshold: TimeInterval = 4 * 60
 
     /// Partner heartbeat older than this -> auto-end session.
-    static let autoEndThreshold: TimeInterval = 5 * 60
+    static let autoEndThreshold: TimeInterval = 7 * 60
 
     // MARK: - Observable State
 

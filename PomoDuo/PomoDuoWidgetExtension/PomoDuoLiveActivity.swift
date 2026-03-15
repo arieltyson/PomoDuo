@@ -504,47 +504,31 @@ private struct LockScreenBanner: View {
     }
 }
 
-/// Leading lock-screen glyph with a deterministic pulse phase.
+/// Leading lock-screen glyph for the current timer phase.
 ///
-/// Lock-screen Live Activities don't reliably run continuous custom animation
-/// loops. Instead this view reacts to ``TimerActivityAttributes.ContentState``
-/// pulse-phase updates produced by the app timer flow.
+/// Displays the phase icon (brain for focus, cup for short break, etc.)
+/// inside a tinted badge. Uses ActivityKit's native `targetEndDate`
+/// countdown rather than app-driven pulse updates for energy efficiency.
 private struct LockScreenPhaseIconBadgeView: View {
     let state: TimerActivityAttributes.ContentState
     let tint: Color
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     private var symbolName: String {
         if state.isPaused { return "pause.fill" }
-        if state.phase == .focus && state.pulsePhase {
-            return "brain.head.profile.fill"
-        }
         return state.phase.systemImage
     }
 
-    private var shouldPulse: Bool {
-        !reduceMotion && !state.isPaused && state.phase == .focus
-    }
-
     var body: some View {
-        let isPulsed = shouldPulse && state.pulsePhase
-
         ZStack {
             Circle()
-                .stroke(
-                    tint.opacity(isPulsed ? 0.35 : 0.14),
-                    lineWidth: 1.2
-                )
-                .scaleEffect(isPulsed ? 1.22 : 1.0)
+                .stroke(tint.opacity(0.14), lineWidth: 1.2)
 
             Image(systemName: symbolName)
                 .symbolRenderingMode(.hierarchical)
                 .font(.title3)
                 .bold()
                 .foregroundStyle(tint)
-                .scaleEffect(isPulsed ? 1.16 : 1.0)
-                .opacity(isPulsed ? 1.0 : 0.86)
+                .opacity(0.86)
         }
         .frame(width: 36, height: 36)
         .background(tint.opacity(0.25), in: .circle)

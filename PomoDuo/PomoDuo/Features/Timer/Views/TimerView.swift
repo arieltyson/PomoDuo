@@ -72,9 +72,6 @@ struct TimerView: View {
                 handleForegroundPhaseCompletion()
             }
         }
-        .onChange(of: viewModel.currentTick) { _, _ in
-            _ = processLiveActivityBridgeCommands()
-        }
         .onChange(of: focusIntentState.pendingFocusRequest) { _, isPending in
             if isPending {
                 consumePendingFocusRequest()

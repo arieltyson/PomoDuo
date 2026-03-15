@@ -51,11 +51,9 @@ struct TimerActivityAttributes: ActivityAttributes {
         /// Frozen remaining seconds captured at the moment of pausing.
         /// Only meaningful when ``isPaused`` is `true`; defaults to `0` for running states.
         var pausedRemainingSeconds: TimeInterval = 0
-        /// Lightweight animation token for lock-screen icon pulse.
-        ///
-        /// Live Activities don't run arbitrary continuous animations reliably.
-        /// Toggling this value through content updates creates a deterministic
-        /// pulse effect that the system can render as state transitions.
+        /// Retained for backward compatibility with in-flight Live Activities.
+        /// No longer toggled — ActivityKit's native `targetEndDate` countdown
+        /// handles all visual updates without app-driven pulse tokens.
         var pulsePhase: Bool = false
     }
 }
@@ -114,8 +112,7 @@ extension TimerActivityAttributes.ContentState {
                 targetEndDate: targetEndDate,
                 isPaused: true,
                 phaseDuration: cappedPhaseDuration,
-                pausedRemainingSeconds: remainingSeconds,
-                pulsePhase: pulsePhase
+                pausedRemainingSeconds: remainingSeconds
             )
         }
 
@@ -125,8 +122,7 @@ extension TimerActivityAttributes.ContentState {
             targetEndDate: referenceDate.addingTimeInterval(remainingSeconds),
             isPaused: isPaused,
             phaseDuration: cappedPhaseDuration,
-            pausedRemainingSeconds: 0,
-            pulsePhase: pulsePhase
+            pausedRemainingSeconds: 0
         )
     }
 

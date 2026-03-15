@@ -4,12 +4,24 @@ import SwiftUI
 /// Displays focus history, weekly charting, and aggregate stats.
 ///
 /// A segmented picker filters the list and chart by session type.
+///
+/// The query fetches the most recent 200 sessions, which covers roughly
+/// two months of heavy daily usage (4 sessions/day). This bounds memory
+/// growth while providing sufficient data for weekly charts, streak
+/// calculations, and aggregate stats.
 struct SessionHistoryView: View {
-    @Query(sort: \CompletedSession.startedAt, order: .reverse)
-    private var sessions: [CompletedSession]
+    @Query private var sessions: [CompletedSession]
 
     @Environment(AuthManager.self) private var authManager
     @State private var viewModel = SessionHistoryViewModel()
+
+    init() {
+        var descriptor = FetchDescriptor<CompletedSession>(
+            sortBy: [SortDescriptor(\CompletedSession.startedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 200
+        _sessions = Query(descriptor)
+    }
 
     /// User-scoped sessions before type filtering.
     private var scopedSessions: [CompletedSession] {

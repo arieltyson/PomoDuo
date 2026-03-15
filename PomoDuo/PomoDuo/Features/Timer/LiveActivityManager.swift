@@ -86,8 +86,7 @@ final class LiveActivityManager {
         targetEndDate: Date,
         isPaused: Bool,
         phaseDuration: TimeInterval,
-        pausedRemainingSeconds: TimeInterval = 0,
-        pulsePhase: Bool = false
+        pausedRemainingSeconds: TimeInterval = 0
     ) {
         guard let activity = currentActivity else {
             return
@@ -112,8 +111,7 @@ final class LiveActivityManager {
             targetEndDate: targetEndDate,
             isPaused: isPaused,
             phaseDuration: phaseDuration,
-            pausedRemainingSeconds: pausedRemainingSeconds,
-            pulsePhase: pulsePhase
+            pausedRemainingSeconds: pausedRemainingSeconds
         )
         let state = sanitize(rawState)
         let staleDate = isPaused ? nil : state.targetEndDate
