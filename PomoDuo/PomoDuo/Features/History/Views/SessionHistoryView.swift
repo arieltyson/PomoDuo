@@ -39,7 +39,7 @@ struct SessionHistoryView: View {
     var body: some View {
         Group {
             if scopedSessions.isEmpty {
-                EmptyHistoryView()
+                SkeletonHistoryView()
             } else {
                 SessionHistoryListView(
                     displaySessions: displaySessions,
@@ -61,14 +61,214 @@ struct SessionHistoryView: View {
     }
 }
 
-// MARK: - Empty State
+// MARK: - Skeleton Preview (Empty State)
 
-private struct EmptyHistoryView: View {
+/// Shows a sample preview of the history layout before the user has any sessions.
+///
+/// Mirrors the real list structure — stat cards, weekly chart, and session
+/// rows — with a redacted shimmer treatment. A disclaimer banner at the top
+/// orients the user.
+private struct SkeletonHistoryView: View {
     var body: some View {
-        ContentUnavailableView {
-            Label("No Sessions Yet", systemImage: "clock.arrow.circlepath")
-        } description: {
-            Text("Complete a focus round and it will appear here.")
+        List {
+            Section {
+                SkeletonDisclaimer()
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(.init(top: 4, leading: 0, bottom: 4, trailing: 0))
+            }
+
+            Section {
+                HStack {
+                    SkeletonStatCard(
+                        title: "Total Focus",
+                        value: "75",
+                        unit: "min",
+                        systemImage: "brain.head.profile"
+                    )
+                    SkeletonStatCard(
+                        title: "Sessions",
+                        value: "3",
+                        unit: "rounds",
+                        systemImage: "checkmark.circle"
+                    )
+                    SkeletonStatCard(
+                        title: "Streak",
+                        value: "2",
+                        unit: "days",
+                        systemImage: "flame.fill"
+                    )
+                }
+                .listRowInsets(.init())
+                .listRowBackground(Color.clear)
+            }
+
+            Section("This Week") {
+                SkeletonChartView()
+                    .frame(height: 160)
+                    .listRowInsets(
+                        .init(top: 8, leading: 16, bottom: 8, trailing: 16)
+                    )
+            }
+
+            Section("Recent Sessions") {
+                ForEach(SkeletonSession.samples) { sample in
+                    SkeletonSessionRow(sample: sample)
+                }
+            }
+        }
+        .redacted(reason: .placeholder)
+        .allowsHitTesting(false)
+        .accessibilityLabel(
+            "Sample history preview. Complete a focus round to see your real data here."
+        )
+    }
+}
+
+// MARK: - Skeleton Disclaimer
+
+/// Banner explaining the skeleton is sample data.
+private struct SkeletonDisclaimer: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AppColors.lavender)
+                .unredacted()
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("This is a preview")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .unredacted()
+
+                Text("Complete your first focus round and your real stats will appear here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .unredacted()
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.lavender.opacity(0.08), in: .rect(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Skeleton Stat Card
+
+private struct SkeletonStatCard: View {
+    let title: String
+    let value: String
+    let unit: String
+    let systemImage: String
+
+    var body: some View {
+        VStack {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundStyle(AppColors.lavender)
+
+            Text(value)
+                .font(.title2)
+                .bold()
+                .monospacedDigit()
+
+            Text(unit)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical)
+        .background(AppColors.paleViolet.opacity(0.15))
+        .clipShape(.rect(cornerRadius: 12))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(value) \(unit)")
+    }
+}
+
+// MARK: - Skeleton Chart
+
+/// Placeholder bar chart using simple rounded rectangles.
+private struct SkeletonChartView: View {
+    private static let barHeights: [CGFloat] = [0.4, 0.65, 0.3, 0.85, 0.55, 0.7, 0.2]
+
+    private static var dayLabels: [String] {
+        let calendar = Calendar.current
+        return (0..<7).reversed().map { offset in
+            let day = calendar.date(byAdding: .day, value: -offset, to: .now) ?? .now
+            return day.formatted(.dateTime.weekday(.abbreviated))
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            ForEach(Array(zip(Self.dayLabels, Self.barHeights)), id: \.0) { label, height in
+                VStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(AppColors.lavender.opacity(0.35).gradient)
+                        .frame(height: 100 * height)
+
+                    Text(label)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
+// MARK: - Skeleton Session Row
+
+/// Static data driving the sample session rows.
+private struct SkeletonSession: Identifiable {
+    let id: Int
+    let minutes: Int
+    let round: Int
+    let totalRounds: Int
+    let isPaired: Bool
+    let hoursAgo: Int
+
+    static let samples: [SkeletonSession] = [
+        SkeletonSession(id: 0, minutes: 25, round: 1, totalRounds: 4, isPaired: false, hoursAgo: 2),
+        SkeletonSession(id: 1, minutes: 25, round: 2, totalRounds: 4, isPaired: false, hoursAgo: 3),
+        SkeletonSession(id: 2, minutes: 25, round: 1, totalRounds: 4, isPaired: true, hoursAgo: 26),
+    ]
+}
+
+private struct SkeletonSessionRow: View {
+    let sample: SkeletonSession
+
+    var body: some View {
+        HStack {
+            Image(systemName: sample.isPaired ? "person.2.fill" : "person.fill")
+                .foregroundStyle(sample.isPaired ? AppColors.lilac : AppColors.lavender)
+                .frame(width: 32, height: 32)
+                .background(AppColors.paleViolet.opacity(0.2))
+                .clipShape(.circle)
+
+            VStack(alignment: .leading) {
+                Text("\(sample.minutes) min focus")
+                    .font(.subheadline)
+                    .bold()
+
+                Text("Round \(sample.round) of \(sample.totalRounds)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing) {
+                Text("12:00 PM")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("Mar 18")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 }
