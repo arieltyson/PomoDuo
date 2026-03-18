@@ -61,6 +61,7 @@ struct OnboardingViewModelTests {
         #expect(viewModel.isFirstStep)
         #expect(viewModel.isLastStep == false)
         #expect(viewModel.progressValue == 0)
+        #expect(viewModel.navigationDirection == .forward)
     }
 
     @Test func advanceMovesToNextStep() {
@@ -71,6 +72,26 @@ struct OnboardingViewModelTests {
         #expect(completed == false)
         #expect(viewModel.currentStep == .focus)
         #expect(viewModel.currentIndex == 1)
+        #expect(viewModel.navigationDirection == .forward)
+    }
+
+    @Test func advanceFiresHaptic() {
+        let viewModel = OnboardingViewModel()
+
+        viewModel.advance()
+
+        #expect(viewModel.haptic.event == .phaseChange)
+    }
+
+    @Test func goBackSetsBackwardDirection() {
+        let viewModel = OnboardingViewModel()
+        viewModel.advance()
+
+        viewModel.goBack()
+
+        #expect(viewModel.currentStep == .welcome)
+        #expect(viewModel.navigationDirection == .backward)
+        #expect(viewModel.haptic.event == .pause)
     }
 
     @Test func jumpToFinalStepMovesToLast() {
@@ -81,6 +102,7 @@ struct OnboardingViewModelTests {
         #expect(viewModel.currentStep == .appBlocking)
         #expect(viewModel.isLastStep)
         #expect(viewModel.progressValue == 1)
+        #expect(viewModel.navigationDirection == .forward)
     }
 
     @Test func backDoesNotMoveBeforeFirstStep() {
@@ -101,5 +123,6 @@ struct OnboardingViewModelTests {
         #expect(completed)
         #expect(viewModel.currentStep == .appBlocking)
         #expect(viewModel.currentIndex == OnboardingStep.allCases.count - 1)
+        #expect(viewModel.haptic.event == .complete)
     }
 }
