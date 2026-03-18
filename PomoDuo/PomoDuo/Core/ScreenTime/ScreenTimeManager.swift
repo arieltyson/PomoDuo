@@ -49,7 +49,9 @@ final class ScreenTimeManager {
                 for: .individual
             )
         } catch {
-            authorizationError = Self.userFacingMessage(for: error)
+            if Self.shouldPresentAuthorizationAlert(for: error) {
+                authorizationError = Self.userFacingMessage(for: error)
+            }
         }
 
         refreshAuthorizationStatus()
@@ -133,5 +135,10 @@ final class ScreenTimeManager {
         }
 
         return "Could not enable app blocking: \(error.localizedDescription)"
+    }
+
+    private static func shouldPresentAuthorizationAlert(for error: Error) -> Bool {
+        let loweredDescription = error.localizedDescription.localizedLowercase
+        return loweredDescription.localizedStandardContains("denied") == false
     }
 }

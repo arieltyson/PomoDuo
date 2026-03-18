@@ -4,6 +4,7 @@ import SwiftUI
 /// Screen Time authorization and blocked-app selection UI.
 struct AppBlockingView: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isPickerPresented = false
 
     var body: some View {
@@ -26,6 +27,13 @@ struct AppBlockingView: View {
             isPresented: $isPickerPresented,
             selection: $bindableScreenTimeManager.activitySelection
         )
+        .task {
+            screenTimeManager.refreshAuthorizationStatus()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            screenTimeManager.refreshAuthorizationStatus()
+        }
         .alert(
             "App Blocking Unavailable",
             isPresented: authorizationErrorAlertIsPresented
@@ -53,58 +61,119 @@ struct AppBlockingView: View {
 }
 
 private struct UnauthorizedAppBlockingContent: View {
+    @Environment(\.openURL) private var openURL
+
     let screenTimeManager: ScreenTimeManager
 
     var body: some View {
         Section {
-            VStack {
+            VStack(spacing: 12) {
                 Image(systemName: "hourglass.badge.plus")
                     .font(.system(.largeTitle, design: .rounded))
                     .foregroundStyle(AppColors.lavender)
                     .accessibilityHidden(true)
 
-                Text("Block Distracting Apps")
+                Text(content.title)
                     .font(.headline)
                     .padding(.top, 8)
 
-                Text(
-                    "During focus sessions, selected apps can be automatically blocked with Screen Time."
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                Text(content.message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
 
-                Button {
-                    Task {
-                        await screenTimeManager.requestAuthorization()
-                    }
-                } label: {
-                    if screenTimeManager.isRequestingAuthorization {
-                        ProgressView()
-                            .controlSize(.regular)
-                    } else {
-                        HStack {
-                            Image(systemName: "lock.shield.fill")
-                            Text("Enable App Blocking")
+                if content.showsContinueButton {
+                    Button {
+                        Task {
+                            await screenTimeManager.requestAuthorization()
+                        }
+                    } label: {
+                        if screenTimeManager.isRequestingAuthorization {
+                            ProgressView()
+                                .controlSize(.regular)
+                        } else {
+                            Label("Continue", systemImage: "arrow.right")
                         }
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppColors.lavender)
+                    .controlSize(.large)
+                    .padding(.top, 4)
+                    .accessibilityHint(
+                        "Shows Apple's Screen Time permission request."
+                    )
+                    .accessibilityInputLabels([
+                        "Continue", "Next",
+                    ])
+                    .disabled(screenTimeManager.isRequestingAuthorization)
+                } else if content.showsOpenSettingsButton {
+                    Button("Open Settings", systemImage: "gear") {
+                        if let settingsURL = URL(
+                            string: UIApplication.openSettingsURLString
+                        ) {
+                            openURL(settingsURL)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppColors.lavender)
+                    .controlSize(.large)
+                    .padding(.top, 4)
+                    .accessibilityHint(
+                        "Opens the system Settings app to manage Screen Time access."
+                    )
+                    .accessibilityInputLabels([
+                        "Open Settings", "Settings",
+                    ])
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(AppColors.lavender)
-                .controlSize(.large)
-                .padding(.top, 8)
-                .accessibilityHint(
-                    "Requests Screen Time authorization for app blocking."
-                )
-                .accessibilityInputLabels([
-                    "Enable App Blocking", "Enable", "Block",
-                ])
-                .disabled(screenTimeManager.isRequestingAuthorization)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
         }
 
+    }
+
+    private var content: UnauthorizedAppBlockingContentState {
+        switch screenTimeManager.authorizationStatus {
+        case .approved:
+            .notDetermined
+        case .denied:
+            .denied
+        case .notDetermined:
+            .notDetermined
+        @unknown default:
+            .notDetermined
+        }
+    }
+}
+
+private enum UnauthorizedAppBlockingContentState {
+    case notDetermined
+    case denied
+
+    var title: String {
+        switch self {
+        case .notDetermined:
+            "Block Distracting Apps"
+        case .denied:
+            "Finish Setup in Settings"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .notDetermined:
+            "During focus sessions, selected apps can be automatically blocked with Screen Time. Tap Continue to review Apple's permission request."
+        case .denied:
+            "Screen Time access is currently off for PomoDuo. Open Settings to allow app blocking, then return here to choose the apps you want to block."
+        }
+    }
+
+    var showsContinueButton: Bool {
+        self == .notDetermined
+    }
+
+    var showsOpenSettingsButton: Bool {
+        self == .denied
     }
 }
 

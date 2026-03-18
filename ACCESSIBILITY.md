@@ -52,7 +52,8 @@ All interactive controls have visible text labels that Voice Control can match. 
 | Active session | Next Round | "Next", "Continue" |
 | Settings | Sign Out | "Logout", "Exit" |
 | Settings | Delete Account | "Delete" |
-| App Blocking | Enable App Blocking | "Enable", "Block" |
+| App Blocking | Continue | "Next" |
+| App Blocking (denied) | Open Settings | "Settings" |
 | App Blocking | Choose Apps to Block | "Choose Apps", "Select" |
 | App Blocking | Clear Selection | "Clear", "Reset" |
 
