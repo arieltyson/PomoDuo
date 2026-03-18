@@ -107,13 +107,18 @@ private struct UnauthorizedAppBlockingContent: View {
                             ProgressView()
                                 .controlSize(.regular)
                         } else {
-                            Label("Continue", systemImage: "arrow.right")
+                            HStack(spacing: 6) {
+                                Image(systemName: "shield.lefthalf.filled")
+                                    .font(.body.weight(.semibold))
+                                Text("Continue")
+                            }
                         }
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.lavender)
                     .controlSize(.large)
                     .padding(.top, 4)
+                    .accessibilityLabel("Continue")
                     .accessibilityHint(
                         "Shows Apple's Screen Time permission request."
                     )
