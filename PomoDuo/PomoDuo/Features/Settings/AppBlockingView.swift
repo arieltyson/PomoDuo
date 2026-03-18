@@ -16,12 +16,15 @@ struct AppBlockingView: View {
                     screenTimeManager: screenTimeManager,
                     onPickApps: { isPickerPresented = true }
                 )
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else {
                 UnauthorizedAppBlockingContent(
                     screenTimeManager: screenTimeManager
                 )
+                .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.35), value: screenTimeManager.isAuthorized)
         .navigationTitle("App Blocking")
         .familyActivityPicker(
             isPresented: $isPickerPresented,
@@ -60,6 +63,8 @@ struct AppBlockingView: View {
     }
 }
 
+// MARK: - Unauthorized Content
+
 private struct UnauthorizedAppBlockingContent: View {
     @Environment(\.openURL) private var openURL
 
@@ -67,20 +72,30 @@ private struct UnauthorizedAppBlockingContent: View {
 
     var body: some View {
         Section {
-            VStack(spacing: 12) {
-                Image(systemName: "hourglass.badge.plus")
-                    .font(.system(.largeTitle, design: .rounded))
-                    .foregroundStyle(AppColors.lavender)
+            VStack(spacing: 16) {
+                // Hero icon — shield with clear visual weight.
+                Image(systemName: content.heroSymbol)
+                    .font(.system(size: 44))
+                    .foregroundStyle(AppColors.lavender.gradient)
+                    .symbolRenderingMode(.hierarchical)
+                    .symbolEffect(
+                        .pulse.wholeSymbol,
+                        options: .repeating.speed(0.4),
+                        isActive: !screenTimeManager.isRequestingAuthorization
+                    )
+                    .frame(width: 80, height: 80)
+                    .background(AppColors.lavender.opacity(0.1), in: .circle)
+                    .padding(.top, 8)
                     .accessibilityHidden(true)
 
                 Text(content.title)
                     .font(.headline)
-                    .padding(.top, 8)
 
                 Text(content.message)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .lineSpacing(2)
 
                 if content.showsContinueButton {
                     Button {
@@ -102,9 +117,7 @@ private struct UnauthorizedAppBlockingContent: View {
                     .accessibilityHint(
                         "Shows Apple's Screen Time permission request."
                     )
-                    .accessibilityInputLabels([
-                        "Continue", "Next",
-                    ])
+                    .accessibilityInputLabels(["Continue", "Next"])
                     .disabled(screenTimeManager.isRequestingAuthorization)
                 } else if content.showsOpenSettingsButton {
                     Button("Open Settings", systemImage: "gear") {
@@ -121,24 +134,19 @@ private struct UnauthorizedAppBlockingContent: View {
                     .accessibilityHint(
                         "Opens the system Settings app to manage Screen Time access."
                     )
-                    .accessibilityInputLabels([
-                        "Open Settings", "Settings",
-                    ])
+                    .accessibilityInputLabels(["Open Settings", "Settings"])
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
         }
-
     }
 
-    private var content: UnauthorizedAppBlockingContentState {
+    private var content: UnauthorizedContentVariant {
         switch screenTimeManager.authorizationStatus {
-        case .approved:
-            .notDetermined
         case .denied:
             .denied
-        case .notDetermined:
+        case .notDetermined, .approved:
             .notDetermined
         @unknown default:
             .notDetermined
@@ -146,16 +154,14 @@ private struct UnauthorizedAppBlockingContent: View {
     }
 }
 
-private enum UnauthorizedAppBlockingContentState {
+private enum UnauthorizedContentVariant {
     case notDetermined
     case denied
 
     var title: String {
         switch self {
-        case .notDetermined:
-            "Block Distracting Apps"
-        case .denied:
-            "Finish Setup in Settings"
+        case .notDetermined: "Block Distracting Apps"
+        case .denied: "Finish Setup in Settings"
         }
     }
 
@@ -168,6 +174,14 @@ private enum UnauthorizedAppBlockingContentState {
         }
     }
 
+    /// SF Symbol that communicates the feature's purpose at a glance.
+    var heroSymbol: String {
+        switch self {
+        case .notDetermined: "shield.lefthalf.filled.badge.checkmark"
+        case .denied: "gear.badge.xmark"
+        }
+    }
+
     var showsContinueButton: Bool {
         self == .notDetermined
     }
@@ -176,6 +190,8 @@ private enum UnauthorizedAppBlockingContentState {
         self == .denied
     }
 }
+
+// MARK: - Authorized Content
 
 private struct AuthorizedAppBlockingContent: View {
     let screenTimeManager: ScreenTimeManager
@@ -239,6 +255,8 @@ private struct AuthorizedAppBlockingContent: View {
         }
     }
 }
+
+// MARK: - Supporting Views
 
 private struct BlockSelectionSummary: View {
     let screenTimeManager: ScreenTimeManager
