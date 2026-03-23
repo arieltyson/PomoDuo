@@ -23,6 +23,7 @@ struct PomoDuoApp: App {
     @State private var onboardingManager = OnboardingManager()
     @State private var appearanceManager = AppearanceManager()
     private let pairingService: any PairingService
+    private let friendService: any FriendService
 
     init() {
         if FirebaseApp.app() == nil {
@@ -32,6 +33,8 @@ struct PomoDuoApp: App {
         let authService = FirebaseAuthService()
         let pairingService = FirebasePairingService()
         let syncService = FirebaseSessionSyncService()
+        let pushSender = PushNotificationSender()
+        let friendService = FirebaseFriendService(pushSender: pushSender)
         _fcmTokenManager = State(initialValue: FCMTokenManager())
         _heartbeatManager = State(initialValue: HeartbeatManager())
 
@@ -39,6 +42,7 @@ struct PomoDuoApp: App {
             initialValue: AuthManager(authService: authService)
         )
         self.pairingService = pairingService
+        self.friendService = friendService
 
         let managedSettingsStore = ManagedSettingsStore()
         let screenTimeManager = ScreenTimeManager(store: managedSettingsStore)
@@ -64,7 +68,6 @@ struct PomoDuoApp: App {
         // Function picks them up and delivers via FCM. If the function
         // isn't deployed yet, documents accumulate harmlessly while the
         // Firestore real-time listener handles the in-app sync path.
-        let pushSender = PushNotificationSender()
         let notificationService = LocalNotificationService(
             pushSender: pushSender
         )
@@ -91,7 +94,7 @@ struct PomoDuoApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(pairingService: pairingService)
+            RootView(pairingService: pairingService, friendService: friendService)
                 .environment(authManager)
                 .environment(sessionManager)
                 .environment(sessionObserver)

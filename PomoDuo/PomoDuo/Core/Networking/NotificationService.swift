@@ -14,6 +14,10 @@ protocol NotificationService: Sendable {
     /// Sends a notification that the session was resumed.
     func sendResumeNotification(to partnerID: String) async throws
 
+    /// Sends a notification that the session was ended by the partner.
+    func sendSessionEndedNotification(to partnerID: String, endedBy name: String)
+        async throws
+
     /// Schedules a local notification for when a focus or break period ends.
     func scheduleTimerEndNotification(at date: Date, message: String)
         async throws

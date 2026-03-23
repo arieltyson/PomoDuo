@@ -156,8 +156,17 @@ final class SessionManager {
     /// Marks the session as completed.
     func completeSession() async {
         guard let session = currentSession else { return }
+        let partnerID = currentUserID.flatMap { session.partnerID(for: $0) }
+        let userName = currentUserID ?? "Your partner"
         applyEvent(.completed, to: session)
         await syncAndEnforce()
+
+        if let partnerID {
+            try? await notificationService?.sendSessionEndedNotification(
+                to: partnerID,
+                endedBy: userName
+            )
+        }
     }
 
     /// Clears the current session and related side effects.

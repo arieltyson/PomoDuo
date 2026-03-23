@@ -16,9 +16,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         "SESSION_REQUEST",
         "SESSION_PAUSED",
         "SESSION_RESUMED",
+        "SESSION_ENDED",
+        "FRIEND_REQUEST",
+        "FRIEND_ACCEPTED",
         "session_request",
         "session_paused",
         "session_resumed",
+        "session_ended",
+        "friend_request",
+        "friend_accepted",
     ]
     private static let timerEndCategory = "TIMER_END"
 

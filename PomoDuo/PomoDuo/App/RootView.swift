@@ -24,9 +24,14 @@ struct RootView: View {
     @State private var launchPhase = LaunchPhase.branded
     @State private var feedbackCategory: FeedbackCategory?
     private let pairingService: any PairingService
+    private let friendService: any FriendService
 
-    init(pairingService: any PairingService = MockPairingService()) {
+    init(
+        pairingService: any PairingService = MockPairingService(),
+        friendService: any FriendService
+    ) {
         self.pairingService = pairingService
+        self.friendService = friendService
     }
 
     var body: some View {
@@ -42,7 +47,8 @@ struct RootView: View {
                     ContentTabView(
                         selectedTab: $selectedTab,
                         isShowingOnboarding: $isShowingOnboarding,
-                        pairingService: pairingService
+                        pairingService: pairingService,
+                        friendService: friendService
                     )
                     .environment(onboardingManager)
                     .transition(.opacity)
@@ -190,6 +196,7 @@ private struct ContentTabView: View {
     @Environment(OnboardingManager.self) private var onboardingManager
 
     let pairingService: any PairingService
+    let friendService: any FriendService
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -209,7 +216,10 @@ private struct ContentTabView: View {
                 value: .partner
             ) {
                 NavigationStack {
-                    PartnerView(pairingService: pairingService)
+                    PartnerView(
+                        pairingService: pairingService,
+                        friendService: friendService
+                    )
                 }
             }
 

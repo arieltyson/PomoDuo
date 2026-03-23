@@ -5,7 +5,7 @@ import Observation
 @MainActor
 @Observable
 final class PartnerSessionViewModel {
-    private let sessionManager: SessionManager
+    let sessionManager: SessionManager
 
     /// Whether session creation is currently in progress.
     private(set) var isStartingSession = false

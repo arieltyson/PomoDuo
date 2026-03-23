@@ -106,6 +106,23 @@ actor LocalNotificationService: LocalNotificationManaging {
         )
     }
 
+    func sendSessionEndedNotification(to partnerID: String, endedBy name: String)
+        async throws
+    {
+        guard let pushSender else {
+            Self.logger.debug("Push sender unavailable - skipping session ended push.")
+            return
+        }
+
+        try await pushSender.sendPush(
+            to: partnerID,
+            title: "Session Ended",
+            body: "\(name) ended the study session.",
+            category: .sessionEnded,
+            payload: ["action": "session_ended"]
+        )
+    }
+
     // MARK: - Local Notifications
 
     func scheduleTimerEndNotification(at date: Date, message: String)
