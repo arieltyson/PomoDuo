@@ -103,15 +103,93 @@ struct PairedPartnerView: View {
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .confirmationDialog(
-            "Disconnect from \(partner.displayName)?",
-            isPresented: $showUnpairConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Disconnect", role: .destructive, action: onUnpair)
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("You can reconnect later using a new pairing code.")
+        .overlay {
+            if showUnpairConfirmation {
+                DisconnectConfirmationOverlay(
+                    partnerName: partner.displayName,
+                    isPresented: $showUnpairConfirmation,
+                    onConfirm: onUnpair
+                )
+            }
+        }
+    }
+}
+
+/// Centered modal overlay confirming partner disconnection.
+private struct DisconnectConfirmationOverlay: View {
+    let partnerName: String
+    @Binding var isPresented: Bool
+    let onConfirm: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isVisible = false
+
+    var body: some View {
+        ZStack {
+            Button {
+                dismiss()
+            } label: {
+                Color.black.opacity(isVisible ? 0.5 : 0)
+                    .ignoresSafeArea()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+            .accessibilityAddTraits(.isButton)
+
+            VStack(spacing: 20) {
+                VStack(spacing: 8) {
+                    Text("Disconnect from \(partnerName)?")
+                        .font(.headline)
+
+                    Text("You can reconnect later using a new pairing code or add them as a friend.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                VStack(spacing: 10) {
+                    Button(role: .destructive) {
+                        dismiss()
+                        onConfirm()
+                    } label: {
+                        Text("Disconnect")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .controlSize(.large)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                }
+            }
+            .padding(24)
+            .background(.ultraThinMaterial, in: .rect(cornerRadius: 20))
+            .padding(.horizontal, 40)
+            .scaleEffect(isVisible ? 1 : 0.9)
+            .opacity(isVisible ? 1 : 0)
+        }
+        .task {
+            withAnimation(reduceMotion ? .none : .spring(duration: 0.3, bounce: 0.15)) {
+                isVisible = true
+            }
+        }
+        .accessibilityAddTraits(.isModal)
+    }
+
+    private func dismiss() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            isVisible = false
+        }
+        Task {
+            try? await Task.sleep(for: .milliseconds(200))
+            isPresented = false
         }
     }
 }
