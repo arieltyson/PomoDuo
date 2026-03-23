@@ -22,6 +22,7 @@ struct ActivePairedSessionView: View {
     @State private var focusStartedAt: Date?
     @State private var hasAnnouncedRequestState = false
     @State private var hasReachedPhaseEnd = false
+    @State private var isShowingEndConfirmation = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,7 +56,8 @@ struct ActivePairedSessionView: View {
                 PairedSessionControls(
                     session: session,
                     viewModel: viewModel,
-                    hasReachedPhaseEnd: currentPhaseHasEnded
+                    hasReachedPhaseEnd: currentPhaseHasEnded,
+                    isShowingEndConfirmation: $isShowingEndConfirmation
                 )
 
                 if restrictionCoordinator.isRestricting {
@@ -65,6 +67,18 @@ struct ActivePairedSessionView: View {
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay {
+            if isShowingEndConfirmation {
+                EndSessionConfirmationOverlay(
+                    isPresented: $isShowingEndConfirmation,
+                    onConfirm: {
+                        Task {
+                            await viewModel.endSession()
+                        }
+                    }
+                )
+            }
+        }
         .sensoryFeedback(haptic.feedback, trigger: haptic)
         .animation(
             reduceMotion ? .none : .spring(duration: 0.35, bounce: 0.2),
@@ -930,12 +944,12 @@ private struct PairedSessionControls: View {
     let session: StudySession
     let viewModel: PartnerSessionViewModel
     let hasReachedPhaseEnd: Bool
+    @Binding var isShowingEndConfirmation: Bool
 
-    @State private var isShowingEndConfirmation = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack {
+        VStack(spacing: 12) {
             Group {
                 switch session.state {
                 case .requesting:
@@ -949,9 +963,10 @@ private struct PairedSessionControls: View {
                         }
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
 
                 case .focus where session.isPaused:
-                    HStack {
+                    VStack(spacing: 10) {
                         Button("Resume", systemImage: "play.fill") {
                             Task {
                                 await viewModel.resumeSession()
@@ -959,6 +974,7 @@ private struct PairedSessionControls: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(AppColors.lavender)
+                        .controlSize(.large)
                         .accessibilityInputLabels(["Resume", "Play", "Continue"])
 
                         Button(
@@ -969,6 +985,7 @@ private struct PairedSessionControls: View {
                             isShowingEndConfirmation = true
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.regular)
                         .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
                     .transition(
@@ -978,7 +995,7 @@ private struct PairedSessionControls: View {
                     )
 
                 case .focus:
-                    HStack {
+                    VStack(spacing: 10) {
                         if hasReachedPhaseEnd {
                             Button(
                                 "Continue to Break",
@@ -990,31 +1007,35 @@ private struct PairedSessionControls: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(.teal)
+                            .controlSize(.large)
                             .accessibilityInputLabels([
                                 "Continue to Break",
                                 "Continue",
                                 "Break",
                             ])
                         } else {
-                            Button("Pause", systemImage: "pause.fill") {
-                                Task {
-                                    await viewModel.pauseSession()
+                            HStack(spacing: 12) {
+                                Button("Pause", systemImage: "pause.fill") {
+                                    Task {
+                                        await viewModel.pauseSession()
+                                    }
                                 }
-                            }
-                            .buttonStyle(.bordered)
+                                .buttonStyle(.bordered)
 
-                            Button("Skip to Break", systemImage: "forward.fill") {
-                                Task {
-                                    await viewModel.beginBreak()
+                                Button("Skip to Break", systemImage: "forward.fill") {
+                                    Task {
+                                        await viewModel.beginBreak()
+                                    }
                                 }
+                                .buttonStyle(.borderedProminent)
+                                .tint(.teal)
+                                .accessibilityInputLabels([
+                                    "Skip to Break",
+                                    "Skip",
+                                    "Break",
+                                ])
                             }
-                            .buttonStyle(.borderedProminent)
-                            .tint(.teal)
-                            .accessibilityInputLabels([
-                                "Skip to Break",
-                                "Skip",
-                                "Break",
-                            ])
+                            .controlSize(.large)
                         }
 
                         Button(
@@ -1025,6 +1046,7 @@ private struct PairedSessionControls: View {
                             isShowingEndConfirmation = true
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.regular)
                         .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
                     .transition(
@@ -1034,7 +1056,7 @@ private struct PairedSessionControls: View {
                     )
 
                 case .shortBreak, .longBreak:
-                    HStack {
+                    VStack(spacing: 10) {
                         Button(
                             hasReachedPhaseEnd
                                 ? "Continue to Focus"
@@ -1049,6 +1071,7 @@ private struct PairedSessionControls: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(AppColors.lavender)
+                        .controlSize(.large)
                         .accessibilityInputLabels([
                             hasReachedPhaseEnd ? "Continue to Focus" : "Next Round",
                             "Next",
@@ -1063,6 +1086,7 @@ private struct PairedSessionControls: View {
                             isShowingEndConfirmation = true
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.regular)
                         .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
 
@@ -1074,6 +1098,7 @@ private struct PairedSessionControls: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(AppColors.lavender)
+                    .controlSize(.large)
                     .transition(
                         reduceMotion
                             ? .opacity
@@ -1093,20 +1118,83 @@ private struct PairedSessionControls: View {
                 value: session.isPaused
             )
         }
-        .controlSize(.large)
-        .confirmationDialog(
-            "End study session?",
-            isPresented: $isShowingEndConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("End Session", role: .destructive) {
-                Task {
-                    await viewModel.endSession()
+    }
+}
+
+/// Centered modal overlay confirming session end for both partners.
+private struct EndSessionConfirmationOverlay: View {
+    @Binding var isPresented: Bool
+    let onConfirm: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isVisible = false
+
+    var body: some View {
+        ZStack {
+            Button {
+                dismiss()
+            } label: {
+                Color.black.opacity(isVisible ? 0.5 : 0)
+                    .ignoresSafeArea()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+            .accessibilityAddTraits(.isButton)
+
+            VStack(spacing: 20) {
+                VStack(spacing: 8) {
+                    Text("End study session?")
+                        .font(.headline)
+
+                    Text("This will end the session for both you and your partner.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                VStack(spacing: 10) {
+                    Button(role: .destructive) {
+                        dismiss()
+                        onConfirm()
+                    } label: {
+                        Text("End Session")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .controlSize(.large)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Cancel")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
                 }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will end the session for both you and your partner.")
+            .padding(24)
+            .background(.ultraThinMaterial, in: .rect(cornerRadius: 20))
+            .padding(.horizontal, 40)
+            .scaleEffect(isVisible ? 1 : 0.9)
+            .opacity(isVisible ? 1 : 0)
+        }
+        .task {
+            withAnimation(reduceMotion ? .none : .spring(duration: 0.3, bounce: 0.15)) {
+                isVisible = true
+            }
+        }
+        .accessibilityAddTraits(.isModal)
+    }
+
+    private func dismiss() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            isVisible = false
+        }
+        Task {
+            try? await Task.sleep(for: .milliseconds(200))
+            isPresented = false
         }
     }
 }
