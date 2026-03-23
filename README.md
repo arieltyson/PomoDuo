@@ -2,7 +2,7 @@
 
 # PomoDuo ♥️📚
 
-## App Store  : Coming Soon
+## App Store  : https://apps.apple.com/ca/app/pomo-duo/id6759349583
 
 <kbd>
     <img src="https://github.com/user-attachments/assets/e94e341a-ea7d-402f-89f1-60b77ba6abe1" width="800" height="500">
