@@ -232,8 +232,7 @@ private struct SkeletonSession: Identifiable {
 
     static let samples: [SkeletonSession] = [
         SkeletonSession(id: 0, minutes: 25, round: 1, totalRounds: 4, isPaired: false, hoursAgo: 2),
-        SkeletonSession(id: 1, minutes: 25, round: 2, totalRounds: 4, isPaired: false, hoursAgo: 3),
-        SkeletonSession(id: 2, minutes: 25, round: 1, totalRounds: 4, isPaired: true, hoursAgo: 26),
+        SkeletonSession(id: 1, minutes: 25, round: 2, totalRounds: 4, isPaired: true, hoursAgo: 3),
     ]
 }
 

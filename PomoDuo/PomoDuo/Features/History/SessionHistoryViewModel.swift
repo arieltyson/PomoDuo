@@ -98,6 +98,8 @@ final class SessionHistoryViewModel {
                 minutes: Int, sessions: Int, soloMinutes: Int,
                 pairedMinutes: Int
             )] = [:]
+        var segmentsByDay: [Date: [FocusSegment]] = [:]
+
         for dayOffset in 0..<7 {
             guard
                 let day = calendar.date(
@@ -111,6 +113,7 @@ final class SessionHistoryViewModel {
             buckets[day] = (
                 minutes: 0, sessions: 0, soloMinutes: 0, pairedMinutes: 0
             )
+            segmentsByDay[day] = []
         }
 
         for session in sessions {
@@ -119,14 +122,20 @@ final class SessionHistoryViewModel {
             bucket.minutes += session.focusMinutes
             bucket.sessions += 1
 
+            let isPaired: Bool
             switch session.sessionType {
             case .solo:
                 bucket.soloMinutes += session.focusMinutes
+                isPaired = false
             case .paired:
                 bucket.pairedMinutes += session.focusMinutes
+                isPaired = true
             }
 
             buckets[session.dayBucket] = bucket
+            segmentsByDay[session.dayBucket, default: []].append(
+                FocusSegment(minutes: session.focusMinutes, isPaired: isPaired)
+            )
         }
 
         weeklySummaries =
@@ -137,7 +146,8 @@ final class SessionHistoryViewModel {
                     totalMinutes: values.minutes,
                     sessionCount: values.sessions,
                     soloMinutes: values.soloMinutes,
-                    pairedMinutes: values.pairedMinutes
+                    pairedMinutes: values.pairedMinutes,
+                    segments: segmentsByDay[day] ?? []
                 )
             }
             .sorted { $0.day < $1.day }

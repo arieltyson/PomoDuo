@@ -3,7 +3,10 @@ import SwiftUI
 
 /// Weekly bar chart of completed focus minutes.
 ///
-/// With `.all`, bars are stacked by solo and paired contributions.
+/// Each session renders as a distinct stacked block within its day's bar,
+/// creating a layered visual that conveys session count alongside duration.
+/// Solo segments stack at the bottom, paired segments on top.
+///
 /// When the Differentiate Without Color accessibility setting is on,
 /// small person/person.2 icons overlay bar segments so the two series
 /// are distinguishable without relying on color.
@@ -16,93 +19,46 @@ struct FocusStreakChartView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Chart(summaries) { summary in
-            switch filter {
-            case .all:
-                if summary.soloMinutes > 0 {
-                    BarMark(
-                        x: .value("Day", summary.dayLabel),
-                        yStart: .value("Minutes", 0),
-                        yEnd: .value("Minutes", summary.soloMinutes)
-                    )
-                    .foregroundStyle(soloGradient)
-                    .annotation(position: .overlay) {
-                        if differentiateWithoutColor {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 7, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.9))
-                        }
-                    }
-                    .accessibilityLabel(
-                        "\(summary.dayLabel): \(summary.soloMinutes) solo minutes"
-                    )
-                }
-
-                if summary.pairedMinutes > 0 {
-                    BarMark(
-                        x: .value("Day", summary.dayLabel),
-                        yStart: .value("Minutes", summary.soloMinutes),
-                        yEnd: .value("Minutes", summary.totalMinutes)
-                    )
-                    .foregroundStyle(pairedGradient)
-                    .annotation(position: .overlay) {
-                        if differentiateWithoutColor {
-                            Image(systemName: "person.2.fill")
-                                .font(.system(size: 7, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.9))
-                        }
-                    }
-                    .accessibilityLabel(
-                        "\(summary.dayLabel): \(summary.pairedMinutes) paired minutes"
-                    )
-                }
-
-                if summary.totalMinutes > 0 {
-                    BarMark(
-                        x: .value("Day", summary.dayLabel),
-                        y: .value("Minutes", 0)
-                    )
-                    .annotation(position: .top, spacing: 2) {
-                        Text("\(summary.totalMinutes)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    .foregroundStyle(.clear)
-                }
-
-            case .solo:
+        Chart {
+            ForEach(positionedSegments) { segment in
                 BarMark(
-                    x: .value("Day", summary.dayLabel),
-                    y: .value("Minutes", summary.soloMinutes)
+                    x: .value("Day", segment.dayLabel),
+                    yStart: .value("Minutes", segment.yStart),
+                    yEnd: .value("Minutes", segment.yEnd),
+                    width: .ratio(0.55)
                 )
-                .foregroundStyle(soloGradient)
-                .annotation(position: .top, spacing: 2) {
-                    if summary.soloMinutes > 0 {
-                        Text("\(summary.soloMinutes)")
+                .cornerRadius(3)
+                .foregroundStyle(
+                    segment.isPaired ? pairedGradient : soloGradient
+                )
+                .opacity(segment.index.isMultiple(of: 2) ? 1.0 : 0.82)
+                .annotation(position: .overlay) {
+                    if differentiateWithoutColor {
+                        Image(
+                            systemName: segment.isPaired
+                                ? "person.2.fill" : "person.fill"
+                        )
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.9))
+                    }
+                }
+                .annotation(position: .top, spacing: 4) {
+                    if segment.isLast {
+                        Text("\(segment.dayTotal)")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }
-
-            case .paired:
-                BarMark(
-                    x: .value("Day", summary.dayLabel),
-                    y: .value("Minutes", summary.pairedMinutes)
-                )
-                .foregroundStyle(pairedGradient)
-                .annotation(position: .top, spacing: 2) {
-                    if summary.pairedMinutes > 0 {
-                        Text("\(summary.pairedMinutes)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                .accessibilityLabel(segmentAccessibilityLabel(segment))
             }
         }
+        .chartXScale(domain: summaries.map(\.dayLabel))
         .chartYAxis {
             AxisMarks(position: .leading) { value in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4]))
-                    .foregroundStyle(.quaternary)
+                AxisGridLine(
+                    stroke: StrokeStyle(lineWidth: 0.5, dash: [4])
+                )
+                .foregroundStyle(.quaternary)
 
                 AxisValueLabel {
                     if let minutes = value.as(Int.self) {
@@ -125,6 +81,61 @@ struct FocusStreakChartView: View {
         .animation(reduceMotion ? .none : .default, value: filter)
     }
 
+    // MARK: - Segment Positioning
+
+    /// Flattens each day's session segments into positioned chart entries
+    /// with absolute y-start/end values for stacked rendering.
+    private var positionedSegments: [PositionedSegment] {
+        var result: [PositionedSegment] = []
+
+        for summary in summaries {
+            let ordered: [FocusSegment]
+
+            switch filter {
+            case .all:
+                let solo = summary.segments.filter { !$0.isPaired }
+                let paired = summary.segments.filter { $0.isPaired }
+                ordered = solo + paired
+            case .solo:
+                ordered = summary.segments.filter { !$0.isPaired }
+            case .paired:
+                ordered = summary.segments.filter { $0.isPaired }
+            }
+
+            guard !ordered.isEmpty else { continue }
+
+            let dayTotal = filteredTotal(for: summary)
+            var y = 0.0
+
+            for (index, segment) in ordered.enumerated() {
+                let start = y
+                let end = y + Double(segment.minutes)
+                result.append(
+                    PositionedSegment(
+                        dayLabel: summary.dayLabel,
+                        yStart: start,
+                        yEnd: end,
+                        isPaired: segment.isPaired,
+                        index: index,
+                        isLast: index == ordered.count - 1,
+                        dayTotal: dayTotal
+                    )
+                )
+                y = end
+            }
+        }
+
+        return result
+    }
+
+    private func filteredTotal(for summary: DailyFocusSummary) -> Int {
+        switch filter {
+        case .all: summary.totalMinutes
+        case .solo: summary.soloMinutes
+        case .paired: summary.pairedMinutes
+        }
+    }
+
     // MARK: - Gradients
 
     private var soloGradient: LinearGradient {
@@ -144,6 +155,14 @@ struct FocusStreakChartView: View {
     }
 
     // MARK: - Accessibility
+
+    private func segmentAccessibilityLabel(
+        _ segment: PositionedSegment
+    ) -> String {
+        let minutes = Int(segment.yEnd - segment.yStart)
+        let type = segment.isPaired ? "paired" : "solo"
+        return "\(segment.dayLabel): \(minutes) \(type) minutes"
+    }
 
     private var accessibilitySummary: String {
         switch filter {
@@ -170,4 +189,18 @@ struct FocusStreakChartView: View {
                 "Weekly paired focus chart: \(pairedTotal) minutes across \(activeDays) days"
         }
     }
+}
+
+// MARK: - Positioned Segment
+
+/// Pre-computed bar segment with absolute y positions for chart rendering.
+private struct PositionedSegment: Identifiable {
+    let id = UUID()
+    let dayLabel: String
+    let yStart: Double
+    let yEnd: Double
+    let isPaired: Bool
+    let index: Int
+    let isLast: Bool
+    let dayTotal: Int
 }
