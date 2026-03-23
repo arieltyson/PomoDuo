@@ -4,21 +4,38 @@ import SwiftUI
 struct AccountView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: AccountViewModel
+    @State private var isShowingUsernameSetup = false
+    @State private var friendsViewModel: FriendsViewModel?
 
-    init(authManager: AuthManager) {
+    private let friendService: (any FriendService)?
+
+    init(authManager: AuthManager, friendService: (any FriendService)? = nil) {
+        self.friendService = friendService
         _viewModel = State(
-            initialValue: AccountViewModel(authManager: authManager)
+            initialValue: AccountViewModel(
+                authManager: authManager,
+                friendService: friendService
+            )
         )
     }
 
     var body: some View {
         Form {
             if let user = viewModel.authManager.currentUser {
-                AccountHeaderSection(user: user)
+                AccountHeaderSection(
+                    user: user,
+                    username: viewModel.username
+                )
 
                 if viewModel.canUpgradeToApple {
                     AppleIDUpgradeSection(viewModel: viewModel)
                 }
+
+                UsernameSection(
+                    username: viewModel.username,
+                    isFetching: viewModel.isFetchingUsername,
+                    onSetup: { showUsernameSetup() }
+                )
 
                 DisplayNameSection(viewModel: viewModel)
                 AccountInfoSection(user: user, viewModel: viewModel)
@@ -30,6 +47,28 @@ struct AccountView: View {
         }
         .navigationTitle("Account")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await viewModel.fetchUsername()
+        }
+        .sheet(isPresented: $isShowingUsernameSetup) {
+            Task { await viewModel.fetchUsername() }
+        } content: {
+            if let friendsViewModel {
+                NavigationStack {
+                    UsernameSetupView(
+                        viewModel: friendsViewModel,
+                        onComplete: { isShowingUsernameSetup = false }
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                isShowingUsernameSetup = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
         .alert("Account Error", isPresented: authErrorIsPresented) {
             Button("OK") {
                 viewModel.authManager.clearError()
@@ -56,6 +95,14 @@ struct AccountView: View {
         }
     }
 
+    private func showUsernameSetup() {
+        guard let friendService else { return }
+        if friendsViewModel == nil {
+            friendsViewModel = FriendsViewModel(friendService: friendService)
+        }
+        isShowingUsernameSetup = true
+    }
+
     private var authErrorIsPresented: Binding<Bool> {
         Binding(
             get: { viewModel.authManager.authError != nil },
@@ -70,10 +117,11 @@ struct AccountView: View {
 
 private struct AccountHeaderSection: View {
     let user: AuthUser
+    let username: String?
 
     var body: some View {
         Section {
-            VStack {
+            VStack(spacing: 4) {
                 AccountAvatar(user: user)
 
                 Text(user.displayName)
@@ -81,12 +129,19 @@ private struct AccountHeaderSection: View {
                     .bold()
                     .accessibilityAddTraits(.isHeader)
 
+                if let username {
+                    Text("@\(username)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
                 AccountTypeBadge(user: user)
+                    .padding(.top, 2)
             }
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(
-                "\(user.displayName), \(user.isAnonymous ? "Guest Account" : "Apple ID")"
+                "\(user.displayName), \(username.map { "@\($0)" } ?? ""), \(user.isAnonymous ? "Guest Account" : "Apple ID")"
             )
         }
     }
@@ -168,6 +223,53 @@ private struct AppleIDUpgradeSection: View {
             Text(
                 "Your existing partnerships, session history, and stats are preserved when you link your Apple ID."
             )
+        }
+    }
+}
+
+private struct UsernameSection: View {
+    let username: String?
+    let isFetching: Bool
+    let onSetup: () -> Void
+
+    var body: some View {
+        Section {
+            if isFetching {
+                HStack {
+                    Label("Username", systemImage: "at")
+                    Spacer()
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            } else if let username {
+                LabeledContent {
+                    Text("@\(username)")
+                        .foregroundStyle(AppColors.lavender)
+                } label: {
+                    Label("Username", systemImage: "at")
+                }
+            } else {
+                Button {
+                    onSetup()
+                } label: {
+                    HStack {
+                        Label("Set Up Username", systemImage: "at")
+                        Spacer()
+                        Text("Required for friends")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .tint(AppColors.lavender)
+            }
+        } header: {
+            Text("Username")
+        } footer: {
+            if username != nil {
+                Text("Friends find you by this username. It cannot be changed.")
+            } else {
+                Text("A username lets friends discover and add you on PomoDuo.")
+            }
         }
     }
 }

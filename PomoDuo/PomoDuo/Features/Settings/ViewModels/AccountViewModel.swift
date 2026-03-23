@@ -14,11 +14,27 @@ final class AccountViewModel {
     /// Whether the delete confirmation dialog is visible.
     var isShowingDeleteConfirmation = false
 
-    let authManager: AuthManager
+    /// The user's claimed username, fetched from the friend service.
+    private(set) var username: String?
 
-    init(authManager: AuthManager) {
+    /// Whether the username is currently being fetched.
+    private(set) var isFetchingUsername = false
+
+    let authManager: AuthManager
+    let friendService: (any FriendService)?
+
+    init(authManager: AuthManager, friendService: (any FriendService)? = nil) {
         self.authManager = authManager
+        self.friendService = friendService
         self.editingDisplayName = authManager.currentUser?.displayName ?? ""
+    }
+
+    /// Fetches the current user's username from Firestore.
+    func fetchUsername() async {
+        guard let friendService else { return }
+        isFetchingUsername = true
+        username = try? await friendService.currentUsername()
+        isFetchingUsername = false
     }
 
     /// Whether account operations are currently in progress.

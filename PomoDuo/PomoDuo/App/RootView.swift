@@ -239,7 +239,7 @@ private struct ContentTabView: View {
                 value: .settings
             ) {
                 NavigationStack {
-                    SettingsView()
+                    SettingsView(friendService: friendService)
                 }
             }
         }

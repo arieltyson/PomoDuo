@@ -4,6 +4,9 @@ import SwiftUI
 struct FriendsListView: View {
     let viewModel: FriendsViewModel
     let onStartSession: (FriendProfile) -> Void
+    let onGenerateCode: () -> Void
+    let onEnterCode: () -> Void
+    let onShowUsernameSetup: () -> Void
 
     @State private var isShowingAddFriend = false
 
@@ -15,7 +18,9 @@ struct FriendsListView: View {
 
             if viewModel.friends.isEmpty {
                 EmptyFriendsSection(
-                    onAddFriend: { isShowingAddFriend = true }
+                    needsUsername: viewModel.needsUsernameSetup,
+                    onAddFriend: { handleAddFriend() },
+                    onSetupUsername: onShowUsernameSetup
                 )
             } else {
                 FriendsSection(
@@ -25,7 +30,10 @@ struct FriendsListView: View {
                 )
             }
 
-            QuickPairSection()
+            QuickPairSection(
+                onGenerateCode: onGenerateCode,
+                onEnterCode: onEnterCode
+            )
 
             ShareInviteSection()
         }
@@ -34,10 +42,9 @@ struct FriendsListView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Add Friend", systemImage: "person.badge.plus") {
-                    isShowingAddFriend = true
+                    handleAddFriend()
                 }
                 .tint(AppColors.lavender)
-                .disabled(viewModel.needsUsernameSetup)
             }
         }
         .sheet(isPresented: $isShowingAddFriend) {
@@ -52,6 +59,14 @@ struct FriendsListView: View {
             if let error = viewModel.error {
                 Text(error)
             }
+        }
+    }
+
+    private func handleAddFriend() {
+        if viewModel.needsUsernameSetup {
+            onShowUsernameSetup()
+        } else {
+            isShowingAddFriend = true
         }
     }
 
@@ -158,52 +173,72 @@ private struct FriendsSection: View {
 }
 
 private struct EmptyFriendsSection: View {
+    let needsUsername: Bool
     let onAddFriend: () -> Void
+    let onSetupUsername: () -> Void
 
     var body: some View {
         Section {
-            ContentUnavailableView {
-                Label("No Friends Yet", systemImage: "person.2.slash")
-            } description: {
-                Text("Add friends to start focus sessions together.")
-            } actions: {
-                Button("Add a Friend", systemImage: "person.badge.plus") {
-                    onAddFriend()
+            VStack(spacing: 16) {
+                Image(systemName: "person.2.slash")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 4) {
+                    Text("No Friends Yet")
+                        .font(.headline)
+
+                    Text(
+                        needsUsername
+                            ? "Set up a username to add friends."
+                            : "Add friends to start focus sessions together."
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(AppColors.lavender)
+
+                if !needsUsername {
+                    Button("Add a Friend") {
+                        onAddFriend()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppColors.lavender)
+                    .controlSize(.regular)
+                }
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
         }
         .listRowBackground(Color.clear)
     }
 }
 
 private struct QuickPairSection: View {
+    let onGenerateCode: () -> Void
+    let onEnterCode: () -> Void
+
     var body: some View {
         Section {
-            NavigationLink {
-                QuickPairExplanationView()
+            Button {
+                onGenerateCode()
             } label: {
-                Label("Quick Pair with Code", systemImage: "qrcode")
+                Label("Generate Pairing Code", systemImage: "qrcode")
+                    .foregroundStyle(AppColors.lavender)
+            }
+
+            Button {
+                onEnterCode()
+            } label: {
+                Label("Enter Partner's Code", systemImage: "keyboard")
                     .foregroundStyle(AppColors.lavender)
             }
         } header: {
-            Text("One-Time Sessions")
+            Text("Quick Pair")
         } footer: {
-            Text("Pair with anyone using a 6-digit code for a quick session.")
+            Text("Pair with anyone using a 6-digit code for a one-time session.")
         }
-    }
-}
-
-private struct QuickPairExplanationView: View {
-    var body: some View {
-        ContentUnavailableView {
-            Label("Quick Pair", systemImage: "qrcode")
-        } description: {
-            Text("Use the original code-based pairing for one-time sessions with anyone.")
-        }
-        .navigationTitle("Quick Pair")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

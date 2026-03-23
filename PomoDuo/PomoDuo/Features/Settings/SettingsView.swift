@@ -13,11 +13,20 @@ struct SettingsView: View {
     @State private var feedbackCategory: FeedbackCategory?
     @State private var reviewViewModel = SettingsReviewViewModel()
 
+    let friendService: (any FriendService)?
+
+    init(friendService: (any FriendService)? = nil) {
+        self.friendService = friendService
+    }
+
     var body: some View {
         @Bindable var bindableAppearanceManager = appearanceManager
 
         Form {
-            AccountSection(authManager: authManager)
+            AccountSection(
+                authManager: authManager,
+                friendService: friendService
+            )
 
             Section("Focus") {
                 NavigationLink {
@@ -145,14 +154,23 @@ struct SettingsView: View {
 
 private struct AccountSection: View {
     let authManager: AuthManager
+    let friendService: (any FriendService)?
+
+    @State private var username: String?
 
     var body: some View {
         Section {
             if let currentUser = authManager.currentUser {
                 NavigationLink {
-                    AccountView(authManager: authManager)
+                    AccountView(
+                        authManager: authManager,
+                        friendService: friendService
+                    )
                 } label: {
-                    SignedInAccountRow(user: currentUser)
+                    SignedInAccountRow(user: currentUser, username: username)
+                }
+                .task {
+                    username = try? await friendService?.currentUsername()
                 }
             } else if authManager.isLoading {
                 HStack {
@@ -203,6 +221,7 @@ private struct AccountSection: View {
 
 private struct SignedInAccountRow: View {
     let user: AuthUser
+    let username: String?
 
     var body: some View {
         HStack {
@@ -213,27 +232,32 @@ private struct SignedInAccountRow: View {
                 )
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(user.displayName)
                     .font(.subheadline)
                     .bold()
 
-                HStack(spacing: 4) {
-                    if user.authProvider == .apple {
-                        Image(systemName: "apple.logo")
-                            .font(.caption2)
-                    }
-
-                    Text(statusText)
+                if let username {
+                    Text("@\(username)")
                         .font(.caption)
+                        .foregroundStyle(AppColors.lavender)
+                } else {
+                    HStack(spacing: 4) {
+                        if user.authProvider == .apple {
+                            Image(systemName: "apple.logo")
+                                .font(.caption2)
+                        }
+
+                        Text(statusText)
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.secondary)
                 }
-                .foregroundStyle(.secondary)
             }
 
             Spacer()
 
             if user.isAnonymous {
-                // Subtle upgrade indicator for anonymous users.
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -246,7 +270,9 @@ private struct SignedInAccountRow: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Signed in as \(user.displayName)")
+        .accessibilityLabel(
+            "Signed in as \(user.displayName)\(username.map { ", @\($0)" } ?? "")"
+        )
         .accessibilityHint("Tap to manage your account.")
     }
 

@@ -211,6 +211,15 @@ private struct FriendsAndPairingContent: View {
                     viewModel: friendsViewModel,
                     onStartSession: { friend in
                         startSessionWithFriend(friend)
+                    },
+                    onGenerateCode: {
+                        Task { await pairingViewModel.generateCode() }
+                    },
+                    onEnterCode: {
+                        isShowingCodeSheet = true
+                    },
+                    onShowUsernameSetup: {
+                        isShowingUsernameSetup = true
                     }
                 )
             }
