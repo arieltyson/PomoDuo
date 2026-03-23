@@ -296,6 +296,7 @@ struct ActivePairedSessionView: View {
             )
 
         case (.focus, .completed):
+            recordPartialFocusRound()
             haptic.fire(.complete)
             liveActivityManager.end()
             restrictionCoordinator.liftRestrictions()
@@ -306,8 +307,14 @@ struct ActivePairedSessionView: View {
             liveActivityManager.end()
             AccessibilityAnnouncer.announcePairedSessionCompleted()
 
+        case (.focus, .idle):
+            recordPartialFocusRound()
+            haptic.fire(.stop)
+            liveActivityManager.end()
+            restrictionCoordinator.forceRemoveRestrictions()
+            AccessibilityAnnouncer.announcePairedSessionEnded()
+
         case (.requesting, .idle),
-            (.focus, .idle),
             (.shortBreak, .idle),
             (.longBreak, .idle),
             (.completed, .idle):
@@ -345,6 +352,30 @@ struct ActivePairedSessionView: View {
         let completedSession = CompletedSession(
             startedAt: startedAt,
             focusDuration: session.duration,
+            roundNumber: session.currentRound,
+            totalRounds: session.totalRounds,
+            sessionType: .paired,
+            userID: authManager.currentUserID
+        )
+
+        modelContext.insert(completedSession)
+        focusStartedAt = nil
+        refreshWidgetData()
+    }
+
+    /// Records a partial focus round when the session is ended early.
+    ///
+    /// Only records if at least 60 seconds of focus elapsed, preventing
+    /// accidental taps from inflating totals.
+    private func recordPartialFocusRound() {
+        guard let startedAt = focusStartedAt else { return }
+
+        let elapsed = Date.now.timeIntervalSince(startedAt)
+        guard elapsed >= 60 else { return }
+
+        let completedSession = CompletedSession(
+            startedAt: startedAt,
+            focusDuration: elapsed,
             roundNumber: session.currentRound,
             totalRounds: session.totalRounds,
             sessionType: .paired,

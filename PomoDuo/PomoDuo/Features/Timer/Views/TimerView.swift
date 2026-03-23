@@ -254,6 +254,7 @@ struct TimerView: View {
     }
 
     private func stopTimer() {
+        recordPartialFocusIfNeeded()
         viewModel.stop()
         phase = .idle
         currentRound = 1
@@ -406,6 +407,34 @@ struct TimerView: View {
             focusDuration: configuration.focusDuration,
             roundNumber: currentRound,
             totalRounds: configuration.roundsBeforeLongBreak,
+            sessionType: .solo,
+            userID: authManager.currentUserID
+        )
+
+        modelContext.insert(session)
+        focusStartedAt = nil
+        refreshWidgetData()
+    }
+
+    /// Records a partial focus round when the user ends a session early.
+    ///
+    /// Only records if at least 60 seconds of focus elapsed, preventing
+    /// accidental taps from inflating totals.
+    private func recordPartialFocusIfNeeded() {
+        guard phase == .focus,
+            let startedAt = focusStartedAt
+        else {
+            return
+        }
+
+        let elapsed = Date.now.timeIntervalSince(startedAt)
+        guard elapsed >= 60 else { return }
+
+        let session = CompletedSession(
+            startedAt: startedAt,
+            focusDuration: elapsed,
+            roundNumber: currentRound,
+            totalRounds: activeConfiguration?.roundsBeforeLongBreak ?? 4,
             sessionType: .solo,
             userID: authManager.currentUserID
         )
