@@ -179,9 +179,20 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         )
 
         if let category, Self.partnerCategories.contains(category) {
+            // Extract the friend request ID from the payload when available.
+            let requestID =
+                (userInfo["data"] as? [String: Any])?["friendRequestID"] as? String
+                ?? userInfo["friendRequestID"] as? String
+
+            var payload: [String: String] = [:]
+            if let requestID {
+                payload["friendRequestID"] = requestID
+            }
+
             NotificationCenter.default.post(
                 name: .didTapPartnerNotification,
-                object: nil
+                object: nil,
+                userInfo: payload.isEmpty ? nil : payload
             )
         } else if category == Self.timerEndCategory {
             NotificationCenter.default.post(

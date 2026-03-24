@@ -29,6 +29,9 @@ final class FriendsViewModel {
     /// User-facing error message.
     private(set) var error: String?
 
+    /// Friend request ID to highlight, set via deeplink or notification.
+    var highlightedRequestID: String?
+
     /// Current user's username, if set.
     private(set) var currentUsername: String?
 

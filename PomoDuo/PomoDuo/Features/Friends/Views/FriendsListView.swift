@@ -3,6 +3,7 @@ import SwiftUI
 /// Main friends list displayed in the Partner tab when no session is active.
 struct FriendsListView: View {
     let viewModel: FriendsViewModel
+    @Binding var pendingFriendRequestID: String?
     let onStartSession: (FriendProfile) -> Void
     let onGenerateCode: () -> Void
     let onEnterCode: () -> Void
@@ -11,34 +12,56 @@ struct FriendsListView: View {
     @State private var isShowingAddFriend = false
 
     var body: some View {
-        List {
-            if !viewModel.incomingRequests.isEmpty {
-                FriendRequestsSection(viewModel: viewModel)
-            }
+        ScrollViewReader { proxy in
+            List {
+                if !viewModel.incomingRequests.isEmpty {
+                    FriendRequestsSection(
+                        viewModel: viewModel,
+                        highlightedRequestID: viewModel.highlightedRequestID
+                    )
+                }
 
-            if viewModel.friends.isEmpty {
-                EmptyFriendsSection(
-                    needsUsername: viewModel.needsUsernameSetup,
-                    onAddFriend: { handleAddFriend() },
-                    onSetupUsername: onShowUsernameSetup
+                if viewModel.friends.isEmpty {
+                    EmptyFriendsSection(
+                        needsUsername: viewModel.needsUsernameSetup,
+                        onAddFriend: { handleAddFriend() },
+                        onSetupUsername: onShowUsernameSetup
+                    )
+                } else {
+                    FriendsSection(
+                        friends: viewModel.friends,
+                        viewModel: viewModel,
+                        onStartSession: onStartSession
+                    )
+                }
+
+                QuickPairSection(
+                    onGenerateCode: onGenerateCode,
+                    onEnterCode: onEnterCode
                 )
-            } else {
-                FriendsSection(
-                    friends: viewModel.friends,
-                    viewModel: viewModel,
-                    onStartSession: onStartSession
-                )
+
+                ShareInviteSection()
             }
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.hidden)
+            .onChange(of: pendingFriendRequestID) { _, requestID in
+                guard let requestID else { return }
+                viewModel.highlightedRequestID = requestID
+                pendingFriendRequestID = nil
 
-            QuickPairSection(
-                onGenerateCode: onGenerateCode,
-                onEnterCode: onEnterCode
-            )
+                withAnimation {
+                    proxy.scrollTo(requestID, anchor: .center)
+                }
 
-            ShareInviteSection()
+                // Clear highlight after a brief moment.
+                Task {
+                    try? await Task.sleep(for: .seconds(2))
+                    withAnimation {
+                        viewModel.highlightedRequestID = nil
+                    }
+                }
+            }
         }
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Add Friend", systemImage: "person.badge.plus") {
@@ -82,11 +105,17 @@ struct FriendsListView: View {
 
 private struct FriendRequestsSection: View {
     let viewModel: FriendsViewModel
+    let highlightedRequestID: String?
 
     var body: some View {
         Section {
             ForEach(viewModel.incomingRequests) { request in
-                FriendRequestRow(request: request, viewModel: viewModel)
+                FriendRequestRow(
+                    request: request,
+                    viewModel: viewModel,
+                    isHighlighted: request.id == highlightedRequestID
+                )
+                .id(request.id)
             }
         } header: {
             Label(
@@ -100,6 +129,7 @@ private struct FriendRequestsSection: View {
 private struct FriendRequestRow: View {
     let request: FriendRequest
     let viewModel: FriendsViewModel
+    let isHighlighted: Bool
 
     var body: some View {
         HStack {
@@ -141,6 +171,11 @@ private struct FriendRequestRow: View {
                 .accessibilityLabel("Decline")
             }
         }
+        .listRowBackground(
+            isHighlighted
+                ? AppColors.paleViolet.opacity(0.2)
+                : nil
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "Friend request from \(request.fromDisplayName)"

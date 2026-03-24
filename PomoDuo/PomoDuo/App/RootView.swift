@@ -23,6 +23,7 @@ struct RootView: View {
     @State private var isShowingOnboarding = false
     @State private var launchPhase = LaunchPhase.branded
     @State private var feedbackCategory: FeedbackCategory?
+    @State private var pendingFriendRequestID: String?
     private let pairingService: any PairingService
     private let friendService: any FriendService
 
@@ -47,6 +48,7 @@ struct RootView: View {
                     ContentTabView(
                         selectedTab: $selectedTab,
                         isShowingOnboarding: $isShowingOnboarding,
+                        pendingFriendRequestID: $pendingFriendRequestID,
                         pairingService: pairingService,
                         friendService: friendService
                     )
@@ -119,8 +121,11 @@ struct RootView: View {
             NotificationCenter.default.publisher(
                 for: .didTapPartnerNotification
             )
-        ) { _ in
+        ) { notification in
             selectedTab = .partner
+            if let requestID = notification.userInfo?["friendRequestID"] as? String {
+                pendingFriendRequestID = requestID
+            }
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -131,8 +136,20 @@ struct RootView: View {
         }
         .onOpenURL { url in
             guard url.scheme == "pomoduo" else { return }
-            if url.host() == "timer" {
+            switch url.host() {
+            case "timer":
                 selectedTab = .timer
+            case "partner":
+                selectedTab = .partner
+            case "friend-request":
+                selectedTab = .partner
+                // Extract request ID from path: pomoduo://friend-request/{id}
+                let requestID = url.pathComponents.dropFirst().first
+                if let requestID, !requestID.isEmpty {
+                    pendingFriendRequestID = requestID
+                }
+            default:
+                break
             }
         }
         .sheet(item: $feedbackCategory) { category in
@@ -199,6 +216,7 @@ private enum LaunchPhase: Equatable {
 private struct ContentTabView: View {
     @Binding var selectedTab: AppTab
     @Binding var isShowingOnboarding: Bool
+    @Binding var pendingFriendRequestID: String?
     @Environment(OnboardingManager.self) private var onboardingManager
 
     let pairingService: any PairingService
@@ -224,7 +242,8 @@ private struct ContentTabView: View {
                 NavigationStack {
                     PartnerView(
                         pairingService: pairingService,
-                        friendService: friendService
+                        friendService: friendService,
+                        pendingFriendRequestID: $pendingFriendRequestID
                     )
                 }
             }

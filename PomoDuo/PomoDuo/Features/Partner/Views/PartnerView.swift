@@ -16,6 +16,7 @@ struct PartnerView: View {
     @State private var sessionViewModel: PartnerSessionViewModel?
     @State private var isShowingCodeSheet = false
     @State private var isShowingUsernameSetup = false
+    @Binding var pendingFriendRequestID: String?
 
     /// The partner profile used for the active session. Built from
     /// whichever source (friend or legacy pairing) initiated the session.
@@ -23,7 +24,8 @@ struct PartnerView: View {
 
     init(
         pairingService: any PairingService = MockPairingService(),
-        friendService: any FriendService
+        friendService: any FriendService,
+        pendingFriendRequestID: Binding<String?>
     ) {
         _pairingViewModel = State(
             initialValue: PairingViewModel(pairingService: pairingService)
@@ -31,6 +33,7 @@ struct PartnerView: View {
         _friendsViewModel = State(
             initialValue: FriendsViewModel(friendService: friendService)
         )
+        _pendingFriendRequestID = pendingFriendRequestID
     }
 
     var body: some View {
@@ -43,7 +46,8 @@ struct PartnerView: View {
                         sessionViewModel: sessionViewModel,
                         activePartner: $activePartner,
                         isShowingCodeSheet: $isShowingCodeSheet,
-                        isShowingUsernameSetup: $isShowingUsernameSetup
+                        isShowingUsernameSetup: $isShowingUsernameSetup,
+                        pendingFriendRequestID: $pendingFriendRequestID
                     )
                 } else {
                     ProgressView("Preparing…")
@@ -98,6 +102,7 @@ private struct SignedInPartnerContent: View {
     @Binding var activePartner: PartnerProfile?
     @Binding var isShowingCodeSheet: Bool
     @Binding var isShowingUsernameSetup: Bool
+    @Binding var pendingFriendRequestID: String?
 
     var body: some View {
         if let session = sessionViewModel.activeSession,
@@ -125,7 +130,8 @@ private struct SignedInPartnerContent: View {
                 sessionViewModel: sessionViewModel,
                 activePartner: $activePartner,
                 isShowingCodeSheet: $isShowingCodeSheet,
-                isShowingUsernameSetup: $isShowingUsernameSetup
+                isShowingUsernameSetup: $isShowingUsernameSetup,
+                pendingFriendRequestID: $pendingFriendRequestID
             )
         }
     }
@@ -170,6 +176,7 @@ private struct FriendsAndPairingContent: View {
     @Binding var activePartner: PartnerProfile?
     @Binding var isShowingCodeSheet: Bool
     @Binding var isShowingUsernameSetup: Bool
+    @Binding var pendingFriendRequestID: String?
 
     @Environment(SessionManager.self) private var sessionManager
 
@@ -209,6 +216,7 @@ private struct FriendsAndPairingContent: View {
             case .unpaired:
                 FriendsListView(
                     viewModel: friendsViewModel,
+                    pendingFriendRequestID: $pendingFriendRequestID,
                     onStartSession: { friend in
                         startSessionWithFriend(friend)
                     },

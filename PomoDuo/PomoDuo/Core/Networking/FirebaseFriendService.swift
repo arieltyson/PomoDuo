@@ -203,7 +203,7 @@ final class FirebaseFriendService: FriendService {
             Fields.updatedAt: FieldValue.serverTimestamp(),
         ]
 
-        try await database
+        let requestRef = try await database
             .collection(Collections.friendRequests)
             .addDocument(data: requestData)
 
@@ -214,7 +214,10 @@ final class FirebaseFriendService: FriendService {
             title: "Friend Request",
             body: "\(senderDisplayName) wants to be study friends!",
             category: .friendRequest,
-            payload: ["action": "friend_request"]
+            payload: [
+                "action": "friend_request",
+                "friendRequestID": requestRef.documentID,
+            ]
         )
     }
 
