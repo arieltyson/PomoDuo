@@ -715,6 +715,7 @@ struct TimerView: View {
 
     private func remainingProgress(from currentTick: TimerTick?) -> Double {
         guard let currentTick else { return 1 }
+        if viewModel.isComplete { return 0 }
         return 1 - currentTick.progress
     }
 
