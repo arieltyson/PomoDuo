@@ -1,11 +1,13 @@
 import ActivityKit
 import AppIntents
+import DeviceActivity
+import ManagedSettings
 
 /// Live Activity intent that stops the timer and ends all activities.
 ///
 /// Triggered by the Stop button in the Dynamic Island's expanded view.
-/// Writes a bridge command for the main app, then ends every active
-/// timer Live Activity.
+/// Immediately removes app shields and clears session context so blocked
+/// apps become usable without reopening PomoDuo.
 struct StopTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Timer"
     static var description: IntentDescription? = IntentDescription(
@@ -21,7 +23,24 @@ struct StopTimerIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        // Write bridge command before ending so the main app can sync.
+        // Remove shields immediately so blocked apps are usable right away.
+        let store = ManagedSettingsStore()
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
+
+        // Cancel DeviceActivity monitoring to prevent the monitor extension
+        // from reapplying shields after this intent completes.
+        let center = DeviceActivityCenter()
+        center.stopMonitoring([
+            DeviceActivityName(
+                rawValue: ShieldSessionContext.focusActivityID
+            )
+        ])
+
+        // Clear shared session context so extensions know the session ended.
+        ShieldSessionContext.clearSession()
+
+        // Write bridge command so the main app can sync its in-memory state.
         LiveActivityBridge.write(.stop)
 
         for activity in Activity<TimerActivityAttributes>.activities {

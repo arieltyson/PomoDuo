@@ -18,6 +18,9 @@
 		AF5636652F4683710067D4DE /* PomoDuoShieldExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AF5636592F4683710067D4DE /* PomoDuoShieldExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AF5636702F4684A00067D4DE /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF56366F2F4684A00067D4DE /* DeviceActivity.framework */; };
 		AF5636782F4684A10067D4DE /* PomoDuoMonitorExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AF56366E2F4684A00067D4DE /* PomoDuoMonitorExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AFC147A02F5A00010067D4DE /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF56365A2F4683710067D4DE /* ManagedSettings.framework */; };
+		AFC147A12F5A00020067D4DE /* DeviceActivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF56366F2F4684A00067D4DE /* DeviceActivity.framework */; };
+		AFC147A22F5A00030067D4DE /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AFC147A32F5A00040067D4DE /* FamilyControls.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -83,6 +86,7 @@
 		AF56365C2F4683710067D4DE /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = SDKROOT; };
 		AF56366E2F4684A00067D4DE /* PomoDuoMonitorExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PomoDuoMonitorExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF56366F2F4684A00067D4DE /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = System/Library/Frameworks/DeviceActivity.framework; sourceTree = SDKROOT; };
+		AFC147A32F5A00040067D4DE /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = System/Library/Frameworks/FamilyControls.framework; sourceTree = SDKROOT; };
 		AF8695DC2F411D5500388170 /* PomoDuo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PomoDuo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8695E92F411D5600388170 /* PomoDuoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8695F32F411D5600388170 /* PomoDuoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -99,6 +103,7 @@
 		AF1471492F465E0800BB4819 /* Exceptions for "PomoDuo" folder in "PomoDuoWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Core/ScreenTime/ShieldSessionContext.swift,
 				Core/Storage/LiveActivityBridge.swift,
 				Features/Timer/Models/TimerActivityAttributes.swift,
 			);
@@ -212,6 +217,9 @@
 			files = (
 				AF1471252F465CC600BB4819 /* SwiftUI.framework in Frameworks */,
 				AF1471232F465CC600BB4819 /* WidgetKit.framework in Frameworks */,
+				AFC147A02F5A00010067D4DE /* ManagedSettings.framework in Frameworks */,
+				AFC147A12F5A00020067D4DE /* DeviceActivity.framework in Frameworks */,
+				AFC147A22F5A00030067D4DE /* FamilyControls.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,6 +275,7 @@
 				AF56365A2F4683710067D4DE /* ManagedSettings.framework */,
 				AF56365C2F4683710067D4DE /* ManagedSettingsUI.framework */,
 				AF56366F2F4684A00067D4DE /* DeviceActivity.framework */,
+				AFC147A32F5A00040067D4DE /* FamilyControls.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

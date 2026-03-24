@@ -1,10 +1,14 @@
 import ActivityKit
 import AppIntents
+import DeviceActivity
+import ManagedSettings
 
 /// Shared Live Activity action that stops the running timer.
 ///
 /// This app-target counterpart mirrors the widget-extension intent so
 /// execution succeeds even when the system resolves actions in app process.
+/// Immediately removes shields and clears session context so blocked apps
+/// become usable without reopening PomoDuo.
 struct StopTimerIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Stop Timer"
     static let description: IntentDescription? = IntentDescription(
@@ -23,6 +27,24 @@ struct StopTimerIntent: LiveActivityIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
+        // Remove shields immediately so blocked apps are usable right away.
+        let store = ManagedSettingsStore()
+        store.shield.applications = nil
+        store.shield.applicationCategories = nil
+
+        // Cancel DeviceActivity monitoring to prevent the monitor extension
+        // from reapplying shields after this intent completes.
+        let center = DeviceActivityCenter()
+        center.stopMonitoring([
+            DeviceActivityName(
+                rawValue: ShieldSessionContext.focusActivityID
+            )
+        ])
+
+        // Clear shared session context so extensions know the session ended.
+        ShieldSessionContext.clearSession()
+
+        // Write bridge command so the main app can sync its in-memory state.
         LiveActivityBridge.write(.stop)
 
         for activity in Activity<TimerActivityAttributes>.activities {
