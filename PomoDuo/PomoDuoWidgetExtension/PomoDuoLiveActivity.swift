@@ -21,6 +21,7 @@ struct PomoDuoLiveActivity: Widget {
                 state: context.state,
                 totalRounds: context.attributes.totalRounds
             )
+            .widgetURL(URL(string: "pomoduo://timer"))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading, priority: 1) {
@@ -48,6 +49,7 @@ struct PomoDuoLiveActivity: Widget {
             } minimal: {
                 MinimalView(state: context.state)
             }
+            .widgetURL(URL(string: "pomoduo://timer"))
             .keylineTint(Palette.accentTint(for: context.state))
         }
     }

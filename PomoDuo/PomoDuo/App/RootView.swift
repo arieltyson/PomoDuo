@@ -129,6 +129,12 @@ struct RootView: View {
         ) { _ in
             selectedTab = .timer
         }
+        .onOpenURL { url in
+            guard url.scheme == "pomoduo" else { return }
+            if url.host() == "timer" {
+                selectedTab = .timer
+            }
+        }
         .sheet(item: $feedbackCategory) { category in
             FeedbackView(category: category)
         }

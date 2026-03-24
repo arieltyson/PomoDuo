@@ -4,6 +4,17 @@
 <dict>
 	<key>APP_STORE_ID</key>
 	<string>6759349583</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.arieljtyson.PomoDuo</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pomoduo</string>
+			</array>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIBackgroundModes</key>
