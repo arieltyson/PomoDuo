@@ -154,13 +154,16 @@ final class FirebaseFriendService: FriendService {
 
         guard
             let usernameData = usernameSnapshot.data(),
-            let targetUID = usernameData[Fields.uid] as? String,
-            targetUID != user.uid
+            let targetUID = usernameData[Fields.uid] as? String
         else {
-            return
+            throw FriendServiceError.userNotFound
         }
 
-        // Check if friendship or pending request already exists.
+        guard targetUID != user.uid else {
+            throw FriendServiceError.cannotAddSelf
+        }
+
+        // Check if friendship already exists.
         let friendshipID = Self.friendshipID(user.uid, targetUID)
         let existingFriendship = try await database
             .collection(Collections.friendships)
@@ -168,19 +171,23 @@ final class FirebaseFriendService: FriendService {
             .getDocument()
 
         if existingFriendship.exists {
-            return
+            throw FriendServiceError.alreadyFriends
         }
 
-        let existingRequest = try await database
+        // Check for existing pending request using individual queries
+        // to avoid requiring a composite index.
+        let outgoingRequests = try await database
             .collection(Collections.friendRequests)
             .whereField(Fields.fromUID, isEqualTo: user.uid)
             .whereField(Fields.toUID, isEqualTo: targetUID)
-            .whereField(Fields.status, isEqualTo: FriendRequestStatus.pending.rawValue)
-            .limit(to: 1)
             .getDocuments()
 
-        if !existingRequest.documents.isEmpty {
-            return
+        let hasPendingOutgoing = outgoingRequests.documents.contains { doc in
+            (doc.data()[Fields.status] as? String) == FriendRequestStatus.pending.rawValue
+        }
+
+        if hasPendingOutgoing {
+            throw FriendServiceError.requestAlreadySent
         }
 
         let senderUsername = try await currentUsername() ?? ""
@@ -199,6 +206,8 @@ final class FirebaseFriendService: FriendService {
         try await database
             .collection(Collections.friendRequests)
             .addDocument(data: requestData)
+
+        Self.logger.info("Friend request sent to \(targetUID, privacy: .private)")
 
         try? await pushSender?.sendPush(
             to: targetUID,

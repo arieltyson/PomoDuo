@@ -201,6 +201,8 @@ final class FriendsViewModel {
             searchResult = nil
             searchQuery = ""
             searchFoundNoResults = false
+        } catch let serviceError as FriendServiceError {
+            self.error = serviceError.errorDescription
         } catch {
             self.error = "Could not send friend request. Please try again."
         }

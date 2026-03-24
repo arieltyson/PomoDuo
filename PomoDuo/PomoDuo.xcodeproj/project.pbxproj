@@ -86,10 +86,10 @@
 		AF56365C2F4683710067D4DE /* ManagedSettingsUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ManagedSettingsUI.framework; path = System/Library/Frameworks/ManagedSettingsUI.framework; sourceTree = SDKROOT; };
 		AF56366E2F4684A00067D4DE /* PomoDuoMonitorExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PomoDuoMonitorExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF56366F2F4684A00067D4DE /* DeviceActivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DeviceActivity.framework; path = System/Library/Frameworks/DeviceActivity.framework; sourceTree = SDKROOT; };
-		AFC147A32F5A00040067D4DE /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = System/Library/Frameworks/FamilyControls.framework; sourceTree = SDKROOT; };
 		AF8695DC2F411D5500388170 /* PomoDuo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PomoDuo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8695E92F411D5600388170 /* PomoDuoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF8695F32F411D5600388170 /* PomoDuoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PomoDuoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AFC147A32F5A00040067D4DE /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = System/Library/Frameworks/FamilyControls.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
