@@ -62,11 +62,8 @@ struct CircularProgressView: View {
         .accessibilityAddTraits(.updatesFrequently)
     }
 
-    /// Clamps progress and snaps near-zero values to exactly `0`
-    /// so the ring disappears cleanly when the countdown finishes.
     private var clampedProgress: Double {
-        let clamped = max(0, min(1, remainingProgress))
-        return clamped < 0.005 ? 0 : clamped
+        clampedRingProgress(remainingProgress)
     }
 
     private var accessibilityDescription: String {
@@ -155,4 +152,13 @@ private struct PausedIndicator: View {
         let reduceMotion: Bool
         let isLowPowerModeEnabled: Bool
     }
+}
+
+// MARK: - Ring Progress Clamping
+
+/// Clamps raw progress to `[0, 1]` and snaps values below 0.5% to exactly `0`
+/// so the ring disappears cleanly when the countdown finishes.
+func clampedRingProgress(_ raw: Double) -> Double {
+    let clamped = max(0, min(1, raw))
+    return clamped < 0.005 ? 0 : clamped
 }

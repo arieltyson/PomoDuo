@@ -9,6 +9,8 @@ actor MockNotificationService: NotificationService {
     private(set) var pauseNotificationsSent:
         [(partnerID: String, pausedBy: String)] = []
     private(set) var resumeNotificationsSent: [String] = []
+    private(set) var sessionEndedNotificationsSent:
+        [(partnerID: String, endedBy: String)] = []
     private(set) var scheduledNotifications: [(date: Date, message: String)] =
         []
     private(set) var cancelCallCount = 0
@@ -31,6 +33,14 @@ actor MockNotificationService: NotificationService {
         resumeNotificationsSent.append(partnerID)
     }
 
+    func sendSessionEndedNotification(to partnerID: String, endedBy name: String)
+        async throws
+    {
+        sessionEndedNotificationsSent.append(
+            (partnerID: partnerID, endedBy: name)
+        )
+    }
+
     func scheduleTimerEndNotification(at date: Date, message: String)
         async throws
     {
@@ -45,6 +55,7 @@ actor MockNotificationService: NotificationService {
         sessionRequestsSent.removeAll()
         pauseNotificationsSent.removeAll()
         resumeNotificationsSent.removeAll()
+        sessionEndedNotificationsSent.removeAll()
         scheduledNotifications.removeAll()
         cancelCallCount = 0
     }

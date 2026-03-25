@@ -49,6 +49,10 @@ private final class MockLocalNotificationService: LocalNotificationManaging {
 
     func sendResumeNotification(to partnerID: String) async throws {}
 
+    func sendSessionEndedNotification(to partnerID: String, endedBy name: String)
+        async throws
+    {}
+
     func scheduleTimerEndNotification(at date: Date, message: String)
         async throws
     {
