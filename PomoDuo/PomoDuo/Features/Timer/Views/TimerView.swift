@@ -10,6 +10,7 @@ struct TimerView: View {
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(FocusIntentState.self) private var focusIntentState
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
+    @Environment(FocusStatsReporter.self) private var focusStatsReporter
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var activeConfiguration: TimerConfiguration?
@@ -412,6 +413,7 @@ struct TimerView: View {
         )
 
         modelContext.insert(session)
+        focusStatsReporter.report(focusMinutes: session.focusMinutes)
         focusStartedAt = nil
         refreshWidgetData()
     }
@@ -440,6 +442,7 @@ struct TimerView: View {
         )
 
         modelContext.insert(session)
+        focusStatsReporter.report(focusMinutes: session.focusMinutes)
         focusStartedAt = nil
         refreshWidgetData()
     }

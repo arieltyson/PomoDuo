@@ -15,7 +15,10 @@ struct SessionHistoryView: View {
     @Environment(AuthManager.self) private var authManager
     @State private var viewModel = SessionHistoryViewModel()
 
-    init() {
+    let friendService: any FriendService
+
+    init(friendService: any FriendService) {
+        self.friendService = friendService
         var descriptor = FetchDescriptor<CompletedSession>(
             sortBy: [SortDescriptor(\CompletedSession.startedAt, order: .reverse)]
         )
@@ -48,6 +51,16 @@ struct SessionHistoryView: View {
             }
         }
         .navigationTitle("History")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                NavigationLink {
+                    LeaderboardView(friendService: friendService)
+                } label: {
+                    Label("Leaderboard", systemImage: "trophy.fill")
+                        .foregroundStyle(AppColors.lavender)
+                }
+            }
+        }
         .task(id: sessions.count) {
             refreshHistory()
         }

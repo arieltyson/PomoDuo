@@ -17,4 +17,6 @@ struct MockFriendService: FriendService {
     func isUsernameAvailable(_ username: String) async throws -> Bool { true }
     func currentUsername() async throws -> String? { nil }
     func searchByUsername(_ username: String) async throws -> UserSearchResult? { nil }
+    func reportFocusSession(minutes: Int) async throws {}
+    func leaderboardEntries() async throws -> [LeaderboardEntry] { [] }
 }

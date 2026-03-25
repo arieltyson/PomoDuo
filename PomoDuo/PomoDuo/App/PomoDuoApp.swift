@@ -22,6 +22,7 @@ struct PomoDuoApp: App {
     @State private var powerStateMonitor = PowerStateMonitor()
     @State private var onboardingManager = OnboardingManager()
     @State private var appearanceManager = AppearanceManager()
+    @State private var focusStatsReporter: FocusStatsReporter
     private let pairingService: any PairingService
     private let friendService: any FriendService
 
@@ -43,6 +44,9 @@ struct PomoDuoApp: App {
         )
         self.pairingService = pairingService
         self.friendService = friendService
+        _focusStatsReporter = State(
+            initialValue: FocusStatsReporter(friendService: friendService)
+        )
 
         let managedSettingsStore = ManagedSettingsStore()
         let screenTimeManager = ScreenTimeManager(store: managedSettingsStore)
@@ -113,6 +117,7 @@ struct PomoDuoApp: App {
                 }
                 .environment(onboardingManager)
                 .environment(appearanceManager)
+                .environment(focusStatsReporter)
                 .preferredColorScheme(appearanceManager.preferredColorScheme)
                 .task {
                     appDelegate.quickActionManager = quickActionManager

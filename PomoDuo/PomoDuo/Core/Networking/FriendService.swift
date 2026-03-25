@@ -34,4 +34,13 @@ protocol FriendService: Sendable {
 
     /// Searches for a user by exact username match.
     func searchByUsername(_ username: String) async throws -> UserSearchResult?
+
+    // MARK: - Leaderboard
+
+    /// Reports completed focus minutes to the user's Firestore profile
+    /// so friends can see aggregated stats on the leaderboard.
+    func reportFocusSession(minutes: Int) async throws
+
+    /// Fetches leaderboard entries for the current user and all friends.
+    func leaderboardEntries() async throws -> [LeaderboardEntry]
 }

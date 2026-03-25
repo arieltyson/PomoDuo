@@ -254,7 +254,7 @@ private struct ContentTabView: View {
                 value: .history
             ) {
                 NavigationStack {
-                    SessionHistoryView()
+                    SessionHistoryView(friendService: friendService)
                 }
             }
 

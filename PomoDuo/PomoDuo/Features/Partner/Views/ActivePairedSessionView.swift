@@ -16,6 +16,7 @@ struct ActivePairedSessionView: View {
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
     @Environment(HeartbeatManager.self) private var heartbeatManager
+    @Environment(FocusStatsReporter.self) private var focusStatsReporter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var haptic = HapticTrigger()
@@ -359,6 +360,7 @@ struct ActivePairedSessionView: View {
         )
 
         modelContext.insert(completedSession)
+        focusStatsReporter.report(focusMinutes: completedSession.focusMinutes)
         focusStartedAt = nil
         refreshWidgetData()
     }
@@ -383,6 +385,7 @@ struct ActivePairedSessionView: View {
         )
 
         modelContext.insert(completedSession)
+        focusStatsReporter.report(focusMinutes: completedSession.focusMinutes)
         focusStartedAt = nil
         refreshWidgetData()
     }

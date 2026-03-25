@@ -33,6 +33,11 @@ final class FirebaseFriendService: FriendService {
         static let members = "members"
         static let memberDisplayNames = "memberDisplayNames"
         static let memberUsernames = "memberUsernames"
+        static let weeklyFocusMinutes = "weeklyFocusMinutes"
+        static let totalFocusMinutes = "totalFocusMinutes"
+        static let currentStreak = "currentStreak"
+        static let weekStartDate = "weekStartDate"
+        static let lastSessionDate = "lastSessionDate"
     }
 
     private let database: Firestore
@@ -392,6 +397,168 @@ final class FirebaseFriendService: FriendService {
                 listener.remove()
             }
         }
+    }
+
+    // MARK: - Leaderboard
+
+    func reportFocusSession(minutes: Int) async throws {
+        let user = try requireCurrentUser()
+        let userRef = database.collection(Collections.users).document(user.uid)
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let weekStart = Self.mondayOfWeek(containing: today, calendar: calendar)
+
+        // Read current stats to decide whether the weekly counter needs resetting.
+        let snapshot = try await userRef.getDocument()
+        let data = snapshot.data() ?? [:]
+
+        let storedWeekStart = (data[Fields.weekStartDate] as? Timestamp)?.dateValue()
+        let storedLastSession = (data[Fields.lastSessionDate] as? Timestamp)?.dateValue()
+        let storedStreak = (data[Fields.currentStreak] as? Int) ?? 0
+
+        // Reset weekly minutes if the stored week is different from the current week.
+        let weeklyMinutes: Int
+        if let storedWeekStart, calendar.isDate(storedWeekStart, inSameDayAs: weekStart) {
+            weeklyMinutes = ((data[Fields.weeklyFocusMinutes] as? Int) ?? 0) + minutes
+        } else {
+            weeklyMinutes = minutes
+        }
+
+        // Streak: increment if this is a new day, maintain if same day, reset if gap > 1 day.
+        let newStreak: Int
+        if let storedLastSession {
+            let lastDay = calendar.startOfDay(for: storedLastSession)
+            if calendar.isDate(lastDay, inSameDayAs: today) {
+                newStreak = storedStreak
+            } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+                calendar.isDate(lastDay, inSameDayAs: yesterday)
+            {
+                newStreak = storedStreak + 1
+            } else {
+                newStreak = 1
+            }
+        } else {
+            newStreak = 1
+        }
+
+        try await userRef.setData([
+            Fields.weeklyFocusMinutes: weeklyMinutes,
+            Fields.totalFocusMinutes: FieldValue.increment(Int64(minutes)),
+            Fields.currentStreak: newStreak,
+            Fields.weekStartDate: Timestamp(date: weekStart),
+            Fields.lastSessionDate: Timestamp(date: today),
+            Fields.updatedAt: FieldValue.serverTimestamp(),
+        ], merge: true)
+    }
+
+    func leaderboardEntries() async throws -> [LeaderboardEntry] {
+        let user = try requireCurrentUser()
+        let currentUsername = try await currentUsername() ?? ""
+
+        // Fetch current user's stats.
+        let userDoc = try await database
+            .collection(Collections.users)
+            .document(user.uid)
+            .getDocument()
+
+        let userData = userDoc.data() ?? [:]
+        let calendar = Calendar.current
+        let weekStart = Self.mondayOfWeek(
+            containing: calendar.startOfDay(for: .now),
+            calendar: calendar
+        )
+
+        var entries = [
+            Self.makeLeaderboardEntry(
+                uid: user.uid,
+                data: userData,
+                weekStart: weekStart,
+                calendar: calendar,
+                fallbackDisplayName: Self.displayName(for: user),
+                fallbackUsername: currentUsername,
+                isCurrentUser: true
+            ),
+        ]
+
+        // Fetch all friends.
+        let friendships = try await database
+            .collection(Collections.friendships)
+            .whereField(Fields.members, arrayContains: user.uid)
+            .getDocuments()
+
+        let friendIDs = friendships.documents.compactMap { doc -> String? in
+            let members = doc.data()[Fields.members] as? [String]
+            return members?.first(where: { $0 != user.uid })
+        }
+
+        // Fetch each friend's stats. Batching in groups of 10 for efficiency.
+        for batch in stride(from: 0, to: friendIDs.count, by: 10) {
+            let batchIDs = Array(friendIDs[batch..<min(batch + 10, friendIDs.count)])
+
+            let friendDocs = try await database
+                .collection(Collections.users)
+                .whereField(FieldPath.documentID(), in: batchIDs)
+                .getDocuments()
+
+            for doc in friendDocs.documents {
+                let friendData = doc.data()
+                entries.append(
+                    Self.makeLeaderboardEntry(
+                        uid: doc.documentID,
+                        data: friendData,
+                        weekStart: weekStart,
+                        calendar: calendar,
+                        fallbackDisplayName: "Focus Friend",
+                        fallbackUsername: "",
+                        isCurrentUser: false
+                    )
+                )
+            }
+        }
+
+        return entries
+    }
+
+    private static func makeLeaderboardEntry(
+        uid: String,
+        data: [String: Any],
+        weekStart: Date,
+        calendar: Calendar,
+        fallbackDisplayName: String,
+        fallbackUsername: String,
+        isCurrentUser: Bool
+    ) -> LeaderboardEntry {
+        let storedWeekStart = (data[Fields.weekStartDate] as? Timestamp)?.dateValue()
+        let isCurrentWeek: Bool
+        if let storedWeekStart {
+            isCurrentWeek = calendar.isDate(storedWeekStart, inSameDayAs: weekStart)
+        } else {
+            isCurrentWeek = false
+        }
+
+        return LeaderboardEntry(
+            id: uid,
+            displayName: (data[Fields.displayName] as? String) ?? fallbackDisplayName,
+            username: (data[Fields.username] as? String) ?? fallbackUsername,
+            weeklyFocusMinutes: isCurrentWeek
+                ? ((data[Fields.weeklyFocusMinutes] as? Int) ?? 0)
+                : 0,
+            totalFocusMinutes: (data[Fields.totalFocusMinutes] as? Int) ?? 0,
+            currentStreak: (data[Fields.currentStreak] as? Int) ?? 0,
+            isCurrentUser: isCurrentUser
+        )
+    }
+
+    /// Returns Monday 00:00 of the week containing the given date.
+    private static func mondayOfWeek(
+        containing date: Date,
+        calendar: Calendar
+    ) -> Date {
+        var cal = calendar
+        cal.firstWeekday = 2  // Monday
+        let components = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        return cal.date(from: components) ?? date
     }
 
     // MARK: - Helpers
