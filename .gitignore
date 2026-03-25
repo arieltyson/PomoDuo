@@ -63,6 +63,12 @@ storage-debug.log
 # Cloud Functions (Node.js)
 # ===========================
 
+## Cloud Functions live in the dedicated pomoduo-backend repo.
+## Prevent accidental duplication in the iOS repo.
+functions/
+firebase.json
+.firebaserc
+
 **/functions/node_modules/
 **/functions/.env
 **/functions/.env.local
