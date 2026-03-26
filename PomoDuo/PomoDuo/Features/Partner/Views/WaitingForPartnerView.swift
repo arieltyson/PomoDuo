@@ -25,9 +25,8 @@ struct WaitingForPartnerView: View {
             Spacer()
             Spacer()
 
-            Button("Cancel", role: .cancel, action: onCancel)
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+            Button("Cancel", systemImage: "xmark.circle", role: .cancel, action: onCancel)
+                .buttonStyle(WaitingCancelButtonStyle())
                 .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

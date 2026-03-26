@@ -85,14 +85,13 @@ private struct IncomingRequestActions: View {
     let partnerName: String
 
     var body: some View {
-        VStack {
+        VStack(spacing: 12) {
             Button("Accept", systemImage: "checkmark.circle.fill") {
                 Task {
                     await viewModel.acceptIncomingSession()
                 }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(AppColors.lavender)
+            .buttonStyle(SessionActionButtonStyle(tint: AppColors.lavender))
             .accessibilityHint(
                 "Starts a focus session with \(partnerName)."
             )
@@ -107,10 +106,31 @@ private struct IncomingRequestActions: View {
                     await viewModel.declineIncomingSession()
                 }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(SessionActionButtonStyle(tint: AppColors.stopTint))
             .accessibilityHint("Declines the session request.")
             .accessibilityInputLabels(["Decline", "No", "Reject"])
         }
-        .controlSize(.large)
+    }
+}
+
+/// Glass-material capsule button for session actions.
+private struct SessionActionButtonStyle: ButtonStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body)
+            .fontWeight(.semibold)
+            .foregroundStyle(tint)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+            .background(.thinMaterial, in: .capsule)
+            .overlay {
+                Capsule()
+                    .stroke(tint.opacity(0.36), lineWidth: 1)
+            }
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }

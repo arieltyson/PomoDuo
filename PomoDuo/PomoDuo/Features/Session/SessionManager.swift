@@ -76,7 +76,7 @@ final class SessionManager {
             _ = try? await syncService?.createSession(currentSession)
             try? await notificationService?.sendSessionRequest(
                 to: partnerID,
-                from: userID
+                from: currentDisplayName ?? "Your partner"
             )
         }
     }
