@@ -147,9 +147,7 @@ private final class PairCodeActivityItemSource: NSObject, UIActivityItemSource {
         """
         Lock in with me on PomoDuo! Use code \(code.displayValue) to connect.
 
-        Already have PomoDuo? Tap here: \(pairDeepLink.absoluteString)
-
-        Don't have it yet? Download: \(appStoreURL.absoluteString)
+        \(appStoreURL.absoluteString)
         """
     }
 
@@ -164,8 +162,8 @@ private final class PairCodeActivityItemSource: NSObject, UIActivityItemSource {
         _ activityViewController: UIActivityViewController
     ) -> LPLinkMetadata? {
         let metadata = LPLinkMetadata()
-        metadata.originalURL = pairDeepLink
-        metadata.url = pairDeepLink
+        metadata.originalURL = appStoreURL
+        metadata.url = appStoreURL
         metadata.title = "Lock In With Me — Code: \(code.displayValue)"
         metadata.iconProvider = NSItemProvider(object: iconImage)
         return metadata
