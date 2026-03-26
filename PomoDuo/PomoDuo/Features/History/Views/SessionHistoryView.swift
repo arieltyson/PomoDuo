@@ -334,34 +334,36 @@ private struct StatsSection: View {
 
     var body: some View {
         Section {
-            HStack {
-                StatCard(
-                    title: "Total Focus",
-                    value: "\(viewModel.allTimeFocusMinutes)",
-                    unit: "min",
-                    systemImage: "brain.head.profile"
-                )
+            VStack(spacing: 10) {
+                HStack {
+                    StatCard(
+                        title: "Total Focus",
+                        value: "\(viewModel.allTimeFocusMinutes)",
+                        unit: "min",
+                        systemImage: "brain.head.profile"
+                    )
 
-                StatCard(
-                    title: "Sessions",
-                    value: "\(viewModel.allTimeSessionCount)",
-                    unit: "rounds",
-                    systemImage: "checkmark.circle"
-                )
+                    StatCard(
+                        title: "Sessions",
+                        value: "\(viewModel.allTimeSessionCount)",
+                        unit: "rounds",
+                        systemImage: "checkmark.circle"
+                    )
 
-                StatCard(
-                    title: "Streak",
-                    value: "\(viewModel.currentStreak)",
-                    unit: viewModel.currentStreak == 1 ? "day" : "days",
-                    systemImage: "flame.fill"
-                )
+                    StatCard(
+                        title: "Streak",
+                        value: "\(viewModel.currentStreak)",
+                        unit: viewModel.currentStreak == 1 ? "day" : "days",
+                        systemImage: "flame.fill"
+                    )
+                }
+
+                if viewModel.pairedSessionCount > 0 {
+                    PairedStatsRow(viewModel: viewModel)
+                }
             }
             .listRowInsets(.init())
             .listRowBackground(Color.clear)
-
-            if viewModel.pairedSessionCount > 0 {
-                PairedStatsRow(viewModel: viewModel)
-            }
         }
     }
 }
@@ -371,30 +373,48 @@ private struct PairedStatsRow: View {
     let viewModel: SessionHistoryViewModel
 
     var body: some View {
-        HStack {
-            Label {
-                Text("\(viewModel.soloFocusMinutes) min solo")
-                    .font(.caption)
-            } icon: {
-                Image(systemName: "person.fill")
-                    .foregroundStyle(AppColors.lavender)
-            }
+        HStack(spacing: 12) {
+            ContributionPill(
+                minutes: viewModel.soloFocusMinutes,
+                label: "solo",
+                systemImage: "person.fill",
+                tint: AppColors.lavender
+            )
 
-            Spacer()
-
-            Label {
-                Text("\(viewModel.pairedFocusMinutes) min paired")
-                    .font(.caption)
-            } icon: {
-                Image(systemName: "person.2.fill")
-                    .foregroundStyle(AppColors.lilac)
-            }
+            ContributionPill(
+                minutes: viewModel.pairedFocusMinutes,
+                label: "paired",
+                systemImage: "person.2.fill",
+                tint: AppColors.lilac
+            )
         }
-        .foregroundStyle(.secondary)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(viewModel.soloFocusMinutes) minutes solo, \(viewModel.pairedFocusMinutes) minutes paired"
         )
+    }
+}
+
+private struct ContributionPill: View {
+    let minutes: Int
+    let label: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.caption2)
+                .foregroundStyle(tint)
+
+            Text("\(minutes) min \(label)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(tint.opacity(0.2), in: .capsule)
     }
 }
 
