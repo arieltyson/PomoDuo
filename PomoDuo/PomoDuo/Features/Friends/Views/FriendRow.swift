@@ -6,7 +6,7 @@ struct FriendRow: View {
     let onStartSession: () -> Void
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             FriendInitialAvatar(name: friend.displayName)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -21,20 +21,39 @@ struct FriendRow: View {
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
             Button {
                 onStartSession()
             } label: {
-                Label("Study", systemImage: "play.fill")
-                    .font(.caption)
+                Label("Study", systemImage: "book.fill")
+                    .font(.subheadline)
                     .fontWeight(.semibold)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(AppColors.lavender)
-            .controlSize(.small)
+            .buttonStyle(StudyButtonStyle())
             .accessibilityLabel("Start study session with \(friend.displayName)")
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Branded capsule button with a lavender gradient fill.
+private struct StudyButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                LinearGradient(
+                    colors: [AppColors.lavender, AppColors.lilac],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ),
+                in: .capsule
+            )
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
