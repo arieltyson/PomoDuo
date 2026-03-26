@@ -40,7 +40,7 @@ struct FriendsListView: View {
                     onEnterCode: onEnterCode
                 )
 
-                ShareInviteSection()
+                ShareInviteSection(senderName: viewModel.currentDisplayName)
             }
             .scrollContentBackground(.hidden)
             .scrollIndicators(.hidden)
@@ -278,17 +278,40 @@ private struct QuickPairSection: View {
 }
 
 private struct ShareInviteSection: View {
+    let senderName: String
+
     var body: some View {
         Section {
             ShareLink(
                 item: appStoreURL,
-                message: Text("Let's study together on PomoDuo!")
+                subject: Text(shareSubject),
+                message: Text(shareMessage),
+                preview: SharePreview(
+                    shareSubject,
+                    image: Image(systemName: "timer.circle.fill")
+                )
             ) {
                 Label("Invite Friends to PomoDuo", systemImage: "square.and.arrow.up")
                     .foregroundStyle(AppColors.lavender)
             }
         } footer: {
             Text("Share PomoDuo with friends who haven't downloaded it yet.")
+        }
+    }
+
+    private var shareSubject: String {
+        if senderName.isEmpty {
+            "Let's lock in together on PomoDuo"
+        } else {
+            "\(senderName) wants to lock in with you"
+        }
+    }
+
+    private var shareMessage: String {
+        if senderName.isEmpty {
+            "Join me on PomoDuo and let's crush our study goals together! 📚🔥"
+        } else {
+            "\(senderName) wants to lock in with you on PomoDuo — a study timer built for accountability. Download it and let's crush our goals together! 📚🔥"
         }
     }
 

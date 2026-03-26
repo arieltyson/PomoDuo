@@ -83,7 +83,9 @@ struct PartnerView: View {
         .task(id: authManager.isSignedIn) {
             if authManager.isSignedIn {
                 await pairingViewModel.checkExistingPairing()
-                friendsViewModel.startObserving()
+                friendsViewModel.startObserving(
+                    displayName: authManager.currentUser?.displayName ?? ""
+                )
             } else {
                 isShowingCodeSheet = false
                 pairingViewModel.resetForSignedOut()

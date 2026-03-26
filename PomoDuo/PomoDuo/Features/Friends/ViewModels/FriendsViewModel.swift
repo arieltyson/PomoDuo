@@ -40,6 +40,9 @@ final class FriendsViewModel {
         currentUsername == nil
     }
 
+    /// Display name of the current user, for personalizing invites.
+    private(set) var currentDisplayName = ""
+
     // MARK: - Username Setup
 
     /// Username input for the setup flow.
@@ -68,7 +71,9 @@ final class FriendsViewModel {
 
     // MARK: - Lifecycle
 
-    func startObserving() {
+    func startObserving(displayName: String = "") {
+        currentDisplayName = displayName
+
         friendsTask?.cancel()
         friendsTask = Task { [weak self] in
             guard let self else { return }
