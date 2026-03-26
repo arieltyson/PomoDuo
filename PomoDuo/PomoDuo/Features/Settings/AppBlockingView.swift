@@ -24,7 +24,10 @@ struct AppBlockingView: View {
                 .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.35), value: screenTimeManager.isAuthorized)
+        .animation(
+            .easeInOut(duration: 0.35),
+            value: screenTimeManager.isAuthorized
+        )
         .navigationTitle("App Blocking")
         .familyActivityPicker(
             isPresented: $isPickerPresented,
@@ -151,7 +154,7 @@ private struct UnauthorizedAppBlockingContent: View {
         switch screenTimeManager.authorizationStatus {
         case .denied:
             .denied
-        case .notDetermined, .approved, .withdrawn:
+        case .notDetermined, .approved, .approvedWithDataAccess:
             .notDetermined
         @unknown default:
             .notDetermined
