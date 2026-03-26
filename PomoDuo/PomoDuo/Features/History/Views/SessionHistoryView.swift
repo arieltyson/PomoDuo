@@ -290,6 +290,9 @@ private struct SkeletonSessionRow: View {
 private struct SessionHistoryListView: View {
     let displaySessions: [CompletedSession]
     @Bindable var viewModel: SessionHistoryViewModel
+    @State private var visibleCount = 10
+
+    private static let pageSize = 10
 
     var body: some View {
         List {
@@ -318,11 +321,34 @@ private struct SessionHistoryListView: View {
                 }
             } else {
                 Section("Recent Sessions") {
-                    ForEach(displaySessions.prefix(50)) { session in
+                    ForEach(displaySessions.prefix(visibleCount)) { session in
                         SessionRowView(session: session)
+                    }
+
+                    if visibleCount < displaySessions.count {
+                        Button {
+                            withAnimation {
+                                visibleCount = min(
+                                    visibleCount + Self.pageSize,
+                                    displaySessions.count
+                                )
+                            }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Text("Show More")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(AppColors.lavender)
+                                Spacer()
+                            }
+                        }
                     }
                 }
             }
+        }
+        .onChange(of: viewModel.activeFilter) { _, _ in
+            visibleCount = Self.pageSize
         }
     }
 }
