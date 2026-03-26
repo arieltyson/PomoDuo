@@ -288,7 +288,7 @@ private struct ShareInviteSection: View {
                 message: Text(shareMessage),
                 preview: SharePreview(
                     shareSubject,
-                    image: Image(systemName: "timer.circle.fill")
+                    image: sharePreviewIcon
                 )
             ) {
                 Label("Invite Friends to PomoDuo", systemImage: "square.and.arrow.up")
@@ -301,9 +301,9 @@ private struct ShareInviteSection: View {
 
     private var shareSubject: String {
         if senderName.isEmpty {
-            "Let's lock in together on PomoDuo"
+            "Lock In Together on PomoDuo"
         } else {
-            "\(senderName) wants to lock in with you"
+            "\(senderName) — Lock In on PomoDuo"
         }
     }
 
@@ -315,9 +315,41 @@ private struct ShareInviteSection: View {
         }
     }
 
+    @MainActor
+    private var sharePreviewIcon: Image {
+        let renderer = ImageRenderer(content: SharePreviewIconView())
+        renderer.scale = 3
+        if let uiImage = renderer.uiImage {
+            return Image(uiImage: uiImage)
+        }
+        return Image(systemName: "timer.circle.fill")
+    }
+
     private var appStoreURL: URL {
         URL(string: "https://apps.apple.com/app/pomoduo-study-together/id6744396498")
             ?? URL(string: "https://apple.com")!
+    }
+}
+
+// MARK: - Share Preview Icon
+
+private struct SharePreviewIconView: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 22)
+                .fill(
+                    LinearGradient(
+                        colors: [AppColors.lavender, AppColors.lilac],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 120, height: 120)
+
+            Image(systemName: "person.2.fill")
+                .font(.system(size: 48, weight: .semibold))
+                .foregroundStyle(.white)
+        }
     }
 }
 
