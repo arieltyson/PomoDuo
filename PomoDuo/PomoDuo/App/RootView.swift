@@ -24,6 +24,7 @@ struct RootView: View {
     @State private var launchPhase = LaunchPhase.branded
     @State private var feedbackCategory: FeedbackCategory?
     @State private var pendingFriendRequestID: String?
+    @State private var pendingPairCode: String?
     private let pairingService: any PairingService
     private let friendService: any FriendService
 
@@ -49,6 +50,7 @@ struct RootView: View {
                         selectedTab: $selectedTab,
                         isShowingOnboarding: $isShowingOnboarding,
                         pendingFriendRequestID: $pendingFriendRequestID,
+                        pendingPairCode: $pendingPairCode,
                         pairingService: pairingService,
                         friendService: friendService
                     )
@@ -148,6 +150,13 @@ struct RootView: View {
                 if let requestID, !requestID.isEmpty {
                     pendingFriendRequestID = requestID
                 }
+            case "pair":
+                selectedTab = .partner
+                // Extract code from path: pomoduo://pair/{code}
+                let code = url.pathComponents.dropFirst().first
+                if let code, !code.isEmpty {
+                    pendingPairCode = code.uppercased()
+                }
             default:
                 break
             }
@@ -217,6 +226,7 @@ private struct ContentTabView: View {
     @Binding var selectedTab: AppTab
     @Binding var isShowingOnboarding: Bool
     @Binding var pendingFriendRequestID: String?
+    @Binding var pendingPairCode: String?
     @Environment(OnboardingManager.self) private var onboardingManager
 
     let pairingService: any PairingService
@@ -243,7 +253,8 @@ private struct ContentTabView: View {
                     PartnerView(
                         pairingService: pairingService,
                         friendService: friendService,
-                        pendingFriendRequestID: $pendingFriendRequestID
+                        pendingFriendRequestID: $pendingFriendRequestID,
+                        pendingPairCode: $pendingPairCode
                     )
                 }
             }

@@ -1,3 +1,4 @@
+import LinkPresentation
 import SwiftUI
 
 /// Screen displayed while waiting for a partner to join a generated code.
@@ -55,6 +56,7 @@ private struct WaitingHeader: View {
 
 private struct PairingCodeCard: View {
     let code: PairCode
+    @State private var isShowingShareSheet = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -63,9 +65,17 @@ private struct PairingCodeCard: View {
                 .bold()
                 .foregroundStyle(AppColors.lavender)
 
-            ShareLink("Share Code", item: code.value)
-                .font(.subheadline)
-                .tint(AppColors.lilac)
+            Button {
+                isShowingShareSheet = true
+            } label: {
+                Label("Share Code", systemImage: "square.and.arrow.up")
+                    .font(.subheadline)
+            }
+            .tint(AppColors.lilac)
+            .sheet(isPresented: $isShowingShareSheet) {
+                PairCodeShareSheet(code: code)
+                    .presentationDetents([.medium, .large])
+            }
         }
         .padding(.horizontal, 32)
         .padding(.vertical, 24)
@@ -75,5 +85,99 @@ private struct PairingCodeCard: View {
         .accessibilityLabel(
             "Pairing code \(code.value.map(String.init).joined(separator: " "))"
         )
+    }
+}
+
+// MARK: - Rich Pair Code Share
+
+private struct PairCodeShareSheet: UIViewControllerRepresentable {
+    let code: PairCode
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let itemSource = PairCodeActivityItemSource(
+            code: code,
+            iconImage: renderShareIcon()
+        )
+        return UIActivityViewController(
+            activityItems: [itemSource],
+            applicationActivities: nil
+        )
+    }
+
+    func updateUIViewController(
+        _ uiViewController: UIActivityViewController,
+        context: Context
+    ) {}
+
+    @MainActor
+    private func renderShareIcon() -> UIImage {
+        let renderer = ImageRenderer(content: PairCodeShareIconView())
+        renderer.scale = 3
+        return renderer.uiImage ?? UIImage(systemName: "link.badge.plus")!
+    }
+}
+
+private final class PairCodeActivityItemSource: NSObject, UIActivityItemSource {
+    let code: PairCode
+    let iconImage: UIImage
+
+    private var deepLinkURL: URL {
+        URL(string: "https://apps.apple.com/app/pomo-duo/id6759349583")!
+    }
+
+    init(code: PairCode, iconImage: UIImage) {
+        self.code = code
+        self.iconImage = iconImage
+    }
+
+    func activityViewControllerPlaceholderItem(
+        _ activityViewController: UIActivityViewController
+    ) -> Any {
+        deepLinkURL
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        "Lock in with me on PomoDuo! Use code \(code.displayValue) to connect. \(deepLinkURL.absoluteString)"
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        subjectForActivityType activityType: UIActivity.ActivityType?
+    ) -> String {
+        "Lock In With Me on PomoDuo"
+    }
+
+    func activityViewControllerLinkMetadata(
+        _ activityViewController: UIActivityViewController
+    ) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.originalURL = deepLinkURL
+        metadata.url = deepLinkURL
+        metadata.title = "Lock In With Me — Code: \(code.displayValue)"
+        metadata.iconProvider = NSItemProvider(object: iconImage)
+        return metadata
+    }
+}
+
+private struct PairCodeShareIconView: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 22)
+                .fill(
+                    LinearGradient(
+                        colors: [AppColors.lavender, AppColors.lilac],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 120, height: 120)
+
+            Image(systemName: "link.badge.plus")
+                .font(.system(size: 48, weight: .semibold))
+                .foregroundStyle(.white)
+        }
     }
 }

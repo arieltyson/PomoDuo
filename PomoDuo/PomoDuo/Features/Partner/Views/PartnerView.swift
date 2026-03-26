@@ -17,6 +17,7 @@ struct PartnerView: View {
     @State private var isShowingCodeSheet = false
     @State private var isShowingUsernameSetup = false
     @Binding var pendingFriendRequestID: String?
+    @Binding var pendingPairCode: String?
 
     /// The partner profile used for the active session. Built from
     /// whichever source (friend or legacy pairing) initiated the session.
@@ -25,7 +26,8 @@ struct PartnerView: View {
     init(
         pairingService: any PairingService = MockPairingService(),
         friendService: any FriendService,
-        pendingFriendRequestID: Binding<String?>
+        pendingFriendRequestID: Binding<String?>,
+        pendingPairCode: Binding<String?>
     ) {
         _pairingViewModel = State(
             initialValue: PairingViewModel(pairingService: pairingService)
@@ -34,6 +36,7 @@ struct PartnerView: View {
             initialValue: FriendsViewModel(friendService: friendService)
         )
         _pendingFriendRequestID = pendingFriendRequestID
+        _pendingPairCode = pendingPairCode
     }
 
     var body: some View {
@@ -59,6 +62,13 @@ struct PartnerView: View {
         .navigationTitle("Partner")
         .sheet(isPresented: $isShowingCodeSheet) {
             CodeEntrySheet(viewModel: pairingViewModel)
+        }
+        .onChange(of: pendingPairCode) { _, code in
+            if let code, !code.isEmpty {
+                pairingViewModel.codeInput = code
+                isShowingCodeSheet = true
+                pendingPairCode = nil
+            }
         }
         .sheet(isPresented: $isShowingUsernameSetup) {
             NavigationStack {
