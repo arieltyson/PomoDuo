@@ -5,7 +5,7 @@
 ## App Store  : https://apps.apple.com/ca/app/pomo-duo/id6759349583
 
 <kbd>
-    <img src="https://github.com/user-attachments/assets/e94e341a-ea7d-402f-89f1-60b77ba6abe1" width="800" height="500">
+    <img src="https://github.com/user-attachments/assets/c53cb9ce-903b-43c7-944c-b88e451d628d" width="800" height="500">
 </kbd>
 
 ## Project Description 🎨
@@ -49,7 +49,7 @@ The app combines Apple's Screen Time API stack (`FamilyControls`, `ManagedSettin
 
 <div style="display: flex; justify-content: center; align-items: center;">
     <kbd>
-        <img src="https://github.com/user-attachments/assets/fb0db5ff-5407-4b2f-a89a-fb50052b9403" alt="Dashboard" width="200">
+        <img src="https://github.com/user-attachments/assets/5528b29c-79c0-4d20-b214-b143e51161d5" alt="Solo-Focus" width="200">
     </kbd>
     <kbd>
         <img src="https://github.com/user-attachments/assets/7e0c9d67-fa4f-44ad-8a3a-31bc8c48b741" alt="Pairing Flow" width="200">
@@ -61,13 +61,13 @@ The app combines Apple's Screen Time API stack (`FamilyControls`, `ManagedSettin
 
 <div style="display: flex; justify-content: center; align-items: center;">
     <kbd>
-        <img src="https://github.com/user-attachments/assets/8eef357b-ee5c-4368-b435-874475d99d2c" alt="App Selection" width="200">
-    </kbd>
+        <img src="https://github.com/user-attachments/assets/f61d0ac4-accd-469f-953b-fa7644624e4d" alt="History" width="200">
+    </kbd>    
     <kbd>
         <img src="https://github.com/user-attachments/assets/ba0c6124-2d94-413c-9759-d0ed2fa47509" alt="Live Activity" width="200">
     </kbd>
     <kbd>
-        <img src="https://github.com/user-attachments/assets/4d45b4bb-f794-4189-882c-159522325e1b" alt="History View" width="200">
+        <img src="https://github.com/user-attachments/assets/eaa35544-3288-43bd-8690-87ba2ac28e41" alt="Leaderboard" width="200">
     </kbd>
 </div>
 
