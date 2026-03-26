@@ -1,3 +1,4 @@
+import LinkPresentation
 import SwiftUI
 
 /// Main friends list displayed in the Partner tab when no session is active.
@@ -279,59 +280,118 @@ private struct QuickPairSection: View {
 
 private struct ShareInviteSection: View {
     let senderName: String
+    @State private var isShowingShareSheet = false
 
     var body: some View {
         Section {
-            ShareLink(
-                item: appStoreURL,
-                subject: Text(shareSubject),
-                message: Text(shareMessage),
-                preview: SharePreview(
-                    shareSubject,
-                    image: sharePreviewIcon
-                )
-            ) {
+            Button {
+                isShowingShareSheet = true
+            } label: {
                 Label("Invite Friends to PomoDuo", systemImage: "square.and.arrow.up")
                     .foregroundStyle(AppColors.lavender)
+            }
+            .sheet(isPresented: $isShowingShareSheet) {
+                RichShareSheet(
+                    senderName: senderName,
+                    appStoreURL: appStoreURL
+                )
+                .presentationDetents([.medium, .large])
             }
         } footer: {
             Text("Share PomoDuo with friends who haven't downloaded it yet.")
         }
     }
 
-    private var shareSubject: String {
-        if senderName.isEmpty {
-            "Lock In Together on PomoDuo"
-        } else {
-            "\(senderName) — Lock In on PomoDuo"
-        }
-    }
-
-    private var shareMessage: String {
-        if senderName.isEmpty {
-            "Join me on PomoDuo and let's crush our study goals together! 📚🔥"
-        } else {
-            "\(senderName) wants to lock in with you on PomoDuo — a study timer built for accountability. Download it and let's crush our goals together! 📚🔥"
-        }
-    }
-
-    @MainActor
-    private var sharePreviewIcon: Image {
-        let renderer = ImageRenderer(content: SharePreviewIconView())
-        renderer.scale = 3
-        if let uiImage = renderer.uiImage {
-            return Image(uiImage: uiImage)
-        }
-        return Image(systemName: "timer.circle.fill")
-    }
-
     private var appStoreURL: URL {
-        URL(string: "https://apps.apple.com/app/pomoduo-study-together/id6744396498")
+        URL(string: "https://apps.apple.com/app/pomo-duo/id6759349583")
             ?? URL(string: "https://apple.com")!
     }
 }
 
-// MARK: - Share Preview Icon
+// MARK: - Rich Share Sheet
+
+private struct RichShareSheet: UIViewControllerRepresentable {
+    let senderName: String
+    let appStoreURL: URL
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let itemSource = InviteActivityItemSource(
+            senderName: senderName,
+            appStoreURL: appStoreURL,
+            iconImage: renderShareIcon()
+        )
+        let controller = UIActivityViewController(
+            activityItems: [itemSource],
+            applicationActivities: nil
+        )
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+
+    @MainActor
+    private func renderShareIcon() -> UIImage {
+        let renderer = ImageRenderer(content: SharePreviewIconView())
+        renderer.scale = 3
+        return renderer.uiImage ?? UIImage(systemName: "person.2.fill")!
+    }
+}
+
+private final class InviteActivityItemSource: NSObject, UIActivityItemSource {
+    let senderName: String
+    let appStoreURL: URL
+    let iconImage: UIImage
+
+    init(senderName: String, appStoreURL: URL, iconImage: UIImage) {
+        self.senderName = senderName
+        self.appStoreURL = appStoreURL
+        self.iconImage = iconImage
+    }
+
+    func activityViewControllerPlaceholderItem(
+        _ activityViewController: UIActivityViewController
+    ) -> Any {
+        appStoreURL
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        let message = if senderName.isEmpty {
+            "Join me on PomoDuo and let's crush our study goals together! 📚🔥\n\(appStoreURL.absoluteString)"
+        } else {
+            "\(senderName) wants to lock in with you on PomoDuo — a study timer built for accountability. Download it and let's crush our goals together! 📚🔥\n\(appStoreURL.absoluteString)"
+        }
+        return message
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        subjectForActivityType activityType: UIActivity.ActivityType?
+    ) -> String {
+        if senderName.isEmpty {
+            "Lock In With Me on PomoDuo"
+        } else {
+            "Lock In With Me on PomoDuo"
+        }
+    }
+
+    func activityViewControllerLinkMetadata(
+        _ activityViewController: UIActivityViewController
+    ) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.originalURL = appStoreURL
+        metadata.url = appStoreURL
+        metadata.title = if senderName.isEmpty {
+            "Lock In With Me on PomoDuo"
+        } else {
+            "Lock In With Me on PomoDuo"
+        }
+        metadata.iconProvider = NSItemProvider(object: iconImage)
+        return metadata
+    }
+}
 
 private struct SharePreviewIconView: View {
     var body: some View {
