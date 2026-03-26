@@ -151,7 +151,7 @@ private struct UnauthorizedAppBlockingContent: View {
         switch screenTimeManager.authorizationStatus {
         case .denied:
             .denied
-        case .notDetermined, .approved:
+        case .notDetermined, .approved, .withdrawn:
             .notDetermined
         @unknown default:
             .notDetermined
