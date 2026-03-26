@@ -1000,7 +1000,16 @@ private struct PairedSessionControls: View {
                     .controlSize(.large)
 
                 case .focus where session.isPaused:
-                    VStack(spacing: 10) {
+                    HStack(spacing: 12) {
+                        Button("End Session", systemImage: "stop.fill") {
+                            isShowingEndConfirmation = true
+                        }
+                        .buttonStyle(
+                            PairedControlButtonStyle(tint: AppColors.stopTint)
+                        )
+                        .accessibilityHint("Ends the session for both partners.")
+                        .accessibilityInputLabels(["End Session", "End", "Stop"])
+
                         Button("Resume", systemImage: "play.fill") {
                             Task {
                                 await viewModel.resumeSession()
@@ -1009,18 +1018,8 @@ private struct PairedSessionControls: View {
                         .buttonStyle(.borderedProminent)
                         .tint(AppColors.lavender)
                         .controlSize(.large)
+                        .accessibilityHint("Continues the paused timer.")
                         .accessibilityInputLabels(["Resume", "Play", "Continue"])
-
-                        Button(
-                            "End Session",
-                            systemImage: "stop.fill",
-                            role: .destructive
-                        ) {
-                            isShowingEndConfirmation = true
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.regular)
-                        .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
                     .transition(
                         reduceMotion
@@ -1040,7 +1039,7 @@ private struct PairedSessionControls: View {
                                 }
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(.teal)
+                            .tint(AppColors.success)
                             .controlSize(.large)
                             .accessibilityInputLabels([
                                 "Continue to Break",
@@ -1054,33 +1053,34 @@ private struct PairedSessionControls: View {
                                         await viewModel.pauseSession()
                                     }
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.borderedProminent)
+                                .tint(AppColors.pauseTint)
+                                .controlSize(.large)
+                                .accessibilityHint("Pauses the timer for both partners.")
 
                                 Button("Skip to Break", systemImage: "forward.fill") {
                                     Task {
                                         await viewModel.beginBreak()
                                     }
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.teal)
+                                .buttonStyle(
+                                    PairedControlButtonStyle(tint: AppColors.lavender)
+                                )
                                 .accessibilityInputLabels([
                                     "Skip to Break",
                                     "Skip",
                                     "Break",
                                 ])
                             }
-                            .controlSize(.large)
                         }
 
-                        Button(
-                            "End Session",
-                            systemImage: "stop.fill",
-                            role: .destructive
-                        ) {
+                        Button("End Session", systemImage: "stop.fill") {
                             isShowingEndConfirmation = true
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.regular)
+                        .buttonStyle(
+                            PairedControlButtonStyle(tint: AppColors.stopTint)
+                        )
+                        .accessibilityHint("Ends the session for both partners.")
                         .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
                     .transition(
@@ -1112,15 +1112,13 @@ private struct PairedSessionControls: View {
                             "Continue",
                         ])
 
-                        Button(
-                            "End Session",
-                            systemImage: "stop.fill",
-                            role: .destructive
-                        ) {
+                        Button("End Session", systemImage: "stop.fill") {
                             isShowingEndConfirmation = true
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.regular)
+                        .buttonStyle(
+                            PairedControlButtonStyle(tint: AppColors.stopTint)
+                        )
+                        .accessibilityHint("Ends the session for both partners.")
                         .accessibilityInputLabels(["End Session", "End", "Stop"])
                     }
 
@@ -1131,7 +1129,7 @@ private struct PairedSessionControls: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(AppColors.lavender)
+                    .tint(AppColors.success)
                     .controlSize(.large)
                     .transition(
                         reduceMotion
@@ -1152,6 +1150,26 @@ private struct PairedSessionControls: View {
                 value: session.isPaused
             )
         }
+    }
+}
+
+/// Glass-material button style matching the solo session's ``SecondaryControlButtonStyle``.
+private struct PairedControlButtonStyle: ButtonStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(tint)
+            .padding(.horizontal)
+            .padding(.vertical)
+            .background(.thinMaterial, in: .capsule)
+            .overlay {
+                Capsule()
+                    .stroke(tint.opacity(0.36), lineWidth: 1)
+            }
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
