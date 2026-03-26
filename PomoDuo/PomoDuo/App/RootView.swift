@@ -98,6 +98,7 @@ struct RootView: View {
         .task(id: authManager.currentUserID) {
             let userID = authManager.currentUserID
             sessionManager.setCurrentUserID(userID)
+            sessionManager.currentDisplayName = authManager.currentUser?.displayName
 
             if let userID {
                 sessionObserver.startObserving(userID: userID)

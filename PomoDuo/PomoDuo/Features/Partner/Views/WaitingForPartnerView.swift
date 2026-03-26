@@ -121,7 +121,11 @@ private final class PairCodeActivityItemSource: NSObject, UIActivityItemSource {
     let code: PairCode
     let iconImage: UIImage
 
-    private var deepLinkURL: URL {
+    private var pairDeepLink: URL {
+        URL(string: "pomoduo://pair/\(code.value)")!
+    }
+
+    private var appStoreURL: URL {
         URL(string: "https://apps.apple.com/app/pomo-duo/id6759349583")!
     }
 
@@ -133,14 +137,20 @@ private final class PairCodeActivityItemSource: NSObject, UIActivityItemSource {
     func activityViewControllerPlaceholderItem(
         _ activityViewController: UIActivityViewController
     ) -> Any {
-        deepLinkURL
+        ""
     }
 
     func activityViewController(
         _ activityViewController: UIActivityViewController,
         itemForActivityType activityType: UIActivity.ActivityType?
     ) -> Any? {
-        "Lock in with me on PomoDuo! Use code \(code.displayValue) to connect. \(deepLinkURL.absoluteString)"
+        """
+        Lock in with me on PomoDuo! Use code \(code.displayValue) to connect.
+
+        Already have PomoDuo? Tap here: \(pairDeepLink.absoluteString)
+
+        Don't have it yet? Download: \(appStoreURL.absoluteString)
+        """
     }
 
     func activityViewController(
@@ -154,8 +164,8 @@ private final class PairCodeActivityItemSource: NSObject, UIActivityItemSource {
         _ activityViewController: UIActivityViewController
     ) -> LPLinkMetadata? {
         let metadata = LPLinkMetadata()
-        metadata.originalURL = deepLinkURL
-        metadata.url = deepLinkURL
+        metadata.originalURL = pairDeepLink
+        metadata.url = pairDeepLink
         metadata.title = "Lock In With Me — Code: \(code.displayValue)"
         metadata.iconProvider = NSItemProvider(object: iconImage)
         return metadata

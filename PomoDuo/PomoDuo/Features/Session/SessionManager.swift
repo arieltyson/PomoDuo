@@ -18,6 +18,9 @@ final class SessionManager {
     /// The current user's ID (set after authentication).
     var currentUserID: String?
 
+    /// The current user's display name for notifications.
+    var currentDisplayName: String?
+
     // MARK: - Dependencies
 
     private let syncService: (any SessionSyncService)?
@@ -117,9 +120,10 @@ final class SessionManager {
         await syncAndEnforce()
 
         if let partnerID = session.partnerID(for: userID) {
+            let name = currentDisplayName ?? "Your partner"
             try? await notificationService?.sendPauseNotification(
                 to: partnerID,
-                pausedBy: userID
+                pausedBy: name
             )
         }
     }
@@ -157,7 +161,7 @@ final class SessionManager {
     func completeSession() async {
         guard let session = currentSession else { return }
         let partnerID = currentUserID.flatMap { session.partnerID(for: $0) }
-        let userName = currentUserID ?? "Your partner"
+        let userName = currentDisplayName ?? "Your partner"
         applyEvent(.completed, to: session)
         await syncAndEnforce()
 
