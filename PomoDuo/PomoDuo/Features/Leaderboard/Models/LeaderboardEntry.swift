@@ -5,6 +5,7 @@ struct LeaderboardEntry: Identifiable, Sendable, Equatable {
     let id: String
     let displayName: String
     let username: String
+    let dailyFocusMinutes: Int
     let weeklyFocusMinutes: Int
     let totalFocusMinutes: Int
     let currentStreak: Int

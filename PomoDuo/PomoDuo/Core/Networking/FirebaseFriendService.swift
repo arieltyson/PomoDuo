@@ -33,6 +33,7 @@ final class FirebaseFriendService: FriendService {
         static let members = "members"
         static let memberDisplayNames = "memberDisplayNames"
         static let memberUsernames = "memberUsernames"
+        static let dailyFocusMinutes = "dailyFocusMinutes"
         static let weeklyFocusMinutes = "weeklyFocusMinutes"
         static let totalFocusMinutes = "totalFocusMinutes"
         static let currentStreak = "currentStreak"
@@ -417,6 +418,14 @@ final class FirebaseFriendService: FriendService {
         let storedLastSession = (data[Fields.lastSessionDate] as? Timestamp)?.dateValue()
         let storedStreak = (data[Fields.currentStreak] as? Int) ?? 0
 
+        // Reset daily minutes if the stored session date is a different day.
+        let dailyMinutes: Int
+        if let storedLastSession, calendar.isDate(storedLastSession, inSameDayAs: today) {
+            dailyMinutes = ((data[Fields.dailyFocusMinutes] as? Int) ?? 0) + minutes
+        } else {
+            dailyMinutes = minutes
+        }
+
         // Reset weekly minutes if the stored week is different from the current week.
         let weeklyMinutes: Int
         if let storedWeekStart, calendar.isDate(storedWeekStart, inSameDayAs: weekStart) {
@@ -443,6 +452,7 @@ final class FirebaseFriendService: FriendService {
         }
 
         try await userRef.setData([
+            Fields.dailyFocusMinutes: dailyMinutes,
             Fields.weeklyFocusMinutes: weeklyMinutes,
             Fields.totalFocusMinutes: FieldValue.increment(Int64(minutes)),
             Fields.currentStreak: newStreak,
@@ -530,6 +540,8 @@ final class FirebaseFriendService: FriendService {
         isCurrentUser: Bool
     ) -> LeaderboardEntry {
         let storedWeekStart = (data[Fields.weekStartDate] as? Timestamp)?.dateValue()
+        let storedLastSession = (data[Fields.lastSessionDate] as? Timestamp)?.dateValue()
+
         let isCurrentWeek: Bool
         if let storedWeekStart {
             isCurrentWeek = calendar.isDate(storedWeekStart, inSameDayAs: weekStart)
@@ -537,10 +549,20 @@ final class FirebaseFriendService: FriendService {
             isCurrentWeek = false
         }
 
+        let isToday: Bool
+        if let storedLastSession {
+            isToday = calendar.isDateInToday(storedLastSession)
+        } else {
+            isToday = false
+        }
+
         return LeaderboardEntry(
             id: uid,
             displayName: (data[Fields.displayName] as? String) ?? fallbackDisplayName,
             username: (data[Fields.username] as? String) ?? fallbackUsername,
+            dailyFocusMinutes: isToday
+                ? ((data[Fields.dailyFocusMinutes] as? Int) ?? 0)
+                : 0,
             weeklyFocusMinutes: isCurrentWeek
                 ? ((data[Fields.weeklyFocusMinutes] as? Int) ?? 0)
                 : 0,

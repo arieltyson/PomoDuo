@@ -12,7 +12,7 @@ final class LeaderboardViewModel {
     )
 
     /// Active time period for ranking.
-    var period = LeaderboardPeriod.thisWeek
+    var period = LeaderboardPeriod.today
 
     /// Ranked leaderboard entries.
     private(set) var entries: [LeaderboardEntry] = []
@@ -63,6 +63,8 @@ final class LeaderboardViewModel {
 
     private func sortValue(for entry: LeaderboardEntry) -> Int {
         switch period {
+        case .today:
+            entry.dailyFocusMinutes
         case .thisWeek:
             entry.weeklyFocusMinutes
         case .allTime:

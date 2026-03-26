@@ -93,6 +93,10 @@ final class SessionHistoryViewModel {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
 
+        // Use the locale's calendar week (Sunday in US, Monday in EU, etc.)
+        let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today)
+        let weekStart = weekInterval?.start ?? today
+
         var buckets:
             [Date: (
                 minutes: Int, sessions: Int, soloMinutes: Int,
@@ -104,8 +108,8 @@ final class SessionHistoryViewModel {
             guard
                 let day = calendar.date(
                     byAdding: .day,
-                    value: -dayOffset,
-                    to: today
+                    value: dayOffset,
+                    to: weekStart
                 )
             else {
                 continue

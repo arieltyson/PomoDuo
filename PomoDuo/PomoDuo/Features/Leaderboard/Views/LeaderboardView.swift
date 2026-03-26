@@ -164,6 +164,8 @@ private struct PodiumColumn: View {
 
     private var focusMinutes: Int {
         switch period {
+        case .today:
+            entry.dailyFocusMinutes
         case .thisWeek:
             entry.weeklyFocusMinutes
         case .allTime:
@@ -279,6 +281,8 @@ private struct LeaderboardRow: View {
 
     private var focusMinutes: Int {
         switch period {
+        case .today:
+            entry.dailyFocusMinutes
         case .thisWeek:
             entry.weeklyFocusMinutes
         case .allTime:
