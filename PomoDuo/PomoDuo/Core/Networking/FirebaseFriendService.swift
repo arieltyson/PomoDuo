@@ -180,16 +180,17 @@ final class FirebaseFriendService: FriendService {
             throw FriendServiceError.alreadyFriends
         }
 
-        // Check for existing pending request using individual queries
-        // to avoid requiring a composite index.
+        // Filter by a single field to avoid requiring a composite index,
+        // then check the second field in memory.
         let outgoingRequests = try await database
             .collection(Collections.friendRequests)
             .whereField(Fields.fromUID, isEqualTo: user.uid)
-            .whereField(Fields.toUID, isEqualTo: targetUID)
             .getDocuments()
 
         let hasPendingOutgoing = outgoingRequests.documents.contains { doc in
-            (doc.data()[Fields.status] as? String) == FriendRequestStatus.pending.rawValue
+            let data = doc.data()
+            return (data[Fields.toUID] as? String) == targetUID
+                && (data[Fields.status] as? String) == FriendRequestStatus.pending.rawValue
         }
 
         if hasPendingOutgoing {

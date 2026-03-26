@@ -1,7 +1,7 @@
 import ActivityKit
 import Foundation
-import Observation
 import OSLog
+import Observation
 
 /// Owns the lifecycle of the timer Live Activity.
 @MainActor
@@ -92,7 +92,8 @@ final class LiveActivityManager {
             return
         }
         let previousState = lastDispatchedState ?? activity.content.state
-        let isStateChanging = previousState.phase != phase
+        let isStateChanging =
+            previousState.phase != phase
             || previousState.currentRound != currentRound
             || previousState.isPaused != isPaused
         let now = Date.now
@@ -116,8 +117,11 @@ final class LiveActivityManager {
         let state = sanitize(rawState)
         let staleDate = isPaused ? nil : state.targetEndDate
 
+        nonisolated(unsafe) let activityToUpdate = activity
         Task {
-            await activity.update(.init(state: state, staleDate: staleDate))
+            await activityToUpdate.update(
+                ActivityContent(state: state, staleDate: staleDate)
+            )
         }
         lastDispatchedState = state
         lastCosmeticUpdateDate = now
@@ -185,19 +189,27 @@ final class LiveActivityManager {
         lastDispatchedState = nil
         lastCosmeticUpdateDate = nil
 
-        Task {
-            if let trackedActivity {
-                let finalContent = finalContent(for: trackedActivity.content.state)
-                await trackedActivity.end(
-                    finalContent,
+        if let trackedActivity {
+            let trackedContent = finalContent(
+                for: trackedActivity.content.state
+            )
+            nonisolated(unsafe) let activityToEnd = trackedActivity
+            Task {
+                await activityToEnd.end(
+                    trackedContent,
                     dismissalPolicy: .immediate
                 )
             }
+        }
 
+        let trackedID = trackedActivity?.id
+        Task {
             // End only activities known to exist at call time to avoid
             // racing with a newly started activity.
-            for activity in Activity<TimerActivityAttributes>.activities where
-                activityIDsToEnd.contains(activity.id) && activity.id != trackedActivity?.id
+            for activity in Activity<TimerActivityAttributes>.activities
+            where
+                activityIDsToEnd.contains(activity.id)
+                && activity.id != trackedID
             {
                 let finalContent = finalContent(for: activity.content.state)
                 await activity.end(finalContent, dismissalPolicy: .immediate)
@@ -216,7 +228,8 @@ final class LiveActivityManager {
         )
 
         Task {
-            for activity in Activity<TimerActivityAttributes>.activities where
+            for activity in Activity<TimerActivityAttributes>.activities
+            where
                 orphanedActivityIDs.contains(activity.id)
             {
                 let finalContent = finalContent(for: activity.content.state)

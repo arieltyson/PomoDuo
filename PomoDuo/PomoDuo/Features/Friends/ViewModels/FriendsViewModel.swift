@@ -1,10 +1,15 @@
 import Foundation
+import OSLog
 import Observation
 
 /// Observable state and intents for the friends list and friend requests.
 @MainActor
 @Observable
 final class FriendsViewModel {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.arieljtyson.PomoDuo",
+        category: "FriendsViewModel"
+    )
     /// Current friends list, updated in real-time.
     private(set) var friends: [FriendProfile] = []
 
@@ -212,6 +217,7 @@ final class FriendsViewModel {
         } catch let serviceError as FriendServiceError {
             self.error = serviceError.errorDescription
         } catch {
+            Self.logger.error("Failed to send friend request: \(error)")
             self.error = "Could not send friend request. Please try again."
         }
 
