@@ -23,13 +23,13 @@ struct WaitingForPartnerView: View {
                 .padding(.top)
 
             Spacer()
-            Spacer()
-
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom) {
             Button("Cancel", systemImage: "xmark.circle", role: .cancel, action: onCancel)
                 .buttonStyle(WaitingCancelButtonStyle())
                 .padding(.bottom)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
