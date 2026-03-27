@@ -188,3 +188,23 @@ private struct PairCodeShareIconView: View {
         }
     }
 }
+
+/// Glass-material capsule button matching the app's design system.
+private struct WaitingCancelButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body)
+            .fontWeight(.semibold)
+            .foregroundStyle(AppColors.stopTint)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+            .background(.thinMaterial, in: .capsule)
+            .overlay {
+                Capsule()
+                    .stroke(AppColors.stopTint.opacity(0.36), lineWidth: 1)
+            }
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}

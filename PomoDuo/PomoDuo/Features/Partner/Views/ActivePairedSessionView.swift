@@ -996,8 +996,9 @@ private struct PairedSessionControls: View {
                             await viewModel.endSession()
                         }
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .buttonStyle(
+                        PairedControlButtonStyle(tint: AppColors.stopTint)
+                    )
 
                 case .focus where session.isPaused:
                     HStack(spacing: 12) {
@@ -1015,9 +1016,9 @@ private struct PairedSessionControls: View {
                                 await viewModel.resumeSession()
                             }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(AppColors.lavender)
-                        .controlSize(.large)
+                        .buttonStyle(
+                            PairedControlButtonStyle(tint: AppColors.lavender)
+                        )
                         .accessibilityHint("Continues the paused timer.")
                         .accessibilityInputLabels(["Resume", "Play", "Continue"])
                     }
@@ -1038,9 +1039,9 @@ private struct PairedSessionControls: View {
                                     await viewModel.beginBreak()
                                 }
                             }
-                            .buttonStyle(.borderedProminent)
-                            .tint(AppColors.success)
-                            .controlSize(.large)
+                            .buttonStyle(
+                                PairedControlButtonStyle(tint: AppColors.success)
+                            )
                             .accessibilityInputLabels([
                                 "Continue to Break",
                                 "Continue",
@@ -1053,9 +1054,9 @@ private struct PairedSessionControls: View {
                                         await viewModel.pauseSession()
                                     }
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .tint(AppColors.pauseTint)
-                                .controlSize(.large)
+                                .buttonStyle(
+                                    PairedControlButtonStyle(tint: AppColors.pauseTint)
+                                )
                                 .accessibilityHint("Pauses the timer for both partners.")
 
                                 Button("Skip to Break", systemImage: "forward.fill") {
@@ -1103,9 +1104,9 @@ private struct PairedSessionControls: View {
                                 await viewModel.beginFocus()
                             }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(AppColors.lavender)
-                        .controlSize(.large)
+                        .buttonStyle(
+                            PairedControlButtonStyle(tint: AppColors.lavender)
+                        )
                         .accessibilityInputLabels([
                             hasReachedPhaseEnd ? "Continue to Focus" : "Next Round",
                             "Next",
@@ -1128,9 +1129,9 @@ private struct PairedSessionControls: View {
                             await viewModel.endSession()
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(AppColors.success)
-                    .controlSize(.large)
+                    .buttonStyle(
+                        PairedControlButtonStyle(tint: AppColors.success)
+                    )
                     .transition(
                         reduceMotion
                             ? .opacity
