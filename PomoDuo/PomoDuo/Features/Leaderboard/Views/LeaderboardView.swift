@@ -164,8 +164,8 @@ private struct PodiumColumn: View {
     let maxHeight: CGFloat
     let fraction: Double
 
-    /// Minimum bar height so the label remains readable even at 0 minutes.
-    private static let minBarHeight: CGFloat = 36
+    /// Minimum bar height so the column remains visible even at 0 minutes.
+    private static let minBarHeight: CGFloat = 8
 
     private var barHeight: CGFloat {
         let scaled = maxHeight * fraction
@@ -192,9 +192,11 @@ private struct PodiumColumn: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: barHeight)
-            .background(podiumGradient.opacity(fraction > 0 ? 1 : 0.3), in: .rect(cornerRadii: .init(topLeading: 12, topTrailing: 12)))
+
+            RoundedRectangle(cornerRadius: 12)
+                .fill(podiumGradient.opacity(fraction > 0 ? 1 : 0.3))
+                .frame(maxWidth: .infinity)
+                .frame(height: barHeight)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
