@@ -403,9 +403,13 @@ struct TimerView: View {
             return
         }
 
+        let elapsed = Date.now.timeIntervalSince(startedAt)
+        let focusDuration = min(elapsed, configuration.focusDuration)
+        guard focusDuration >= 60 else { return }
+
         let session = CompletedSession(
             startedAt: startedAt,
-            focusDuration: configuration.focusDuration,
+            focusDuration: focusDuration,
             roundNumber: currentRound,
             totalRounds: configuration.roundsBeforeLongBreak,
             sessionType: .solo,

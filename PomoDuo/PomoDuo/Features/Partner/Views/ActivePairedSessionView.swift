@@ -349,10 +349,14 @@ struct ActivePairedSessionView: View {
 
     private func recordCompletedFocusRound() {
         let startedAt = focusStartedAt ?? session.startTime
+        let elapsed = Date.now.timeIntervalSince(startedAt)
+        let focusDuration = min(elapsed, session.duration)
+
+        guard focusDuration >= 60 else { return }
 
         let completedSession = CompletedSession(
             startedAt: startedAt,
-            focusDuration: session.duration,
+            focusDuration: focusDuration,
             roundNumber: session.currentRound,
             totalRounds: session.totalRounds,
             sessionType: .paired,
