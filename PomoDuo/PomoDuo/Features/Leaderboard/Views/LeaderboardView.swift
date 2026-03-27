@@ -104,18 +104,37 @@ private struct PodiumView: View {
     let entries: [LeaderboardEntry]
     let period: LeaderboardPeriod
 
+    private var maxMinutes: Int {
+        entries.map { minutesFor($0) }.max() ?? 1
+    }
+
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
             if entries.count >= 2 {
-                PodiumColumn(entry: entries[1], period: period, height: 90)
+                PodiumColumn(
+                    entry: entries[1],
+                    period: period,
+                    maxHeight: 90,
+                    fraction: barFraction(for: entries[1])
+                )
             }
 
             if entries.count >= 1 {
-                PodiumColumn(entry: entries[0], period: period, height: 120)
+                PodiumColumn(
+                    entry: entries[0],
+                    period: period,
+                    maxHeight: 120,
+                    fraction: barFraction(for: entries[0])
+                )
             }
 
             if entries.count >= 3 {
-                PodiumColumn(entry: entries[2], period: period, height: 70)
+                PodiumColumn(
+                    entry: entries[2],
+                    period: period,
+                    maxHeight: 70,
+                    fraction: barFraction(for: entries[2])
+                )
             }
         }
         .padding(.horizontal)
@@ -124,12 +143,34 @@ private struct PodiumView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Top \(entries.count) leaderboard")
     }
+
+    private func minutesFor(_ entry: LeaderboardEntry) -> Int {
+        switch period {
+        case .today: entry.dailyFocusMinutes
+        case .thisWeek: entry.weeklyFocusMinutes
+        case .allTime: entry.totalFocusMinutes
+        }
+    }
+
+    private func barFraction(for entry: LeaderboardEntry) -> Double {
+        guard maxMinutes > 0 else { return 0 }
+        return Double(minutesFor(entry)) / Double(maxMinutes)
+    }
 }
 
 private struct PodiumColumn: View {
     let entry: LeaderboardEntry
     let period: LeaderboardPeriod
-    let height: CGFloat
+    let maxHeight: CGFloat
+    let fraction: Double
+
+    /// Minimum bar height so the label remains readable even at 0 minutes.
+    private static let minBarHeight: CGFloat = 36
+
+    private var barHeight: CGFloat {
+        let scaled = maxHeight * fraction
+        return max(scaled, Self.minBarHeight)
+    }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -152,8 +193,8 @@ private struct PodiumColumn: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: height)
-            .background(podiumGradient, in: .rect(cornerRadii: .init(topLeading: 12, topTrailing: 12)))
+            .frame(height: barHeight)
+            .background(podiumGradient.opacity(fraction > 0 ? 1 : 0.3), in: .rect(cornerRadii: .init(topLeading: 12, topTrailing: 12)))
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
