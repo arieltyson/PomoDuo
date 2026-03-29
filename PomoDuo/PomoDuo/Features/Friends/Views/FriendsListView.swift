@@ -41,6 +41,13 @@ struct FriendsListView: View {
                     onEnterCode: onEnterCode
                 )
 
+                if let username = viewModel.currentUsername {
+                    ShareProfileSection(
+                        username: username,
+                        senderName: viewModel.currentDisplayName
+                    )
+                }
+
                 ShareInviteSection(senderName: viewModel.currentDisplayName)
             }
             .scrollContentBackground(.hidden)
@@ -274,6 +281,150 @@ private struct QuickPairSection: View {
             Text("Quick Pair")
         } footer: {
             Text("Pair with anyone using a 6-digit code for a one-time session.")
+        }
+    }
+}
+
+private struct ShareProfileSection: View {
+    let username: String
+    let senderName: String
+    @State private var isShowingShareSheet = false
+
+    var body: some View {
+        Section {
+            Button {
+                isShowingShareSheet = true
+            } label: {
+                Label("Share My Friend Link", systemImage: "link")
+                    .foregroundStyle(AppColors.lavender)
+            }
+            .sheet(isPresented: $isShowingShareSheet) {
+                ProfileShareSheet(
+                    username: username,
+                    senderName: senderName
+                )
+                .presentationDetents([.medium, .large])
+            }
+        } header: {
+            Text("Invite")
+        } footer: {
+            Text("Share a link so friends can send you a friend request directly.")
+        }
+    }
+}
+
+// MARK: - Profile Share Sheet
+
+private struct ProfileShareSheet: UIViewControllerRepresentable {
+    let username: String
+    let senderName: String
+
+    private var appStoreURL: URL {
+        URL(string: "https://apps.apple.com/app/pomo-duo/id6759349583")!
+    }
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let itemSource = ProfileActivityItemSource(
+            username: username,
+            senderName: senderName,
+            appStoreURL: appStoreURL,
+            iconImage: renderShareIcon()
+        )
+        return UIActivityViewController(
+            activityItems: [itemSource],
+            applicationActivities: nil
+        )
+    }
+
+    func updateUIViewController(
+        _ uiViewController: UIActivityViewController,
+        context: Context
+    ) {}
+
+    @MainActor
+    private func renderShareIcon() -> UIImage {
+        let renderer = ImageRenderer(content: ProfileShareIconView())
+        renderer.scale = 3
+        return renderer.uiImage ?? UIImage(systemName: "person.badge.plus")!
+    }
+}
+
+private final class ProfileActivityItemSource: NSObject, UIActivityItemSource {
+    let username: String
+    let senderName: String
+    let appStoreURL: URL
+    let iconImage: UIImage
+
+    private var deepLink: URL {
+        URL(string: "pomoduo://add-friend/\(username)")!
+    }
+
+    init(
+        username: String,
+        senderName: String,
+        appStoreURL: URL,
+        iconImage: UIImage
+    ) {
+        self.username = username
+        self.senderName = senderName
+        self.appStoreURL = appStoreURL
+        self.iconImage = iconImage
+    }
+
+    func activityViewControllerPlaceholderItem(
+        _ activityViewController: UIActivityViewController
+    ) -> Any {
+        appStoreURL
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        let name = senderName.isEmpty ? "Someone" : senderName
+        return """
+        \(name) wants to be your study friend on PomoDuo! \
+        Add me: \(deepLink.absoluteString)
+
+        Don't have PomoDuo yet? Download it here: \(appStoreURL.absoluteString)
+        """
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        subjectForActivityType activityType: UIActivity.ActivityType?
+    ) -> String {
+        "Add Me on PomoDuo"
+    }
+
+    func activityViewControllerLinkMetadata(
+        _ activityViewController: UIActivityViewController
+    ) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.originalURL = appStoreURL
+        metadata.url = appStoreURL
+        metadata.title = "Add Me on PomoDuo — @\(username)"
+        metadata.iconProvider = NSItemProvider(object: iconImage)
+        return metadata
+    }
+}
+
+private struct ProfileShareIconView: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 22)
+                .fill(
+                    LinearGradient(
+                        colors: [AppColors.lavender, AppColors.lilac],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 120, height: 120)
+
+            Image(systemName: "person.badge.plus")
+                .font(.system(size: 48, weight: .semibold))
+                .foregroundStyle(.white)
         }
     }
 }

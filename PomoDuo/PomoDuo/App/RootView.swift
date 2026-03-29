@@ -26,6 +26,8 @@ struct RootView: View {
     @State private var feedbackCategory: FeedbackCategory?
     @State private var pendingFriendRequestID: String?
     @State private var pendingPairCode: String?
+    @State private var addFriendLinkUsername = ""
+    @State private var isShowingAddFriendFromLink = false
     private let pairingService: any PairingService
     private let friendService: any FriendService
 
@@ -161,12 +163,25 @@ struct RootView: View {
                 if let code, !code.isEmpty {
                     pendingPairCode = code.uppercased()
                 }
+            case "add-friend":
+                // Extract username from path: pomoduo://add-friend/{username}
+                let username = url.pathComponents.dropFirst().first
+                if let username, !username.isEmpty {
+                    addFriendLinkUsername = username.lowercased()
+                    isShowingAddFriendFromLink = true
+                }
             default:
                 break
             }
         }
         .sheet(item: $feedbackCategory) { category in
             FeedbackView(category: category)
+        }
+        .sheet(isPresented: $isShowingAddFriendFromLink) {
+            AddFriendFromLinkView(
+                username: addFriendLinkUsername,
+                friendService: friendService
+            )
         }
     }
 
