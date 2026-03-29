@@ -100,8 +100,15 @@ final class SessionManager {
     /// Partner B accepts the session request.
     func acceptSession() async {
         guard let session = currentSession else { return }
+        let initiatorID = session.partnerA
+        let acceptorName = currentDisplayName ?? "Your partner"
         applyEvent(.accepted, to: session)
         await syncAndEnforce()
+
+        try? await notificationService?.sendSessionAcceptedNotification(
+            to: initiatorID,
+            acceptedBy: acceptorName
+        )
     }
 
     /// Partner B declines the session request.

@@ -6,6 +6,8 @@ import Foundation
 actor MockNotificationService: NotificationService {
     private(set) var sessionRequestsSent:
         [(partnerID: String, senderName: String)] = []
+    private(set) var sessionAcceptedNotificationsSent:
+        [(partnerID: String, acceptedBy: String)] = []
     private(set) var pauseNotificationsSent:
         [(partnerID: String, pausedBy: String)] = []
     private(set) var resumeNotificationsSent: [String] = []
@@ -20,6 +22,14 @@ actor MockNotificationService: NotificationService {
     {
         sessionRequestsSent.append(
             (partnerID: partnerID, senderName: senderName)
+        )
+    }
+
+    func sendSessionAcceptedNotification(to partnerID: String, acceptedBy name: String)
+        async throws
+    {
+        sessionAcceptedNotificationsSent.append(
+            (partnerID: partnerID, acceptedBy: name)
         )
     }
 
@@ -53,6 +63,7 @@ actor MockNotificationService: NotificationService {
 
     func reset() {
         sessionRequestsSent.removeAll()
+        sessionAcceptedNotificationsSent.removeAll()
         pauseNotificationsSent.removeAll()
         resumeNotificationsSent.removeAll()
         sessionEndedNotificationsSent.removeAll()

@@ -7,6 +7,10 @@ protocol NotificationService: Sendable {
     func sendSessionRequest(to partnerID: String, from senderName: String)
         async throws
 
+    /// Sends a notification that the partner accepted the session request.
+    func sendSessionAcceptedNotification(to partnerID: String, acceptedBy name: String)
+        async throws
+
     /// Sends a notification that the partner paused the session.
     func sendPauseNotification(to partnerID: String, pausedBy name: String)
         async throws

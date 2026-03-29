@@ -43,6 +43,10 @@ private final class MockLocalNotificationService: LocalNotificationManaging {
         async throws
     {}
 
+    func sendSessionAcceptedNotification(to partnerID: String, acceptedBy name: String)
+        async throws
+    {}
+
     func sendPauseNotification(to partnerID: String, pausedBy name: String)
         async throws
     {}

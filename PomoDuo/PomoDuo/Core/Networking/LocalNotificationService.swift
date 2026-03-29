@@ -74,6 +74,23 @@ actor LocalNotificationService: LocalNotificationManaging {
         )
     }
 
+    func sendSessionAcceptedNotification(to partnerID: String, acceptedBy name: String)
+        async throws
+    {
+        guard let pushSender else {
+            Self.logger.debug("Push sender unavailable - skipping session accepted push.")
+            return
+        }
+
+        try await pushSender.sendPush(
+            to: partnerID,
+            title: "Session Accepted",
+            body: "\(name) accepted! Your focus session is starting.",
+            category: .sessionAccepted,
+            payload: ["action": "session_accepted"]
+        )
+    }
+
     func sendPauseNotification(to partnerID: String, pausedBy name: String)
         async throws
     {

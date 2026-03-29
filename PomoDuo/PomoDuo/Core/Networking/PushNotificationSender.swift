@@ -43,6 +43,7 @@ actor PushNotificationSender {
         case sessionPaused = "SESSION_PAUSED"
         case sessionResumed = "SESSION_RESUMED"
         case sessionEnded = "SESSION_ENDED"
+        case sessionAccepted = "SESSION_ACCEPTED"
         case friendRequest = "FRIEND_REQUEST"
         case friendRequestAccepted = "FRIEND_ACCEPTED"
     }
