@@ -13,8 +13,23 @@ final class PartnerSessionViewModel {
     /// User-facing error copied from the latest state-machine transition failure.
     private(set) var sessionError: String?
 
-    init(sessionManager: SessionManager) {
+    /// Set to `true` when a paired session action is blocked because
+    /// a solo focus session is already running on the Timer tab.
+    var isShowingSoloSessionConflict = false
+
+    private let soloSessionStore: SoloTimerSessionStore
+
+    init(
+        sessionManager: SessionManager,
+        soloSessionStore: SoloTimerSessionStore = SoloTimerSessionStore()
+    ) {
         self.sessionManager = sessionManager
+        self.soloSessionStore = soloSessionStore
+    }
+
+    /// Whether a solo timer session is currently active.
+    private var hasSoloSessionActive: Bool {
+        soloSessionStore.load() != nil
     }
 
     // MARK: - Computed State
@@ -81,6 +96,10 @@ final class PartnerSessionViewModel {
     ) async {
         guard !isStartingSession else { return }
         guard activeSession == nil else { return }
+        guard !hasSoloSessionActive else {
+            isShowingSoloSessionConflict = true
+            return
+        }
         guard sessionManager.currentUserID != nil else {
             sessionError = "Sign in before starting a paired session."
             return
@@ -110,6 +129,10 @@ final class PartnerSessionViewModel {
     /// via ``SessionObserver``.
     func acceptIncomingSession() async {
         guard isIncomingRequest else { return }
+        guard !hasSoloSessionActive else {
+            isShowingSoloSessionConflict = true
+            return
+        }
         await sessionManager.acceptSession()
         syncErrorFromManager()
     }

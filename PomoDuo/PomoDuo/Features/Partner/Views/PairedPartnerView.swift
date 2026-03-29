@@ -7,7 +7,7 @@ import SwiftUI
 /// behavior stays consistent between solo and paired workflows.
 struct PairedPartnerView: View {
     let partner: PartnerProfile
-    let sessionViewModel: PartnerSessionViewModel
+    @Bindable var sessionViewModel: PartnerSessionViewModel
     let onUnpair: () -> Void
 
     @Query private var configurations: [TimerConfiguration]
@@ -103,6 +103,14 @@ struct PairedPartnerView: View {
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .alert(
+            "Solo Session Active",
+            isPresented: $sessionViewModel.isShowingSoloSessionConflict
+        ) {
+            Button("OK") {}
+        } message: {
+            Text("You have a focus session running on the Timer tab. Stop it before starting a paired session.")
+        }
         .overlay {
             if showUnpairConfirmation {
                 DisconnectConfirmationOverlay(

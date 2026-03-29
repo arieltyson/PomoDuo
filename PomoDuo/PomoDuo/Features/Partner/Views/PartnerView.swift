@@ -184,7 +184,7 @@ private struct SignedInPartnerContent: View {
 private struct FriendsAndPairingContent: View {
     let pairingViewModel: PairingViewModel
     let friendsViewModel: FriendsViewModel
-    let sessionViewModel: PartnerSessionViewModel
+    @Bindable var sessionViewModel: PartnerSessionViewModel
     @Binding var activePartner: PartnerProfile?
     @Binding var isShowingCodeSheet: Bool
     @Binding var isShowingUsernameSetup: Bool
@@ -243,6 +243,14 @@ private struct FriendsAndPairingContent: View {
                     }
                 )
             }
+        }
+        .alert(
+            "Solo Session Active",
+            isPresented: $sessionViewModel.isShowingSoloSessionConflict
+        ) {
+            Button("OK") {}
+        } message: {
+            Text("You have a focus session running on the Timer tab. Stop it before starting a paired session.")
         }
     }
 

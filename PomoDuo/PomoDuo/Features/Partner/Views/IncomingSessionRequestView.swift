@@ -9,7 +9,7 @@ import SwiftUI
 /// session view takes over.
 struct IncomingSessionRequestView: View {
     let partner: PartnerProfile
-    let viewModel: PartnerSessionViewModel
+    @Bindable var viewModel: PartnerSessionViewModel
 
     @State private var haptic = HapticTrigger()
 
@@ -41,6 +41,14 @@ struct IncomingSessionRequestView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal)
         .sensoryFeedback(haptic.feedback, trigger: haptic)
+        .alert(
+            "Solo Session Active",
+            isPresented: $viewModel.isShowingSoloSessionConflict
+        ) {
+            Button("OK") {}
+        } message: {
+            Text("You have a focus session running on the Timer tab. Stop it before joining a paired session.")
+        }
         .task {
             haptic.fire(.start)
             AccessibilityAnnouncer.announceIncomingSessionRequest(
