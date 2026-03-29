@@ -10,6 +10,7 @@ struct NotificationPreferencesView: View {
 
     @State private var timerEndEnabled = true
     @State private var partnerActivityEnabled = true
+    @State private var friendRequestsEnabled = true
 
     var body: some View {
         Form {
@@ -18,7 +19,8 @@ struct NotificationPreferencesView: View {
             if notificationManager.isAuthorized {
                 CategorySection(
                     timerEndEnabled: $timerEndEnabled,
-                    partnerActivityEnabled: $partnerActivityEnabled
+                    partnerActivityEnabled: $partnerActivityEnabled,
+                    friendRequestsEnabled: $friendRequestsEnabled
                 )
             }
 
@@ -67,7 +69,7 @@ private struct AuthorizationSection: View {
         } footer: {
             if notificationManager.isAuthorized {
                 Text(
-                    "PomoDuo can send timer alerts and partner activity updates."
+                    "PomoDuo can send timer alerts, friend request alerts, and partner activity updates."
                 )
             }
         }
@@ -97,7 +99,7 @@ private struct AuthorizationActionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(
-                "Enable notifications so you never miss a timer alert or partner session request."
+                "Enable notifications so you never miss a friend request, timer alert, or partner session."
             )
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -140,6 +142,7 @@ private struct OpenSettingsButton: View {
 private struct CategorySection: View {
     @Binding var timerEndEnabled: Bool
     @Binding var partnerActivityEnabled: Bool
+    @Binding var friendRequestsEnabled: Bool
 
     var body: some View {
         Section {
@@ -155,6 +158,13 @@ private struct CategorySection: View {
             }
             .accessibilityHint(
                 "Notifies you when your partner starts, pauses, or ends a session."
+            )
+
+            Toggle(isOn: $friendRequestsEnabled) {
+                Label("Friend Requests", systemImage: "person.badge.plus")
+            }
+            .accessibilityHint(
+                "Notifies you when someone sends you a friend request."
             )
         } header: {
             Text("Categories")
@@ -172,7 +182,7 @@ private struct InfoSection: View {
         Section {
             Label {
                 Text(
-                    "PomoDuo uses push notifications to alert you when your partner takes an action while the app is in the background. No notification data is shared with third parties."
+                    "PomoDuo uses notifications to alert you about friend requests, partner activity, and timer events. No notification data is shared with third parties."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

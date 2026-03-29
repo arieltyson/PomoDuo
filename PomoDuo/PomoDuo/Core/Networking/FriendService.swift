@@ -43,4 +43,8 @@ protocol FriendService: Sendable {
 
     /// Fetches leaderboard entries for the current user and all friends.
     func leaderboardEntries() async throws -> [LeaderboardEntry]
+
+    /// Deletes all Firestore data for the current user, including their
+    /// claimed username, profile, friendships, and friend requests.
+    func deleteAccountData() async throws
 }

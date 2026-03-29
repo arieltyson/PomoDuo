@@ -134,8 +134,9 @@ final class AccountViewModel {
         await authManager.signOut()
     }
 
-    /// Deletes the current account permanently.
+    /// Deletes the current account permanently, including all server-side data.
     func deleteAccount() async {
+        try? await friendService?.deleteAccountData()
         await authManager.deleteAccount()
     }
 }

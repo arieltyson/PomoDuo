@@ -584,6 +584,70 @@ final class FirebaseFriendService: FriendService {
         return cal.date(from: components) ?? date
     }
 
+    // MARK: - Account Deletion
+
+    func deleteAccountData() async throws {
+        let user = try requireCurrentUser()
+        let uid = user.uid
+
+        // Look up the user's claimed username so we can release it.
+        let userSnapshot = try await database
+            .collection(Collections.users)
+            .document(uid)
+            .getDocument()
+
+        let normalizedUsername = userSnapshot.data()?[Fields.usernameNormalized] as? String
+
+        // Collect all friendship documents that include this user.
+        let friendshipSnapshots = try await database
+            .collection(Collections.friendships)
+            .whereField(Fields.members, arrayContains: uid)
+            .getDocuments()
+
+        // Collect all friend requests sent by or to this user.
+        let outgoingRequests = try await database
+            .collection(Collections.friendRequests)
+            .whereField(Fields.fromUID, isEqualTo: uid)
+            .getDocuments()
+
+        let incomingRequests = try await database
+            .collection(Collections.friendRequests)
+            .whereField(Fields.toUID, isEqualTo: uid)
+            .getDocuments()
+
+        // Batch delete everything in a single atomic write.
+        let batch = database.batch()
+
+        // Release the username so it can be claimed again.
+        if let normalizedUsername {
+            let usernameRef = database
+                .collection(Collections.usernames)
+                .document(normalizedUsername)
+            batch.deleteDocument(usernameRef)
+        }
+
+        // Delete the user profile.
+        let userRef = database.collection(Collections.users).document(uid)
+        batch.deleteDocument(userRef)
+
+        // Delete all friendships.
+        for doc in friendshipSnapshots.documents {
+            batch.deleteDocument(doc.reference)
+        }
+
+        // Delete all friend requests (both directions).
+        for doc in outgoingRequests.documents {
+            batch.deleteDocument(doc.reference)
+        }
+        for doc in incomingRequests.documents {
+            batch.deleteDocument(doc.reference)
+        }
+
+        try await batch.commit()
+
+        Self.logger.info("Deleted all Firestore data for user \(uid, privacy: .private)")
+    }
+
     // MARK: - Helpers
 
     private func requireCurrentUser() throws -> User {

@@ -18,6 +18,7 @@ struct RootView: View {
     @Environment(FCMTokenManager.self) private var fcmTokenManager
     @Environment(HeartbeatManager.self) private var heartbeatManager
     @Environment(QuickActionManager.self) private var quickActionManager
+    @Environment(FriendRequestNotificationObserver.self) private var friendRequestObserver
 
     @State private var selectedTab = AppTab.timer
     @State private var isShowingOnboarding = false
@@ -103,9 +104,11 @@ struct RootView: View {
             if let userID {
                 sessionObserver.startObserving(userID: userID)
                 fcmTokenManager.startObserving(userID: userID)
+                friendRequestObserver.startObserving()
             } else {
                 sessionObserver.stopObserving()
                 fcmTokenManager.stopObserving()
+                friendRequestObserver.stopObserving()
                 heartbeatManager.stopBeating()
             }
         }
