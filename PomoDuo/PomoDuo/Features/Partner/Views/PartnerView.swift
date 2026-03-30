@@ -195,8 +195,6 @@ private struct FriendsAndPairingContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ConnectionStatusBanner()
-
             // Username setup prompt.
             if friendsViewModel.needsUsernameSetup {
                 UsernamePromptBanner(
@@ -244,6 +242,9 @@ private struct FriendsAndPairingContent: View {
                     }
                 )
             }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            ConnectionStatusBanner()
         }
         .alert(
             "Solo Session Active",
