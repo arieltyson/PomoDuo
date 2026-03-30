@@ -27,8 +27,6 @@ struct ActivePairedSessionView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ConnectionStatusBanner()
-
             PartnerBannerView(
                 partner: partner,
                 isPartnerActive: heartbeatManager.isPartnerActive
@@ -68,6 +66,9 @@ struct ActivePairedSessionView: View {
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            ConnectionStatusBanner()
+        }
         .overlay {
             if isShowingEndConfirmation {
                 EndSessionConfirmationOverlay(
