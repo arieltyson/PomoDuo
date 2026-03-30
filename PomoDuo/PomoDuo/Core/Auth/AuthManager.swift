@@ -209,7 +209,11 @@ final class AuthManager {
     }
 
     func updateDisplayName(_ name: String) async {
+        isLoading = true
         authError = nil
+        defer {
+            isLoading = false
+        }
 
         do {
             let updated = try await authService.updateDisplayName(name)

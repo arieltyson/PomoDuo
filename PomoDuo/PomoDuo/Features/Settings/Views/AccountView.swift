@@ -282,6 +282,7 @@ private struct DisplayNameSection: View {
             TextField("Display Name", text: $viewModel.editingDisplayName)
                 .textContentType(.name)
                 .autocorrectionDisabled()
+                .disabled(viewModel.isSaving)
                 .accessibilityHint("Name shown to your study partner.")
 
             if let validationError = viewModel.nameValidationError {
@@ -295,20 +296,23 @@ private struct DisplayNameSection: View {
                     Button("Revert", role: .cancel) {
                         viewModel.resetDisplayName()
                     }
+                    .disabled(viewModel.isSaving)
                     .accessibilityHint("Discards display name changes.")
 
                     Spacer()
 
-                    Button("Save", systemImage: "checkmark") {
-                        Task {
-                            await viewModel.saveDisplayName()
+                    if viewModel.isSaving {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Button("Save", systemImage: "checkmark") {
+                            Task {
+                                await viewModel.saveDisplayName()
+                            }
                         }
+                        .disabled(viewModel.nameValidationError != nil)
+                        .accessibilityHint("Saves the new display name.")
                     }
-                    .disabled(
-                        viewModel.nameValidationError != nil
-                            || viewModel.isSaving
-                    )
-                    .accessibilityHint("Saves the new display name.")
                 }
             }
         } header: {

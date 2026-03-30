@@ -26,7 +26,12 @@ final class AccountViewModel {
     init(authManager: AuthManager, friendService: (any FriendService)? = nil) {
         self.authManager = authManager
         self.friendService = friendService
-        self.editingDisplayName = authManager.currentUser?.displayName ?? ""
+
+        // Use the current display name if available; fall back to empty
+        // string rather than a placeholder like "Focus Friend" to avoid
+        // persisting a meaningless default.
+        let currentName = authManager.currentUser?.displayName ?? ""
+        self.editingDisplayName = currentName == "Focus Friend" ? "" : currentName
     }
 
     /// Fetches the current user's username from Firestore.
@@ -111,12 +116,21 @@ final class AccountViewModel {
         }
 
         await authManager.updateDisplayName(trimmedName)
-        editingDisplayName = authManager.currentUser?.displayName ?? trimmedName
+
+        // After the async call, check whether the update succeeded by
+        // reading the freshly refreshed auth state.
+        if authManager.authError == nil {
+            // Update succeeded — sync the text field with the confirmed name.
+            editingDisplayName = authManager.currentUser?.displayName ?? trimmedName
+        }
+        // On failure the authError alert will fire; keep the user's typed
+        // text so they can retry without retyping.
     }
 
     /// Restores the display name draft from the current signed-in identity.
     func resetDisplayName() {
-        editingDisplayName = authManager.currentUser?.displayName ?? ""
+        let currentName = authManager.currentUser?.displayName ?? ""
+        editingDisplayName = currentName == "Focus Friend" ? "" : currentName
     }
 
     /// Links the current anonymous account to an Apple ID.
