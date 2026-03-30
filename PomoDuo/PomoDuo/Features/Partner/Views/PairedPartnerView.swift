@@ -1,4 +1,3 @@
-import SwiftData
 import SwiftUI
 
 /// Screen shown once a partner has connected successfully.
@@ -10,28 +9,8 @@ struct PairedPartnerView: View {
     @Bindable var sessionViewModel: PartnerSessionViewModel
     let onUnpair: () -> Void
 
-    @Query private var configurations: [TimerConfiguration]
     @State private var showUnpairConfirmation = false
-
-    private var activeConfiguration: TimerConfiguration? {
-        configurations.first
-    }
-
-    private var focusDuration: TimeInterval {
-        activeConfiguration?.focusDuration ?? 25 * 60
-    }
-
-    private var totalRounds: Int {
-        activeConfiguration?.roundsBeforeLongBreak ?? 4
-    }
-
-    private var shortBreakDuration: TimeInterval {
-        activeConfiguration?.shortBreakDuration ?? 5 * 60
-    }
-
-    private var longBreakDuration: TimeInterval {
-        activeConfiguration?.longBreakDuration ?? 15 * 60
-    }
+    @State private var isShowingSessionConfig = false
 
     private var pairedAtDescription: String {
         let formatter = RelativeDateTimeFormatter()
@@ -58,31 +37,17 @@ struct PairedPartnerView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            SessionConfigurationSummary(
-                focusDuration: focusDuration,
-                totalRounds: totalRounds
-            )
-            .padding(.top)
-
             Spacer()
 
             VStack {
                 Button("Start Session", systemImage: "play.fill") {
-                    Task {
-                        await sessionViewModel.startSession(
-                            with: partner,
-                            duration: focusDuration,
-                            shortBreakDuration: shortBreakDuration,
-                            longBreakDuration: longBreakDuration,
-                            totalRounds: totalRounds
-                        )
-                    }
+                    isShowingSessionConfig = true
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AppColors.lavender)
                 .disabled(sessionViewModel.isStartingSession)
                 .accessibilityHint(
-                    "Sends a session request to \(partner.displayName)."
+                    "Opens session configuration for \(partner.displayName)."
                 )
                 .accessibilityInputLabels(["Start Session", "Start", "Begin"])
 
@@ -103,6 +68,21 @@ struct PairedPartnerView: View {
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $isShowingSessionConfig) {
+            PairedSessionConfigSheet(
+                partnerName: partner.displayName
+            ) { config in
+                Task {
+                    await sessionViewModel.startSession(
+                        with: partner,
+                        duration: config.focusDuration,
+                        shortBreakDuration: config.shortBreakDuration,
+                        longBreakDuration: config.longBreakDuration,
+                        totalRounds: config.totalRounds
+                    )
+                }
+            }
+        }
         .alert(
             "Solo Session Active",
             isPresented: $sessionViewModel.isShowingSoloSessionConflict
@@ -227,29 +207,3 @@ private struct PartnerAvatar: View {
     }
 }
 
-/// Shows the active paired-session timer settings before the session starts.
-private struct SessionConfigurationSummary: View {
-    let focusDuration: TimeInterval
-    let totalRounds: Int
-
-    var body: some View {
-        HStack {
-            Label("\(Int(focusDuration / 60)) min focus", systemImage: "timer")
-
-            Text("·")
-                .foregroundStyle(.tertiary)
-                .accessibilityHidden(true)
-
-            Label(
-                "\(totalRounds) rounds",
-                systemImage: "arrow.trianglehead.2.clockwise"
-            )
-        }
-        .font(.footnote)
-        .foregroundStyle(.secondary)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "\(Int(focusDuration / 60)) minute focus, \(totalRounds) rounds"
-        )
-    }
-}

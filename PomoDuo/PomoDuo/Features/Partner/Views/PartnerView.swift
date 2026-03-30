@@ -191,6 +191,7 @@ private struct FriendsAndPairingContent: View {
     @Binding var pendingFriendRequestID: String?
 
     @Environment(SessionManager.self) private var sessionManager
+    @State private var sessionConfigFriend: FriendProfile?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -230,7 +231,7 @@ private struct FriendsAndPairingContent: View {
                     viewModel: friendsViewModel,
                     pendingFriendRequestID: $pendingFriendRequestID,
                     onStartSession: { friend in
-                        startSessionWithFriend(friend)
+                        sessionConfigFriend = friend
                     },
                     onGenerateCode: {
                         Task { await pairingViewModel.generateCode() }
@@ -252,9 +253,19 @@ private struct FriendsAndPairingContent: View {
         } message: {
             Text("You have a focus session running on the Timer tab. Stop it before starting a paired session.")
         }
+        .sheet(item: $sessionConfigFriend) { friend in
+            PairedSessionConfigSheet(
+                partnerName: friend.displayName
+            ) { config in
+                startSessionWithFriend(friend, config: config)
+            }
+        }
     }
 
-    private func startSessionWithFriend(_ friend: FriendProfile) {
+    private func startSessionWithFriend(
+        _ friend: FriendProfile,
+        config: PairedSessionConfig
+    ) {
         let partner = PartnerProfile(
             id: friend.id,
             displayName: friend.displayName,
@@ -263,7 +274,13 @@ private struct FriendsAndPairingContent: View {
         activePartner = partner
 
         Task {
-            await sessionViewModel.startSession(with: partner)
+            await sessionViewModel.startSession(
+                with: partner,
+                duration: config.focusDuration,
+                shortBreakDuration: config.shortBreakDuration,
+                longBreakDuration: config.longBreakDuration,
+                totalRounds: config.totalRounds
+            )
         }
     }
 }
