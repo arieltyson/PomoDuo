@@ -105,6 +105,50 @@ struct OnboardingViewModelTests {
         #expect(viewModel.navigationDirection == .forward)
     }
 
+    @Test func notificationsPrimaryActionReflectsAuthorizationState() {
+        let viewModel = OnboardingViewModel()
+
+        _ = viewModel.advance()
+        _ = viewModel.advance()
+        _ = viewModel.advance()
+
+        #expect(viewModel.currentStep == .notifications)
+        #expect(
+            viewModel.primaryAction(isNotificationAuthorized: false)
+                == .requestNotificationPermission
+        )
+        #expect(
+            viewModel.primaryButtonTitle(isNotificationAuthorized: false)
+                == "Allow Notifications"
+        )
+        #expect(
+            viewModel.primaryAction(isNotificationAuthorized: true)
+                == .advance
+        )
+        #expect(
+            viewModel.primaryButtonTitle(isNotificationAuthorized: true)
+                == "Continue"
+        )
+    }
+
+    @Test func finalStepDefaultsToTimerAndKeepsOptionalSetupPath() {
+        let viewModel = OnboardingViewModel()
+
+        viewModel.jumpToFinalStep()
+
+        #expect(viewModel.currentStep == .appBlocking)
+        #expect(
+            viewModel.primaryAction(isNotificationAuthorized: false)
+                == .completeOnboarding
+        )
+        #expect(
+            viewModel.primaryButtonTitle(isNotificationAuthorized: false)
+                == "Continue to Timer"
+        )
+        #expect(viewModel.secondaryAction == .openAppBlockingSettings)
+        #expect(viewModel.secondaryButtonTitle == "Set Up")
+    }
+
     @Test func backDoesNotMoveBeforeFirstStep() {
         let viewModel = OnboardingViewModel()
 
@@ -123,6 +167,14 @@ struct OnboardingViewModelTests {
         #expect(completed)
         #expect(viewModel.currentStep == .appBlocking)
         #expect(viewModel.currentIndex == OnboardingStep.allCases.count - 1)
+        #expect(viewModel.haptic.event == .complete)
+    }
+
+    @Test func finishFiresCompletionHaptic() {
+        let viewModel = OnboardingViewModel()
+
+        viewModel.finish()
+
         #expect(viewModel.haptic.event == .complete)
     }
 }

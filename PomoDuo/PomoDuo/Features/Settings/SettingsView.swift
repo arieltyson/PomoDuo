@@ -37,9 +37,7 @@ struct SettingsView: View {
             }
 
             Section("Integrations") {
-                NavigationLink {
-                    AppBlockingView()
-                } label: {
+                NavigationLink(value: SettingsDestination.appBlocking) {
                     Label {
                         HStack {
                             Text("App Blocking")

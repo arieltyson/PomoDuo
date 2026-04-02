@@ -62,7 +62,106 @@ final class OnboardingViewModel {
         haptic.fire(.phaseChange)
     }
 
+    func finish() {
+        haptic.fire(.complete)
+    }
+
+    func primaryAction(
+        isNotificationAuthorized: Bool
+    ) -> PrimaryAction {
+        switch currentStep {
+        case .notifications where !isNotificationAuthorized:
+            .requestNotificationPermission
+        case .appBlocking:
+            .completeOnboarding
+        default:
+            .advance
+        }
+    }
+
+    func primaryButtonTitle(
+        isNotificationAuthorized: Bool
+    ) -> String {
+        switch currentStep {
+        case .notifications where isNotificationAuthorized:
+            "Continue"
+        default:
+            currentStep.ctaTitle
+        }
+    }
+
+    func primaryButtonAccessibilityHint(
+        isNotificationAuthorized: Bool
+    ) -> String {
+        switch primaryAction(
+            isNotificationAuthorized: isNotificationAuthorized
+        ) {
+        case .advance:
+            "Moves to the next onboarding step."
+        case .requestNotificationPermission:
+            "Shows Apple's notification permission request."
+        case .completeOnboarding:
+            "Finishes onboarding and opens the focus timer."
+        }
+    }
+
+    var secondaryAction: SecondaryAction {
+        switch currentStep {
+        case .appBlocking:
+            .openAppBlockingSettings
+        default:
+            .skipToFinalStep
+        }
+    }
+
+    var secondaryButtonTitle: String {
+        switch secondaryAction {
+        case .skipToFinalStep:
+            "Skip"
+        case .openAppBlockingSettings:
+            "Set Up"
+        }
+    }
+
+    var secondaryButtonSystemImage: String {
+        switch secondaryAction {
+        case .skipToFinalStep:
+            "forward.end.alt"
+        case .openAppBlockingSettings:
+            "shield"
+        }
+    }
+
+    var secondaryButtonAccessibilityLabel: String {
+        switch secondaryAction {
+        case .skipToFinalStep:
+            "Skip"
+        case .openAppBlockingSettings:
+            "Set Up App Blocking"
+        }
+    }
+
+    var secondaryButtonAccessibilityHint: String {
+        switch secondaryAction {
+        case .skipToFinalStep:
+            "Skips to the final onboarding step."
+        case .openAppBlockingSettings:
+            "Opens the App Blocking screen in Settings."
+        }
+    }
+
     // MARK: - Navigation Direction
+
+    enum PrimaryAction: Sendable, Equatable {
+        case advance
+        case requestNotificationPermission
+        case completeOnboarding
+    }
+
+    enum SecondaryAction: Sendable, Equatable {
+        case skipToFinalStep
+        case openAppBlockingSettings
+    }
 
     enum NavigationDirection: Sendable {
         case forward

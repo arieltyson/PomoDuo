@@ -21,6 +21,7 @@ struct RootView: View {
     @Environment(FriendRequestNotificationObserver.self) private var friendRequestObserver
 
     @State private var selectedTab = AppTab.timer
+    @State private var settingsPath: [SettingsDestination] = []
     @State private var isShowingOnboarding = false
     @State private var launchPhase = LaunchPhase.branded
     @State private var feedbackCategory: FeedbackCategory?
@@ -51,6 +52,7 @@ struct RootView: View {
                 case .ready:
                     ContentTabView(
                         selectedTab: $selectedTab,
+                        settingsPath: $settingsPath,
                         isShowingOnboarding: $isShowingOnboarding,
                         pendingFriendRequestID: $pendingFriendRequestID,
                         pendingPairCode: $pendingPairCode,
@@ -216,6 +218,7 @@ struct RootView: View {
             return
         }
 
+        settingsPath = []
         selectedTab = .settings
 
         switch quickAction {
@@ -243,6 +246,7 @@ private enum LaunchPhase: Equatable {
 /// The real interactive tab bar, shown once auth has resolved.
 private struct ContentTabView: View {
     @Binding var selectedTab: AppTab
+    @Binding var settingsPath: [SettingsDestination]
     @Binding var isShowingOnboarding: Bool
     @Binding var pendingFriendRequestID: String?
     @Binding var pendingPairCode: String?
@@ -293,8 +297,15 @@ private struct ContentTabView: View {
                 systemImage: AppTab.settings.systemImage,
                 value: .settings
             ) {
-                NavigationStack {
+                NavigationStack(path: $settingsPath) {
                     SettingsView(friendService: friendService)
+                        .navigationDestination(for: SettingsDestination.self) {
+                            destination in
+                            switch destination {
+                            case .appBlocking:
+                                AppBlockingView()
+                            }
+                        }
                 }
             }
         }
@@ -304,7 +315,8 @@ private struct ContentTabView: View {
                 onComplete: {
                     onboardingManager.completeOnboarding()
                 },
-                onOpenSettings: {
+                onOpenAppBlockingSettings: {
+                    settingsPath = [.appBlocking]
                     selectedTab = .settings
                 }
             )

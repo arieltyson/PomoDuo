@@ -37,14 +37,14 @@ enum OnboardingStep: Int, CaseIterable, Identifiable, Sendable {
         case .notifications:
             "Enable notifications so PomoDuo can alert you right when rounds and breaks end."
         case .appBlocking:
-            "Use Screen Time shields during focus rounds to remove distracting apps automatically."
+            "Optionally use Screen Time shields during focus rounds to remove distracting apps automatically."
         }
     }
 
     var ctaTitle: String {
         switch self {
         case .notifications: "Allow Notifications"
-        case .appBlocking: "Open Settings"
+        case .appBlocking: "Continue to Timer"
         default: "Continue"
         }
     }

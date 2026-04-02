@@ -10,13 +10,12 @@ import SwiftUI
 /// - Full accessibility support with reduce-motion fallbacks
 struct OnboardingView: View {
     @Environment(NotificationManager.self) private var notificationManager
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var viewModel = OnboardingViewModel()
     @State private var isRequestingNotificationPermission = false
 
     let onComplete: () -> Void
-    let onOpenSettings: () -> Void
+    let onOpenAppBlockingSettings: () -> Void
 
     var body: some View {
         ZStack {
@@ -41,11 +40,23 @@ struct OnboardingView: View {
 
                 OnboardingControls(
                     viewModel: viewModel,
-                    primaryTitle: primaryButtonTitle,
+                    primaryTitle: viewModel.primaryButtonTitle(
+                        isNotificationAuthorized: notificationManager.isAuthorized
+                    ),
                     isPrimaryDisabled: isRequestingNotificationPermission,
+                    primaryAccessibilityHint: viewModel
+                        .primaryButtonAccessibilityHint(
+                            isNotificationAuthorized: notificationManager.isAuthorized
+                        ),
+                    secondaryTitle: viewModel.secondaryButtonTitle,
+                    secondarySystemImage: viewModel.secondaryButtonSystemImage,
+                    secondaryAccessibilityLabel: viewModel
+                        .secondaryButtonAccessibilityLabel,
+                    secondaryAccessibilityHint: viewModel
+                        .secondaryButtonAccessibilityHint,
                     onPrimary: handlePrimaryAction,
                     onBack: viewModel.goBack,
-                    onSkip: viewModel.jumpToFinalStep
+                    onSecondary: handleSecondaryAction
                 )
                 .padding(.horizontal, 24)
                 .padding(.bottom, 20)
@@ -57,30 +68,28 @@ struct OnboardingView: View {
 
     // MARK: - Actions
 
-    private var primaryButtonTitle: String {
-        switch viewModel.currentStep {
-        case .notifications where notificationManager.isAuthorized:
-            "Continue"
-        case .appBlocking:
-            "Open Settings"
-        default:
-            viewModel.currentStep.ctaTitle
+    private func handlePrimaryAction() {
+        switch viewModel.primaryAction(
+            isNotificationAuthorized: notificationManager.isAuthorized
+        ) {
+        case .advance:
+            if viewModel.advance() { onComplete() }
+        case .requestNotificationPermission:
+            requestNotificationPermissionAndAdvance()
+        case .completeOnboarding:
+            viewModel.finish()
+            onComplete()
         }
     }
 
-    private func handlePrimaryAction() {
-        switch viewModel.currentStep {
-        case .notifications:
-            if notificationManager.isAuthorized {
-                if viewModel.advance() { onComplete() }
-            } else {
-                requestNotificationPermissionAndAdvance()
-            }
-        case .appBlocking:
-            onOpenSettings()
+    private func handleSecondaryAction() {
+        switch viewModel.secondaryAction {
+        case .skipToFinalStep:
+            viewModel.jumpToFinalStep()
+        case .openAppBlockingSettings:
+            viewModel.finish()
+            onOpenAppBlockingSettings()
             onComplete()
-        default:
-            if viewModel.advance() { onComplete() }
         }
     }
 
@@ -304,7 +313,7 @@ private struct OnboardingStepStatus: View {
             )
         case .appBlocking:
             OnboardingBadge(
-                title: "You can configure this in Settings > App Blocking",
+                title: "Optional. You can set this up any time in Settings, then App Blocking.",
                 systemImage: "shield.fill",
                 tint: AppColors.lavender
             )
@@ -335,14 +344,19 @@ private struct OnboardingBadge: View {
 
 // MARK: - Controls
 
-/// Bottom action area with primary CTA, back, and skip buttons.
+/// Bottom action area with the primary CTA, back, and secondary actions.
 private struct OnboardingControls: View {
     let viewModel: OnboardingViewModel
     let primaryTitle: String
     let isPrimaryDisabled: Bool
+    let primaryAccessibilityHint: String
+    let secondaryTitle: String
+    let secondarySystemImage: String
+    let secondaryAccessibilityLabel: String
+    let secondaryAccessibilityHint: String
     let onPrimary: () -> Void
     let onBack: () -> Void
-    let onSkip: () -> Void
+    let onSecondary: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -380,7 +394,7 @@ private struct OnboardingControls: View {
                 reduceMotion ? .none : .easeOut(duration: 0.2),
                 value: isPrimaryDisabled
             )
-            .accessibilityHint("Moves to the next onboarding step.")
+            .accessibilityHint(primaryAccessibilityHint)
 
             // Secondary navigation
             HStack {
@@ -396,18 +410,21 @@ private struct OnboardingControls: View {
 
                 Spacer()
 
-                if !viewModel.isLastStep {
-                    Button(action: onSkip) {
-                        HStack(spacing: 4) {
-                            Text("Skip")
-                            Image(systemName: "forward.end.alt")
-                        }
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                Button(action: onSecondary) {
+                    HStack(spacing: 4) {
+                        Text(secondaryTitle)
+                        Image(systemName: secondarySystemImage)
                     }
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHint("Skips to the final onboarding step.")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
                 }
+                .foregroundStyle(
+                    viewModel.secondaryAction == .openAppBlockingSettings
+                        ? AppColors.lavender
+                        : Color.secondary
+                )
+                .accessibilityLabel(secondaryAccessibilityLabel)
+                .accessibilityHint(secondaryAccessibilityHint)
             }
             .animation(
                 reduceMotion ? .none : .easeInOut(duration: 0.25),
@@ -420,6 +437,6 @@ private struct OnboardingControls: View {
 // MARK: - Preview
 
 #Preview {
-    OnboardingView(onComplete: {}, onOpenSettings: {})
+    OnboardingView(onComplete: {}, onOpenAppBlockingSettings: {})
         .environment(NotificationManager())
 }
