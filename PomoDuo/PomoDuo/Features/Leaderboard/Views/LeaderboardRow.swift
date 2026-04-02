@@ -1,10 +1,6 @@
 import SwiftUI
 
 struct LeaderboardRow: View {
-    private enum Layout {
-        static let trailingMetricsWidth: CGFloat = 112
-    }
-
     let entry: LeaderboardEntry
     let period: LeaderboardPeriod
 
@@ -14,42 +10,13 @@ struct LeaderboardRow: View {
 
             FriendInitialAvatar(name: entry.displayName)
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    if entry.isCurrentUser {
-                        Text(entry.displayName)
-                            .font(.body)
-                            .bold()
-                            .lineLimit(1)
-                    } else {
-                        Text(entry.displayName)
-                            .font(.body)
-                            .lineLimit(1)
-                    }
+            LeaderboardIdentityColumn(
+                displayName: entry.displayName,
+                username: entry.username,
+                isCurrentUser: entry.isCurrentUser
+            )
 
-                    if entry.isCurrentUser {
-                        Text("You")
-                            .font(.caption2)
-                            .bold()
-                            .foregroundStyle(AppColors.lavender)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                AppColors.paleViolet.opacity(0.3),
-                                in: .capsule
-                            )
-                    }
-                }
-
-                if !entry.username.isEmpty {
-                    Text("@\(entry.username)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 12)
+            Spacer(minLength: 8)
 
             HStack(spacing: 10) {
                 if entry.currentStreak > 0 {
@@ -60,7 +27,7 @@ struct LeaderboardRow: View {
                     minutes: entry.focusMinutes(for: period)
                 )
             }
-            .frame(minWidth: Layout.trailingMetricsWidth, alignment: .trailing)
+            .fixedSize(horizontal: true, vertical: false)
         }
         .listRowBackground(
             entry.isCurrentUser
