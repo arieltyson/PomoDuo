@@ -105,7 +105,7 @@ private struct PodiumView: View {
     let period: LeaderboardPeriod
 
     private var maxMinutes: Int {
-        entries.map { minutesFor($0) }.max() ?? 1
+        entries.map { $0.focusMinutes(for: period) }.max() ?? 1
     }
 
     var body: some View {
@@ -144,17 +144,9 @@ private struct PodiumView: View {
         .accessibilityLabel("Top \(entries.count) leaderboard")
     }
 
-    private func minutesFor(_ entry: LeaderboardEntry) -> Int {
-        switch period {
-        case .today: entry.dailyFocusMinutes
-        case .thisWeek: entry.weeklyFocusMinutes
-        case .allTime: entry.totalFocusMinutes
-        }
-    }
-
     private func barFraction(for entry: LeaderboardEntry) -> Double {
         guard maxMinutes > 0 else { return 0 }
-        return Double(minutesFor(entry)) / Double(maxMinutes)
+        return Double(entry.focusMinutes(for: period)) / Double(maxMinutes)
     }
 }
 
@@ -183,7 +175,7 @@ private struct PodiumColumn: View {
                 .lineLimit(1)
 
             VStack(spacing: 2) {
-                Text("\(focusMinutes)")
+                Text("\(entry.focusMinutes(for: period))")
                     .font(.title3)
                     .bold()
                     .monospacedDigit()
@@ -201,19 +193,8 @@ private struct PodiumColumn: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "\(ordinalRank) place, \(entry.displayName), \(focusMinutes) minutes"
+            "\(ordinalRank) place, \(entry.displayName), \(entry.focusMinutes(for: period)) minutes"
         )
-    }
-
-    private var focusMinutes: Int {
-        switch period {
-        case .today:
-            entry.dailyFocusMinutes
-        case .thisWeek:
-            entry.weeklyFocusMinutes
-        case .allTime:
-            entry.totalFocusMinutes
-        }
     }
 
     private var rankMedal: String {
@@ -242,119 +223,6 @@ private struct PodiumColumn: View {
             AppColors.lilac.gradient
         default:
             AppColors.paleViolet.gradient
-        }
-    }
-}
-
-// MARK: - Row
-
-private struct LeaderboardRow: View {
-    let entry: LeaderboardEntry
-    let period: LeaderboardPeriod
-
-    var body: some View {
-        HStack(spacing: 12) {
-            RankBadge(rank: entry.rank)
-
-            FriendInitialAvatar(name: entry.displayName)
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(entry.displayName)
-                        .font(.body)
-                        .fontWeight(entry.isCurrentUser ? .bold : .medium)
-
-                    if entry.isCurrentUser {
-                        Text("You")
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(AppColors.lavender)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                AppColors.paleViolet.opacity(0.3),
-                                in: .capsule
-                            )
-                    }
-                }
-
-                if !entry.username.isEmpty {
-                    Text("@\(entry.username)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(focusMinutes)")
-                    .font(.body)
-                    .bold()
-                    .monospacedDigit()
-
-                Text("min")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-
-            if entry.currentStreak > 0 {
-                HStack(spacing: 2) {
-                    Image(systemName: "flame.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-
-                    Text("\(entry.currentStreak)")
-                        .font(.caption)
-                        .bold()
-                        .monospacedDigit()
-                }
-            }
-        }
-        .listRowBackground(
-            entry.isCurrentUser
-                ? AppColors.paleViolet.opacity(0.12)
-                : nil
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "\(entry.rank). \(entry.displayName), \(focusMinutes) minutes, \(entry.currentStreak) day streak"
-        )
-    }
-
-    private var focusMinutes: Int {
-        switch period {
-        case .today:
-            entry.dailyFocusMinutes
-        case .thisWeek:
-            entry.weeklyFocusMinutes
-        case .allTime:
-            entry.totalFocusMinutes
-        }
-    }
-}
-
-// MARK: - Rank Badge
-
-private struct RankBadge: View {
-    let rank: Int
-
-    var body: some View {
-        Text("\(rank)")
-            .font(.caption)
-            .bold()
-            .monospacedDigit()
-            .foregroundStyle(rank <= 3 ? .white : .secondary)
-            .frame(width: 28, height: 28)
-            .background(badgeColor, in: .circle)
-    }
-
-    private var badgeColor: Color {
-        switch rank {
-        case 1: AppColors.lavender
-        case 2: AppColors.lilac
-        case 3: AppColors.paleViolet
-        default: .clear
         }
     }
 }

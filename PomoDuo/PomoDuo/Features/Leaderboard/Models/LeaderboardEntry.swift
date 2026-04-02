@@ -13,4 +13,16 @@ struct LeaderboardEntry: Identifiable, Sendable, Equatable {
 
     /// Rank assigned after sorting. Set externally by the view model.
     var rank: Int = 0
+
+    /// Focus total to present for the selected leaderboard period.
+    func focusMinutes(for period: LeaderboardPeriod) -> Int {
+        switch period {
+        case .today:
+            dailyFocusMinutes
+        case .thisWeek:
+            weeklyFocusMinutes
+        case .allTime:
+            totalFocusMinutes
+        }
+    }
 }

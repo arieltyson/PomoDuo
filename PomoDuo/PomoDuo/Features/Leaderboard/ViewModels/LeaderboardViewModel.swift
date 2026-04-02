@@ -62,13 +62,6 @@ final class LeaderboardViewModel {
     }
 
     private func sortValue(for entry: LeaderboardEntry) -> Int {
-        switch period {
-        case .today:
-            entry.dailyFocusMinutes
-        case .thisWeek:
-            entry.weeklyFocusMinutes
-        case .allTime:
-            entry.totalFocusMinutes
-        }
+        entry.focusMinutes(for: period)
     }
 }
