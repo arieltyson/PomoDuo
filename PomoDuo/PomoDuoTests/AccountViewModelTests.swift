@@ -30,12 +30,22 @@ struct AccountViewModelTests {
         return manager
     }
 
-    @Test("Seeds editable name from signed-in user")
-    func seedsDisplayName() async {
+    @Test("Leaves placeholder display name out of the editable draft")
+    func hidesPlaceholderDisplayName() async {
         let manager = await makeSignedInManager()
         let viewModel = AccountViewModel(authManager: manager)
 
-        #expect(viewModel.editingDisplayName == "Focus Friend")
+        #expect(viewModel.editingDisplayName.isEmpty)
+    }
+
+    @Test("Seeds editable name from a custom signed-in user")
+    func seedsCustomDisplayName() async {
+        let manager = await makeSignedInManager()
+        await manager.updateDisplayName("Study Buddy")
+
+        let viewModel = AccountViewModel(authManager: manager)
+
+        #expect(viewModel.editingDisplayName == "Study Buddy")
     }
 
     @Test("Validation rejects blank names")
@@ -78,7 +88,7 @@ struct AccountViewModelTests {
         #expect(manager.currentUser?.displayName == "Focus Friend")
     }
 
-    @Test("Reset restores current user name")
+    @Test("Reset clears the placeholder display name draft")
     func resetDisplayName() async {
         let manager = await makeSignedInManager()
         let viewModel = AccountViewModel(authManager: manager)
@@ -86,7 +96,7 @@ struct AccountViewModelTests {
 
         viewModel.resetDisplayName()
 
-        #expect(viewModel.editingDisplayName == "Focus Friend")
+        #expect(viewModel.editingDisplayName.isEmpty)
     }
 
     @Test("Sign out delegates to auth manager")
