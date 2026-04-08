@@ -44,6 +44,13 @@ protocol FriendService: Sendable {
     /// Fetches leaderboard entries for the current user and all friends.
     func leaderboardEntries() async throws -> [LeaderboardEntry]
 
+    /// Propagates an updated display name to the user's Firestore profile
+    /// and all denormalized friendship/partnership documents.
+    ///
+    /// Call this after a successful Firebase Auth display name update so
+    /// existing friends and partners see the new name immediately.
+    func propagateDisplayName(_ newName: String) async throws
+
     /// Deletes all Firestore data for the current user, including their
     /// claimed username, profile, friendships, and friend requests.
     func deleteAccountData() async throws

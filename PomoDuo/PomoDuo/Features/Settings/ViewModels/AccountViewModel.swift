@@ -122,6 +122,10 @@ final class AccountViewModel {
         if authManager.authError == nil {
             // Update succeeded — sync the text field with the confirmed name.
             editingDisplayName = authManager.currentUser?.displayName ?? trimmedName
+
+            // Propagate to Firestore profile and all denormalized friendship/
+            // partnership documents so existing friends see the new name.
+            try? await friendService?.propagateDisplayName(trimmedName)
         }
         // On failure the authError alert will fire; keep the user's typed
         // text so they can retry without retyping.

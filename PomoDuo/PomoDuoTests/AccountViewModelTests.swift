@@ -99,6 +99,39 @@ struct AccountViewModelTests {
         #expect(viewModel.editingDisplayName.isEmpty)
     }
 
+    @Test("Save propagates display name to friend service")
+    func savePropagatesDisplayName() async {
+        let manager = await makeSignedInManager()
+        let spy = SpyFriendService()
+        let viewModel = AccountViewModel(
+            authManager: manager,
+            friendService: spy
+        )
+        viewModel.editingDisplayName = "New Name"
+
+        await viewModel.saveDisplayName()
+
+        #expect(manager.currentUser?.displayName == "New Name")
+        #expect(spy.propagatedName == "New Name")
+    }
+
+    @Test("Save does not propagate when auth update fails")
+    func saveDoesNotPropagateOnAuthFailure() async {
+        let manager = await makeSignedInManager()
+        // Sign out so the update has no user to update
+        await manager.signOut()
+        let spy = SpyFriendService()
+        let viewModel = AccountViewModel(
+            authManager: manager,
+            friendService: spy
+        )
+        viewModel.editingDisplayName = "New Name"
+
+        await viewModel.saveDisplayName()
+
+        #expect(spy.propagatedName == nil)
+    }
+
     @Test("Sign out delegates to auth manager")
     func signOutDelegatesToAuthManager() async {
         let manager = await makeSignedInManager()
@@ -120,4 +153,35 @@ struct AccountViewModelTests {
         #expect(manager.authState == .signedOut)
         #expect(manager.currentUser == nil)
     }
+}
+
+// MARK: - Test Helpers
+
+/// Spy that records whether `propagateDisplayName` was called and with what value.
+@MainActor
+private final class SpyFriendService: FriendService {
+    private(set) var propagatedName: String?
+
+    nonisolated func propagateDisplayName(_ newName: String) async throws {
+        await MainActor.run { propagatedName = newName }
+    }
+
+    nonisolated func sendFriendRequest(toUsername username: String) async throws {}
+    nonisolated func acceptFriendRequest(_ requestID: String) async throws {}
+    nonisolated func declineFriendRequest(_ requestID: String) async throws {}
+    nonisolated func removeFriend(_ friendUID: String) async throws {}
+    nonisolated func friends() async throws -> [FriendProfile] { [] }
+    nonisolated func incomingRequestsStream() -> AsyncStream<[FriendRequest]> {
+        AsyncStream { $0.finish() }
+    }
+    nonisolated func friendsStream() -> AsyncStream<[FriendProfile]> {
+        AsyncStream { $0.finish() }
+    }
+    nonisolated func claimUsername(_ username: String) async throws -> Bool { true }
+    nonisolated func isUsernameAvailable(_ username: String) async throws -> Bool { true }
+    nonisolated func currentUsername() async throws -> String? { nil }
+    nonisolated func searchByUsername(_ username: String) async throws -> UserSearchResult? { nil }
+    nonisolated func reportFocusSession(minutes: Int) async throws {}
+    nonisolated func leaderboardEntries() async throws -> [LeaderboardEntry] { [] }
+    nonisolated func deleteAccountData() async throws {}
 }

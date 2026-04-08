@@ -584,6 +584,53 @@ final class FirebaseFriendService: FriendService {
         return cal.date(from: components) ?? date
     }
 
+    // MARK: - Display Name Propagation
+
+    func propagateDisplayName(_ newName: String) async throws {
+        let user = try requireCurrentUser()
+        let uid = user.uid
+
+        // 1. Update the canonical users/{uid} profile document.
+        try await database.collection(Collections.users).document(uid).setData([
+            Fields.displayName: newName,
+            Fields.updatedAt: FieldValue.serverTimestamp(),
+        ], merge: true)
+
+        // 2. Update all friendship documents where this user is a member.
+        let friendshipSnapshots = try await database
+            .collection(Collections.friendships)
+            .whereField(Fields.members, arrayContains: uid)
+            .getDocuments()
+
+        if !friendshipSnapshots.documents.isEmpty {
+            let batch = database.batch()
+            for doc in friendshipSnapshots.documents {
+                batch.updateData([
+                    "\(Fields.memberDisplayNames).\(uid)": newName,
+                ], forDocument: doc.reference)
+            }
+            try await batch.commit()
+        }
+
+        // 3. Update all partnership documents where this user is a member.
+        let partnershipSnapshots = try await database
+            .collection("partnerships")
+            .whereField(Fields.members, arrayContains: uid)
+            .getDocuments()
+
+        if !partnershipSnapshots.documents.isEmpty {
+            let batch = database.batch()
+            for doc in partnershipSnapshots.documents {
+                batch.updateData([
+                    "\(Fields.memberDisplayNames).\(uid)": newName,
+                ], forDocument: doc.reference)
+            }
+            try await batch.commit()
+        }
+
+        Self.logger.info("Propagated display name for \(uid, privacy: .private)")
+    }
+
     // MARK: - Account Deletion
 
     func deleteAccountData() async throws {
