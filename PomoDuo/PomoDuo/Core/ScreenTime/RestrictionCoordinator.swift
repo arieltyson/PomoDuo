@@ -85,12 +85,22 @@ final class RestrictionCoordinator {
     ///
     /// Use this after `ScreenTimeManager.activitySelection` changes mid-session.
     /// No-op when restrictions are not currently active.
+    ///
+    /// If the user cleared all selections (emergency unblock), this removes
+    /// restrictions entirely and sets ``isRestricting`` to `false`.
     func refreshRestrictions() {
         guard isRestricting else { return }
 
-        enqueue { [restrictionService] in
-            try await restrictionService.applyRestrictions()
-            return true
+        if canRestrict {
+            enqueue { [restrictionService] in
+                try await restrictionService.applyRestrictions()
+                return true
+            }
+        } else {
+            enqueue { [restrictionService] in
+                try await restrictionService.removeRestrictions()
+                return false
+            }
         }
     }
 

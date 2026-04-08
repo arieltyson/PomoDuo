@@ -28,12 +28,8 @@ final class ManagedSettingsRestrictionService: RestrictionService {
         let categoryTokens = selection.categoryTokens
         let webDomainTokens = selection.webDomainTokens
 
-        guard !appTokens.isEmpty || !categoryTokens.isEmpty
-            || !webDomainTokens.isEmpty
-        else {
-            return
-        }
-
+        // When the selection is empty, clear all shields so that stale
+        // restrictions are never left behind (e.g. emergency mid-session unblock).
         store.shield.applications = appTokens.isEmpty ? nil : appTokens
         store.shield.applicationCategories =
             categoryTokens.isEmpty ? nil : .specific(categoryTokens)

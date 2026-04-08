@@ -4,6 +4,13 @@ import Testing
 
 @testable import PomoDuo
 
+/// Mutable box for toggling `canRestrict` eligibility in tests
+/// without triggering sendable-capture warnings on a local `var`.
+@MainActor
+private final class MutableEligibility {
+    var value = true
+}
+
 @MainActor
 struct RestrictionCoordinatorTests {
 
@@ -169,6 +176,52 @@ struct RestrictionCoordinatorTests {
         #expect(await service.applyCallCount == 2)
         #expect(coordinator.isRestricting)
         #expect(coordinator.lastError == nil)
+    }
+
+    @Test func refreshRemovesRestrictionsWhenSelectionCleared() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let eligibility = MutableEligibility()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            canRestrictEvaluator: { eligibility.value }
+        )
+
+        // Start restricting.
+        coordinator.enforceFocusRestrictions()
+        try await waitUntil { coordinator.isRestricting }
+        #expect(coordinator.isRestricting)
+
+        // Simulate user clearing all selections (canRestrict becomes false).
+        eligibility.value = false
+        coordinator.refreshRestrictions()
+        try await waitUntil { !coordinator.isRestricting }
+
+        #expect(coordinator.isRestricting == false)
+        #expect(await service.removeCallCount == 1)
+    }
+
+    @Test func refreshReappliesWhenSelectionShrinks() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            canRestrictEvaluator: { true }
+        )
+
+        // Start restricting.
+        coordinator.enforceFocusRestrictions()
+        try await waitUntil { coordinator.isRestricting }
+
+        // Simulate removing one app (canRestrict still true).
+        coordinator.refreshRestrictions()
+        try await waitUntil { await service.applyCallCount == 2 }
+
+        #expect(await service.applyCallCount == 2)
+        #expect(await service.removeCallCount == 0)
+        #expect(coordinator.isRestricting)
     }
 
     @Test func applyFailureSetsLastError() async throws {
