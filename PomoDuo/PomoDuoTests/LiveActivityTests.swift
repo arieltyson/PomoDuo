@@ -82,6 +82,46 @@ struct TimerActivityPhaseTests {
 }
 
 @MainActor
+struct CountdownRangeTests {
+    @Test func focusCountdownRangeFitsMinuteSecondFormat() {
+        // The Lock Screen countdown uses showsHours: false, so the maximum
+        // rendered value must fit MM:SS format (≤ 99:59). The product's
+        // maximum focus duration is 60 minutes (3600 s).
+        let maxFocusDuration: TimeInterval = TimerActivityAttributes.Phase.focus
+            .maximumExpectedDuration
+        #expect(maxFocusDuration <= 99 * 60 + 59)
+    }
+
+    @Test func allPhaseDurationsFitMinuteSecondFormat() {
+        let phases: [TimerActivityAttributes.Phase] = [
+            .focus, .shortBreak, .longBreak,
+        ]
+        for phase in phases {
+            #expect(
+                phase.maximumExpectedDuration <= 99 * 60 + 59,
+                "\(phase.label) exceeds MM:SS display range"
+            )
+        }
+    }
+
+    @Test func countdownRangeSpanMatchesPhaseDuration() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let duration: TimeInterval = 60 * 60
+        let state = TimerActivityAttributes.ContentState(
+            phase: .focus,
+            currentRound: 1,
+            targetEndDate: now.addingTimeInterval(duration),
+            isPaused: false,
+            phaseDuration: duration
+        )
+
+        let range = state.countdownRange(referenceDate: now)
+        let span = range.upperBound.timeIntervalSince(range.lowerBound)
+        #expect(span == duration)
+    }
+}
+
+@MainActor
 struct LiveActivityManagerTests {
     @Test func initialStateIsInactive() {
         let manager = LiveActivityManager()

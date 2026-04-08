@@ -541,15 +541,14 @@ private struct LockScreenPhaseIconBadgeView: View {
 /// Running-state lock screen countdown pinned to the trailing edge.
 ///
 /// Uses a hidden monospaced template to stabilize width as values tick.
+/// Always renders MM:SS — the product's maximum phase duration (60 min)
+/// fits within this format, avoiding a frame-width mismatch when the
+/// system `Text(timerInterval:)` switches between HH:MM:SS and MM:SS.
 private struct LockScreenRunningCountdownView: View {
     let state: TimerActivityAttributes.ContentState
 
-    private var placeholderTime: String {
-        state.phaseDuration >= 3600 ? "00:00:00" : "00:00"
-    }
-
     var body: some View {
-        Text(placeholderTime)
+        Text("00:00")
             .font(.system(.title, design: .rounded))
             .bold()
             .monospacedDigit()
@@ -557,7 +556,8 @@ private struct LockScreenRunningCountdownView: View {
             .overlay(alignment: .trailing) {
                 Text(
                     timerInterval: state.countdownRange(),
-                    countsDown: true
+                    countsDown: true,
+                    showsHours: false
                 )
                 .font(.system(.title, design: .rounded))
                 .bold()
