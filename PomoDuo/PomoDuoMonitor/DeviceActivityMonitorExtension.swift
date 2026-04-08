@@ -52,9 +52,14 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
         let appTokens = selection.applicationTokens
         let categoryTokens = selection.categoryTokens
+        let webDomainTokens = selection.webDomainTokens
 
         store.shield.applications = appTokens.isEmpty ? nil : appTokens
         store.shield.applicationCategories =
+            categoryTokens.isEmpty ? nil : .specific(categoryTokens)
+        store.shield.webDomains =
+            webDomainTokens.isEmpty ? nil : webDomainTokens
+        store.shield.webDomainCategories =
             categoryTokens.isEmpty ? nil : .specific(categoryTokens)
     }
 
@@ -62,5 +67,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     private func removeShields() {
         store.shield.applications = nil
         store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
+        store.shield.webDomainCategories = nil
     }
 }

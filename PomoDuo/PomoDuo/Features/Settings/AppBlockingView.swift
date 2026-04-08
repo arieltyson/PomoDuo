@@ -274,11 +274,21 @@ private struct BlockSelectionSummary: View {
             .count
         let categoryCount = screenTimeManager.activitySelection.categoryTokens
             .count
+        let webDomainCount = screenTimeManager.activitySelection
+            .webDomainTokens.count
 
         VStack(alignment: .leading) {
             if appCount > 0 {
                 let appWord = appCount == 1 ? "app" : "apps"
                 Text("\(appCount) \(appWord) selected")
+            }
+
+            if webDomainCount > 0 {
+                let domainWord =
+                    webDomainCount == 1 ? "website" : "websites"
+                Text("\(webDomainCount) \(domainWord) selected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if categoryCount > 0 {
@@ -291,15 +301,27 @@ private struct BlockSelectionSummary: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            summaryLabel(appCount: appCount, categoryCount: categoryCount)
+            summaryLabel(
+                appCount: appCount,
+                webDomainCount: webDomainCount,
+                categoryCount: categoryCount
+            )
         )
     }
 
-    private func summaryLabel(appCount: Int, categoryCount: Int) -> String {
+    private func summaryLabel(
+        appCount: Int,
+        webDomainCount: Int,
+        categoryCount: Int
+    ) -> String {
         var parts: [String] = []
         if appCount > 0 {
             let appWord = appCount == 1 ? "app" : "apps"
             parts.append("\(appCount) \(appWord)")
+        }
+        if webDomainCount > 0 {
+            let domainWord = webDomainCount == 1 ? "website" : "websites"
+            parts.append("\(webDomainCount) \(domainWord)")
         }
         if categoryCount > 0 {
             let categoryWord = categoryCount == 1 ? "category" : "categories"

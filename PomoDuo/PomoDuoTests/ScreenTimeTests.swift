@@ -152,10 +152,21 @@ struct AppBlockingStatusLogicTests {
         count == 1 ? "category" : "categories"
     }
 
+    func pluralizeWebDomain(count: Int) -> String {
+        count == 1 ? "website" : "websites"
+    }
+
     @Test func badgeSumsAppsAndCategories() {
         let appCount = 3
         let categoryCount = 2
         #expect(appCount + categoryCount == 5)
+    }
+
+    @Test func badgeSumsAllTokenTypes() {
+        let appCount = 3
+        let categoryCount = 2
+        let webDomainCount = 1
+        #expect(appCount + categoryCount + webDomainCount == 6)
     }
 
     @Test func singularAppWord() {
@@ -176,5 +187,15 @@ struct AppBlockingStatusLogicTests {
     @Test func pluralCategoriesWord() {
         let result = pluralizeCategory(count: 4)
         #expect(result == "categories")
+    }
+
+    @Test func singularWebDomainWord() {
+        let result = pluralizeWebDomain(count: 1)
+        #expect(result == "website")
+    }
+
+    @Test func pluralWebDomainsWord() {
+        let result = pluralizeWebDomain(count: 3)
+        #expect(result == "websites")
     }
 }

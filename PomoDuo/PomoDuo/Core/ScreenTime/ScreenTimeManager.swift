@@ -18,12 +18,19 @@ final class ScreenTimeManager {
     }
 
     var isAuthorized: Bool {
-        authorizationStatus == .approved
+        if authorizationStatus == .approved { return true }
+        if #available(iOS 26.4, *),
+            authorizationStatus == .approvedWithDataAccess
+        {
+            return true
+        }
+        return false
     }
 
     var hasSelectedApps: Bool {
         !activitySelection.applicationTokens.isEmpty
             || !activitySelection.categoryTokens.isEmpty
+            || !activitySelection.webDomainTokens.isEmpty
     }
 
     private let store: ManagedSettingsStore
@@ -67,6 +74,8 @@ final class ScreenTimeManager {
         UserDefaults.standard.removeObject(forKey: Self.selectionDefaultsKey)
         store.shield.applications = nil
         store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
+        store.shield.webDomainCategories = nil
 
         // Clear App Group so extensions stay in sync.
         ShieldSessionContext.writeSelection(FamilyActivitySelection())
@@ -90,6 +99,7 @@ final class ScreenTimeManager {
         // standard defaults (legacy data from before extensions existed).
         if let shared = ShieldSessionContext.readSelection(),
             !shared.applicationTokens.isEmpty || !shared.categoryTokens.isEmpty
+                || !shared.webDomainTokens.isEmpty
         {
             activitySelection = shared
             return
