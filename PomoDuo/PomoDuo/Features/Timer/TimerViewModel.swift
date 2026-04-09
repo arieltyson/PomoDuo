@@ -20,8 +20,13 @@ final class TimerViewModel {
     // MARK: - Dependencies
 
     private let timer = PomodoroTimer()
-    private var tickTask: Task<Void, Never>?
+    @ObservationIgnored
+    nonisolated(unsafe) private var tickTask: Task<Void, Never>?
     private var runID = UUID()
+
+    deinit {
+        tickTask?.cancel()
+    }
 
     // MARK: - Actions
 

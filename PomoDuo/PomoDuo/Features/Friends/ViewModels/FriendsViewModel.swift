@@ -68,6 +68,7 @@ final class FriendsViewModel {
     private let friendService: any FriendService
     private var friendsTask: Task<Void, Never>?
     private var requestsTask: Task<Void, Never>?
+    private var usernameTask: Task<Void, Never>?
     private var availabilityTask: Task<Void, Never>?
 
     init(friendService: any FriendService) {
@@ -97,8 +98,12 @@ final class FriendsViewModel {
             }
         }
 
-        Task {
-            currentUsername = try? await friendService.currentUsername()
+        usernameTask?.cancel()
+        usernameTask = Task { [weak self] in
+            guard let self else { return }
+            let username = try? await friendService.currentUsername()
+            guard !Task.isCancelled else { return }
+            currentUsername = username
         }
     }
 
@@ -107,6 +112,8 @@ final class FriendsViewModel {
         friendsTask = nil
         requestsTask?.cancel()
         requestsTask = nil
+        usernameTask?.cancel()
+        usernameTask = nil
         friends = []
         incomingRequests = []
         currentUsername = nil
