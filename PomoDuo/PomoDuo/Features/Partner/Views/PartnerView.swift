@@ -180,7 +180,7 @@ private struct SignedInPartnerContent: View {
     }
 }
 
-/// Combined view showing both the friends list and legacy pairing flow.
+/// Combined view showing the partner overview and legacy pairing flow.
 private struct FriendsAndPairingContent: View {
     let pairingViewModel: PairingViewModel
     let friendsViewModel: FriendsViewModel
@@ -189,9 +189,6 @@ private struct FriendsAndPairingContent: View {
     @Binding var isShowingCodeSheet: Bool
     @Binding var isShowingUsernameSetup: Bool
     @Binding var pendingFriendRequestID: String?
-
-    @Environment(SessionManager.self) private var sessionManager
-    @State private var sessionConfigFriend: FriendProfile?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -202,7 +199,7 @@ private struct FriendsAndPairingContent: View {
                 )
             }
 
-            // Active pairing state takes precedence.
+            // Active pairing state takes precedence over the overview.
             switch pairingViewModel.pairingState {
             case .waitingForPartner(let code):
                 WaitingForPartnerView(
@@ -225,12 +222,9 @@ private struct FriendsAndPairingContent: View {
                     }
                 )
             case .unpaired:
-                FriendsListView(
-                    viewModel: friendsViewModel,
+                PartnerOverviewView(
+                    friendsViewModel: friendsViewModel,
                     pendingFriendRequestID: $pendingFriendRequestID,
-                    onStartSession: { friend in
-                        sessionConfigFriend = friend
-                    },
                     onGenerateCode: {
                         Task { await pairingViewModel.generateCode() }
                     },
@@ -239,6 +233,9 @@ private struct FriendsAndPairingContent: View {
                     },
                     onShowUsernameSetup: {
                         isShowingUsernameSetup = true
+                    },
+                    onStartSession: { friend, config in
+                        startSessionWithFriend(friend, config: config)
                     }
                 )
             }
@@ -253,13 +250,6 @@ private struct FriendsAndPairingContent: View {
             Button("OK") {}
         } message: {
             Text("You have a focus session running on the Timer tab. Stop it before starting a paired session.")
-        }
-        .sheet(item: $sessionConfigFriend) { friend in
-            PairedSessionConfigSheet(
-                partnerName: friend.displayName
-            ) { config in
-                startSessionWithFriend(friend, config: config)
-            }
         }
     }
 

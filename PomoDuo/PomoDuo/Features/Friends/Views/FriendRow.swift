@@ -1,13 +1,12 @@
 import SwiftUI
 
-/// A single friend entry with session-start action.
+/// A single friend entry displaying name and username.
 ///
-/// Uses a compact icon-only trailing button so the row stays clean
-/// even when the friends list grows long. The friend's name and
-/// username remain the visual focus, following Apple HIG list patterns.
+/// Used in the dedicated ``FriendsListView`` for browsing and managing
+/// friends. Session-start actions are handled by the
+/// ``StartFriendSessionSheet`` from the Partner overview instead.
 struct FriendRow: View {
     let friend: FriendProfile
-    let onStartSession: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -24,21 +23,8 @@ struct FriendRow: View {
                         .foregroundStyle(.secondary)
                 }
             }
-
-            Spacer(minLength: 8)
-
-            Button {
-                onStartSession()
-            } label: {
-                Image(systemName: "play.fill")
-                    .font(.caption)
-                    .foregroundStyle(AppColors.lavender)
-                    .frame(width: 32, height: 32)
-                    .background(AppColors.lavender.opacity(0.14), in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Start study session with \(friend.displayName)")
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(friend.displayName), @\(friend.username)")
     }
 }

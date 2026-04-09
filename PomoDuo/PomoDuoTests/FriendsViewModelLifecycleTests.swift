@@ -46,8 +46,8 @@ struct FriendsViewModelLifecycleTests {
         // Immediately restart — should cancel the first fetch.
         viewModel.startObserving(displayName: "Second")
 
-        // Wait for the second fetch to complete.
-        try? await Task.sleep(for: .milliseconds(600))
+        // Wait for the second fetch to complete (500ms service + margin).
+        try? await Task.sleep(for: .milliseconds(800))
 
         // Should have the result from the second call, not stale data.
         #expect(viewModel.currentUsername == "testuser")

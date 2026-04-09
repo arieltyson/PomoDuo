@@ -1,13 +1,14 @@
 import LinkPresentation
 import SwiftUI
 
-/// Main friends list displayed in the Partner tab when no session is active.
+/// Dedicated friends management screen pushed from the Partner overview.
+///
+/// Shows the full friends list, incoming requests, and sharing options.
+/// Friend management actions (add, remove, accept/decline) live here,
+/// keeping the main Partner tab lightweight and scalable.
 struct FriendsListView: View {
     let viewModel: FriendsViewModel
     @Binding var pendingFriendRequestID: String?
-    let onStartSession: (FriendProfile) -> Void
-    let onGenerateCode: () -> Void
-    let onEnterCode: () -> Void
     let onShowUsernameSetup: () -> Void
 
     @State private var isShowingAddFriend = false
@@ -31,15 +32,9 @@ struct FriendsListView: View {
                 } else {
                     FriendsSection(
                         friends: viewModel.friends,
-                        viewModel: viewModel,
-                        onStartSession: onStartSession
+                        viewModel: viewModel
                     )
                 }
-
-                QuickPairSection(
-                    onGenerateCode: onGenerateCode,
-                    onEnterCode: onEnterCode
-                )
 
                 if let username = viewModel.currentUsername {
                     ShareProfileSection(
@@ -61,7 +56,6 @@ struct FriendsListView: View {
                     proxy.scrollTo(requestID, anchor: .center)
                 }
 
-                // Clear highlight after a brief moment.
                 Task {
                     try? await Task.sleep(for: .seconds(2))
                     withAnimation {
@@ -70,6 +64,7 @@ struct FriendsListView: View {
                 }
             }
         }
+        .navigationTitle("Friends")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Add Friend", systemImage: "person.badge.plus") {
@@ -194,23 +189,19 @@ private struct FriendRequestRow: View {
 private struct FriendsSection: View {
     let friends: [FriendProfile]
     let viewModel: FriendsViewModel
-    let onStartSession: (FriendProfile) -> Void
 
     var body: some View {
         Section {
             ForEach(friends) { friend in
-                FriendRow(
-                    friend: friend,
-                    onStartSession: { onStartSession(friend) }
-                )
-                .swipeActions(edge: .trailing) {
-                    Button("Remove", role: .destructive) {
-                        Task { await viewModel.removeFriend(friend) }
+                FriendRow(friend: friend)
+                    .swipeActions(edge: .trailing) {
+                        Button("Remove", role: .destructive) {
+                            Task { await viewModel.removeFriend(friend) }
+                        }
                     }
-                }
             }
         } header: {
-            Label("Friends", systemImage: "person.2.fill")
+            Label("Friends (\(friends.count))", systemImage: "person.2.fill")
         }
     }
 }
@@ -255,33 +246,6 @@ private struct EmptyFriendsSection: View {
             .padding(.vertical, 24)
         }
         .listRowBackground(Color.clear)
-    }
-}
-
-private struct QuickPairSection: View {
-    let onGenerateCode: () -> Void
-    let onEnterCode: () -> Void
-
-    var body: some View {
-        Section {
-            Button {
-                onGenerateCode()
-            } label: {
-                Label("Generate Pairing Code", systemImage: "qrcode")
-                    .foregroundStyle(AppColors.lavender)
-            }
-
-            Button {
-                onEnterCode()
-            } label: {
-                Label("Enter Partner's Code", systemImage: "keyboard")
-                    .foregroundStyle(AppColors.lavender)
-            }
-        } header: {
-            Text("Quick Pair")
-        } footer: {
-            Text("Pair with anyone using a 6-digit code for a one-time session.")
-        }
     }
 }
 
@@ -403,7 +367,7 @@ private final class ProfileActivityItemSource: NSObject, UIActivityItemSource {
         let metadata = LPLinkMetadata()
         metadata.originalURL = appStoreURL
         metadata.url = appStoreURL
-        metadata.title = "Add Me on PomoDuo — @\(username)"
+        metadata.title = "Add Me on PomoDuo \u{2014} @\(username)"
         metadata.iconProvider = NSItemProvider(object: iconImage)
         return metadata
     }
@@ -449,7 +413,7 @@ private struct ShareInviteSection: View {
                 .presentationDetents([.medium, .large])
             }
         } footer: {
-            Text("Share PomoDuo with friends who haven't downloaded it yet.")
+            Text("Share PomoDuo with friends who haven\u{2019}t downloaded it yet.")
         }
     }
 
@@ -509,23 +473,18 @@ private final class InviteActivityItemSource: NSObject, UIActivityItemSource {
         _ activityViewController: UIActivityViewController,
         itemForActivityType activityType: UIActivity.ActivityType?
     ) -> Any? {
-        let message = if senderName.isEmpty {
-            "Join me on PomoDuo and let's crush our study goals together! 📚🔥\n\(appStoreURL.absoluteString)"
+        if senderName.isEmpty {
+            "Join me on PomoDuo and let\u{2019}s crush our study goals together!\n\(appStoreURL.absoluteString)"
         } else {
-            "\(senderName) wants to lock in with you on PomoDuo — a study timer built for accountability. Download it and let's crush our goals together! 📚🔥\n\(appStoreURL.absoluteString)"
+            "\(senderName) wants to lock in with you on PomoDuo \u{2014} a study timer built for accountability. Download it and let\u{2019}s crush our goals together!\n\(appStoreURL.absoluteString)"
         }
-        return message
     }
 
     func activityViewController(
         _ activityViewController: UIActivityViewController,
         subjectForActivityType activityType: UIActivity.ActivityType?
     ) -> String {
-        if senderName.isEmpty {
-            "Lock In With Me on PomoDuo"
-        } else {
-            "Lock In With Me on PomoDuo"
-        }
+        "Lock In With Me on PomoDuo"
     }
 
     func activityViewControllerLinkMetadata(
@@ -534,11 +493,7 @@ private final class InviteActivityItemSource: NSObject, UIActivityItemSource {
         let metadata = LPLinkMetadata()
         metadata.originalURL = appStoreURL
         metadata.url = appStoreURL
-        metadata.title = if senderName.isEmpty {
-            "Lock In With Me on PomoDuo"
-        } else {
-            "Lock In With Me on PomoDuo"
-        }
+        metadata.title = "Lock In With Me on PomoDuo"
         metadata.iconProvider = NSItemProvider(object: iconImage)
         return metadata
     }
