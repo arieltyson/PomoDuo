@@ -15,6 +15,22 @@ final class SessionManager {
     /// The most recent error from a failed transition, surfaced to the UI.
     private(set) var lastError: SessionStateMachine.TransitionError?
 
+    /// Whether a paired session is currently in an active (non-terminal) state.
+    ///
+    /// Returns `true` for `.requesting`, `.focus`, `.shortBreak`, and
+    /// `.longBreak` — any state where a partner session is in flight and
+    /// a solo focus session must not be started. Returns `false` for
+    /// `.idle`, `.completed`, and `nil` (no session).
+    var hasActivePairedSession: Bool {
+        guard let state = currentSession?.state else { return false }
+        switch state {
+        case .requesting, .focus, .shortBreak, .longBreak:
+            return true
+        case .idle, .completed:
+            return false
+        }
+    }
+
     /// The current user's ID (set after authentication).
     var currentUserID: String?
 

@@ -11,6 +11,7 @@ struct TimerView: View {
     @Environment(FocusIntentState.self) private var focusIntentState
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
     @Environment(FocusStatsReporter.self) private var focusStatsReporter
+    @Environment(SessionManager.self) private var sessionManager
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var activeConfiguration: TimerConfiguration?
@@ -20,6 +21,7 @@ struct TimerView: View {
     @State private var haptic = HapticTrigger()
     @State private var focusStartedAt: Date?
     @State private var suppressNextCompletionHandling = false
+    @State private var isShowingPairedSessionConflict = false
 
     private let sessionStore = SoloTimerSessionStore()
 
@@ -86,6 +88,14 @@ struct TimerView: View {
         }
         .navigationTitle("Focus")
         .navigationBarTitleDisplayMode(.inline)
+        .alert(
+            "Partner Session Active",
+            isPresented: $isShowingPairedSessionConflict
+        ) {
+            Button("OK") {}
+        } message: {
+            Text("You have a paired session running on the Partner tab. End it before starting a solo focus session.")
+        }
         .task(id: configurations.count) {
             await ensureConfigurationLoaded()
         }
@@ -101,6 +111,7 @@ struct TimerView: View {
     private func consumePendingFocusRequest() {
         guard focusIntentState.consumeStartFocusRequest(),
             !viewModel.isRunning,
+            !sessionManager.hasActivePairedSession,
             let configuration = activeConfiguration
         else {
             return
@@ -160,6 +171,11 @@ struct TimerView: View {
     }
 
     private func startFocus(using configuration: TimerConfiguration) {
+        guard !sessionManager.hasActivePairedSession else {
+            isShowingPairedSessionConflict = true
+            return
+        }
+
         phase = .focus
         focusStartedAt = .now
         viewModel.startFocus(with: configuration)
@@ -552,6 +568,13 @@ struct TimerView: View {
 
     private func syncTimerStateFromPersistence() {
         guard activeConfiguration != nil, let snapshot = sessionStore.load() else {
+            return
+        }
+
+        // A paired session takes precedence — discard any stale solo state
+        // rather than restoring it into a conflicting dual-session scenario.
+        guard !sessionManager.hasActivePairedSession else {
+            clearPersistedSession()
             return
         }
 
