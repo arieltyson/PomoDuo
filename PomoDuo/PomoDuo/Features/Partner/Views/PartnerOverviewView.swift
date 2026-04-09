@@ -288,6 +288,7 @@ private struct StartSessionSection: View {
                 .padding(.vertical, 4)
                 .contentShape(.rect)
             }
+            .buttonStyle(.plain)
             .disabled(!hasFriends)
             .opacity(hasFriends ? 1 : 0.5)
             .accessibilityLabel("Start paired focus session")
