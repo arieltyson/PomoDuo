@@ -69,17 +69,16 @@ struct ActivePairedSessionView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             ConnectionStatusBanner()
         }
-        .overlay {
-            if isShowingEndConfirmation {
-                EndSessionConfirmationOverlay(
-                    isPresented: $isShowingEndConfirmation,
-                    onConfirm: {
-                        Task {
-                            await viewModel.endSession()
-                        }
-                    }
-                )
+        .confirmationDialog(
+            "End study session?",
+            isPresented: $isShowingEndConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("End Session", role: .destructive) {
+                Task { await viewModel.endSession() }
             }
+        } message: {
+            Text("This will end the session for both you and your partner.")
         }
         .sensoryFeedback(haptic.feedback, trigger: haptic)
         .animation(
@@ -1179,80 +1178,3 @@ private struct PairedControlButtonStyle: ButtonStyle {
     }
 }
 
-/// Centered modal overlay confirming session end for both partners.
-private struct EndSessionConfirmationOverlay: View {
-    @Binding var isPresented: Bool
-    let onConfirm: () -> Void
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isVisible = false
-
-    var body: some View {
-        ZStack {
-            Button {
-                dismiss()
-            } label: {
-                Color.black.opacity(isVisible ? 0.5 : 0)
-                    .ignoresSafeArea()
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Dismiss")
-            .accessibilityAddTraits(.isButton)
-
-            VStack(spacing: 20) {
-                VStack(spacing: 8) {
-                    Text("End study session?")
-                        .font(.headline)
-
-                    Text("This will end the session for both you and your partner.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                VStack(spacing: 10) {
-                    Button(role: .destructive) {
-                        dismiss()
-                        onConfirm()
-                    } label: {
-                        Text("End Session")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                    .controlSize(.large)
-
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Cancel")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                }
-            }
-            .padding(24)
-            .background(.ultraThinMaterial, in: .rect(cornerRadius: 20))
-            .padding(.horizontal, 40)
-            .scaleEffect(isVisible ? 1 : 0.9)
-            .opacity(isVisible ? 1 : 0)
-        }
-        .task {
-            withAnimation(reduceMotion ? .none : .spring(duration: 0.3, bounce: 0.15)) {
-                isVisible = true
-            }
-        }
-        .accessibilityAddTraits(.isModal)
-    }
-
-    private func dismiss() {
-        withAnimation(.easeOut(duration: 0.2)) {
-            isVisible = false
-        }
-        Task {
-            try? await Task.sleep(for: .milliseconds(200))
-            isPresented = false
-        }
-    }
-}
