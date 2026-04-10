@@ -269,6 +269,11 @@ private struct AuthorizedAppBlockingContent: View {
 private struct BlockSelectionSummary: View {
     let screenTimeManager: ScreenTimeManager
 
+    private var allCategoriesSelected: Bool {
+        screenTimeManager.activitySelection.categoryTokens.count
+            >= ShieldSessionContext.allCategoriesThreshold
+    }
+
     var body: some View {
         let appCount = screenTimeManager.activitySelection.applicationTokens
             .count
@@ -278,9 +283,21 @@ private struct BlockSelectionSummary: View {
             .webDomainTokens.count
 
         VStack(alignment: .leading) {
-            if appCount > 0 {
-                let appWord = appCount == 1 ? "app" : "apps"
-                Text("\(appCount) \(appWord) selected")
+            if allCategoriesSelected {
+                Text("All apps & categories selected")
+            } else {
+                if appCount > 0 {
+                    let appWord = appCount == 1 ? "app" : "apps"
+                    Text("\(appCount) \(appWord) selected")
+                }
+
+                if categoryCount > 0 {
+                    let categoryWord =
+                        categoryCount == 1 ? "category" : "categories"
+                    Text("\(categoryCount) \(categoryWord) selected")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if webDomainCount > 0 {
@@ -291,12 +308,10 @@ private struct BlockSelectionSummary: View {
                     .foregroundStyle(.secondary)
             }
 
-            if categoryCount > 0 {
-                let categoryWord =
-                    categoryCount == 1 ? "category" : "categories"
-                Text("\(categoryCount) \(categoryWord) selected")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            if allCategoriesSelected {
+                Text("Some system apps may remain available due to iOS restrictions.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -314,6 +329,15 @@ private struct BlockSelectionSummary: View {
         webDomainCount: Int,
         categoryCount: Int
     ) -> String {
+        if allCategoriesSelected {
+            var label = "All apps and categories selected for blocking"
+            if webDomainCount > 0 {
+                let domainWord = webDomainCount == 1 ? "website" : "websites"
+                label += " and \(webDomainCount) \(domainWord)"
+            }
+            return label
+        }
+
         var parts: [String] = []
         if appCount > 0 {
             let appWord = appCount == 1 ? "app" : "apps"

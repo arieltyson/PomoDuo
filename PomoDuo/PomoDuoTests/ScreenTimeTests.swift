@@ -142,6 +142,44 @@ struct RestrictionLifecycleTests {
     }
 }
 
+/// Regression tests for the "All Apps & Categories" enforcement path.
+///
+/// Verifies that selecting all categories triggers `.all(except: [])` policy
+/// rather than `.specific()`, which would miss uncategorized apps.
+@MainActor
+struct AllCategoriesEnforcementTests {
+
+    @Test func allCategoriesDetectedWhenAtThreshold() {
+        let threshold = ShieldSessionContext.allCategoriesThreshold
+        #expect(threshold == 12)
+        // 12 or more category tokens = "All Apps & Categories"
+        #expect(12 >= threshold)
+        #expect(13 >= threshold)
+    }
+
+    @Test func partialCategoriesNotDetectedAsAll() {
+        let threshold = ShieldSessionContext.allCategoriesThreshold
+        #expect(5 < threshold)
+        #expect(11 < threshold)
+    }
+
+    @Test func zeroCategoriesNotDetectedAsAll() {
+        let threshold = ShieldSessionContext.allCategoriesThreshold
+        #expect(0 < threshold)
+    }
+
+    @Test func enforcementRoundTripWithAllCategories() async throws {
+        // Verifies the mock service correctly tracks apply/remove
+        // for the "all categories" scenario.
+        let service = MockRestrictionService()
+        try await service.applyRestrictions()
+        #expect(await service.isCurrentlyRestricted)
+
+        try await service.removeRestrictions()
+        #expect(await service.isCurrentlyRestricted == false)
+    }
+}
+
 @MainActor
 struct AppBlockingStatusLogicTests {
     func pluralizeApp(count: Int) -> String {

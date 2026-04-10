@@ -86,6 +86,26 @@ struct ShieldSessionContextTests {
             ShieldSessionContext.appGroupID == "group.com.arieljtyson.pomoduo"
         )
     }
+
+    // MARK: - All Categories Threshold
+
+    @Test func allCategoriesThresholdCoversKnownCategories() {
+        // Apple defines 12 ActivityCategory cases as of iOS 26.
+        // The threshold must be <= 12 so "All Apps & Categories" triggers
+        // the `.all(except: [])` policy instead of `.specific()`.
+        #expect(ShieldSessionContext.allCategoriesThreshold <= 12)
+        #expect(ShieldSessionContext.allCategoriesThreshold > 0)
+    }
+
+    @Test func thresholdDistinguishesPartialFromFull() {
+        let threshold = ShieldSessionContext.allCategoriesThreshold
+        // A single category should not trigger the "all" policy.
+        #expect(1 < threshold)
+        // Half the categories should not trigger either.
+        #expect(6 < threshold)
+        // The full set (12) must meet or exceed the threshold.
+        #expect(12 >= threshold)
+    }
 }
 
 @Suite("FocusActivityScheduler Tests")

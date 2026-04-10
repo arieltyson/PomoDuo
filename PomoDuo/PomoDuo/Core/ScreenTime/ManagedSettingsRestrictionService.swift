@@ -31,12 +31,27 @@ final class ManagedSettingsRestrictionService: RestrictionService {
         // When the selection is empty, clear all shields so that stale
         // restrictions are never left behind (e.g. emergency mid-session unblock).
         store.shield.applications = appTokens.isEmpty ? nil : appTokens
-        store.shield.applicationCategories =
-            categoryTokens.isEmpty ? nil : .specific(categoryTokens)
         store.shield.webDomains =
             webDomainTokens.isEmpty ? nil : webDomainTokens
-        store.shield.webDomainCategories =
-            categoryTokens.isEmpty ? nil : .specific(categoryTokens)
+
+        // "All Apps & Categories" from the picker populates categoryTokens
+        // with every ActivityCategory. Using `.specific()` only covers apps
+        // Apple has explicitly categorized — uncategorized or edge-case apps
+        // slip through. `.all(except: [])` tells ManagedSettings to shield
+        // everything regardless of category assignment.
+        let allSelected = categoryTokens.count
+            >= ShieldSessionContext.allCategoriesThreshold
+
+        if categoryTokens.isEmpty {
+            store.shield.applicationCategories = nil
+            store.shield.webDomainCategories = nil
+        } else if allSelected {
+            store.shield.applicationCategories = .all(except: [])
+            store.shield.webDomainCategories = .all(except: [])
+        } else {
+            store.shield.applicationCategories = .specific(categoryTokens)
+            store.shield.webDomainCategories = .specific(categoryTokens)
+        }
     }
 
     func removeRestrictions() async throws {

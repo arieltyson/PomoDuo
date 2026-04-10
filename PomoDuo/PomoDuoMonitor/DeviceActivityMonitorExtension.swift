@@ -55,12 +55,25 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         let webDomainTokens = selection.webDomainTokens
 
         store.shield.applications = appTokens.isEmpty ? nil : appTokens
-        store.shield.applicationCategories =
-            categoryTokens.isEmpty ? nil : .specific(categoryTokens)
         store.shield.webDomains =
             webDomainTokens.isEmpty ? nil : webDomainTokens
-        store.shield.webDomainCategories =
-            categoryTokens.isEmpty ? nil : .specific(categoryTokens)
+
+        // Mirror the main app's policy: use `.all(except: [])` when the
+        // user selected "All Apps & Categories" so uncategorized apps
+        // are also shielded.
+        let allSelected = categoryTokens.count
+            >= ShieldSessionContext.allCategoriesThreshold
+
+        if categoryTokens.isEmpty {
+            store.shield.applicationCategories = nil
+            store.shield.webDomainCategories = nil
+        } else if allSelected {
+            store.shield.applicationCategories = .all(except: [])
+            store.shield.webDomainCategories = .all(except: [])
+        } else {
+            store.shield.applicationCategories = .specific(categoryTokens)
+            store.shield.webDomainCategories = .specific(categoryTokens)
+        }
     }
 
     /// Removes all shields from the default ``ManagedSettingsStore``.
