@@ -60,21 +60,76 @@ struct PomoDuoLiveActivity: Widget {
 /// Compact color system for the widget extension.
 ///
 /// Mirrors the main app's ``AppColors`` without importing the app target.
+/// Colors that have high-contrast variants in ``AppColors`` use trait-adaptive
+/// ``UIColor`` so the widget respects the Increase Contrast accessibility
+/// setting on both the Dynamic Island (always dark) and Lock Screen surfaces.
 /// Includes high-contrast vivid variants for Lock Screen liquid glass.
 private enum Palette {
-    /// PomoDuo's signature deep lavender.
-    static let focusTint = Color(red: 0.56, green: 0.44, blue: 0.86)
-    /// Soft lilac for secondary accents.
-    static let focusLight = Color(red: 0.73, green: 0.60, blue: 0.93)
+    /// PomoDuo's signature deep lavender — mirrors ``AppColors.lavender``.
+    static let focusTint = Color(
+        uiColor: UIColor { traits in
+            if traits.accessibilityContrast == .high {
+                return traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.66, green: 0.54, blue: 0.96, alpha: 1)
+                    : UIColor(red: 0.46, green: 0.34, blue: 0.76, alpha: 1)
+            }
+            return UIColor(red: 0.56, green: 0.44, blue: 0.86, alpha: 1)
+        }
+    )
+
+    /// Soft lilac for secondary accents — mirrors ``AppColors.lilac``.
+    static let focusLight = Color(
+        uiColor: UIColor { traits in
+            if traits.accessibilityContrast == .high {
+                return traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.80, green: 0.68, blue: 0.98, alpha: 1)
+                    : UIColor(red: 0.50, green: 0.36, blue: 0.76, alpha: 1)
+            }
+            return UIColor(red: 0.73, green: 0.60, blue: 0.93, alpha: 1)
+        }
+    )
+
     /// High-contrast vivid purple for Lock Screen elements.
     static let focusVivid = Color(red: 0.70, green: 0.55, blue: 1.0)
 
     static let breakTint = Color(red: 0.55, green: 0.78, blue: 0.78)
     static let breakVivid = Color(red: 0.60, green: 0.88, blue: 0.88)
 
-    static let pauseTint = Color(red: 0.90, green: 0.70, blue: 0.40)
+    /// Warm amber for pause states — mirrors ``AppColors.pauseTint``.
+    static let pauseTint = Color(
+        uiColor: UIColor { traits in
+            if traits.accessibilityContrast == .high {
+                return traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.95, green: 0.78, blue: 0.48, alpha: 1)
+                    : UIColor(red: 0.58, green: 0.40, blue: 0.10, alpha: 1)
+            }
+            return UIColor(red: 0.90, green: 0.70, blue: 0.40, alpha: 1)
+        }
+    )
 
-    static let success = Color(red: 0.45, green: 0.73, blue: 0.54)
+    /// Red for stop / destructive actions — mirrors ``AppColors.stopTint``.
+    static let stopTint = Color(
+        uiColor: UIColor { traits in
+            if traits.accessibilityContrast == .high {
+                return traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.92, green: 0.44, blue: 0.48, alpha: 1)
+                    : UIColor(red: 0.72, green: 0.24, blue: 0.28, alpha: 1)
+            }
+            return UIColor(red: 0.82, green: 0.34, blue: 0.38, alpha: 1)
+        }
+    )
+
+    /// Green for completion — mirrors ``AppColors.success``.
+    static let success = Color(
+        uiColor: UIColor { traits in
+            if traits.accessibilityContrast == .high {
+                return traits.userInterfaceStyle == .dark
+                    ? UIColor(red: 0.55, green: 0.83, blue: 0.64, alpha: 1)
+                    : UIColor(red: 0.22, green: 0.48, blue: 0.30, alpha: 1)
+            }
+            return UIColor(red: 0.45, green: 0.73, blue: 0.54, alpha: 1)
+        }
+    )
 
     /// Phase-aware accent for Dynamic Island elements.
     static func accentTint(
@@ -380,6 +435,9 @@ private struct ExpandedCenterView: View {
 /// Provides Pause/Resume and Cancel buttons powered by ``LiveActivityIntent``
 /// conformances. These execute in the widget extension process, update the
 /// Live Activity inline, and write a bridge command for the main app.
+///
+/// Uses ``LiveActivityControlStyle`` — a glass-material capsule with colored
+/// stroke matching the main app's ``SecondaryControlButtonStyle`` / ``PairedControlButtonStyle``.
 private struct ExpandedBottomControlsView: View {
     let state: TimerActivityAttributes.ContentState
 
@@ -391,46 +449,48 @@ private struct ExpandedBottomControlsView: View {
         HStack(spacing: 12) {
             Button(intent: StopTimerIntent()) {
                 Text("Cancel")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 36)
-                    .contentShape(.capsule)
             }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(.white.opacity(0.36))
-            .frame(maxWidth: .infinity)
+            .buttonStyle(LiveActivityControlStyle(tint: Palette.stopTint))
 
             if state.isPaused {
                 Button(intent: ResumeTimerIntent()) {
                     Text("Resume")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 36)
-                        .contentShape(.capsule)
                 }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .tint(tint.opacity(0.9))
-                .frame(maxWidth: .infinity)
+                .buttonStyle(LiveActivityControlStyle(tint: tint))
             } else {
                 Button(intent: PauseTimerIntent()) {
                     Text("Pause")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 36)
-                        .contentShape(.capsule)
                 }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .tint(tint.opacity(0.82))
-                .frame(maxWidth: .infinity)
+                .buttonStyle(LiveActivityControlStyle(tint: tint))
             }
         }
         .padding(.top, 4)
+    }
+}
+
+/// Glass-material capsule button style for Live Activity controls.
+///
+/// Mirrors the main app's ``SecondaryControlButtonStyle`` adapted for
+/// the Dynamic Island's dark surface:
+/// - `.thinMaterial` capsule background for frosted glass depth
+/// - Tint-colored text and stroke (not white-on-fill)
+/// - Colored stroke at 36% opacity for visual definition
+/// - Minimum 36pt hit target for accessibility
+private struct LiveActivityControlStyle: ButtonStyle {
+    let tint: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(tint)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 36)
+            .background(.thinMaterial, in: .capsule)
+            .overlay {
+                Capsule()
+                    .stroke(tint.opacity(0.36), lineWidth: 1)
+            }
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
 
