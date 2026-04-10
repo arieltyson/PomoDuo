@@ -875,7 +875,7 @@ private struct TimerCanvasView: View {
         .background {
             Rectangle()
                 .fill(.background)
-                .ignoresSafeArea()
+                .ignoresSafeArea(edges: [.top, .horizontal])
         }
     }
 }
