@@ -43,6 +43,11 @@ struct AppBlockingView: View {
 /// no intermediate management layer. Users check and uncheck items
 /// directly. A toolbar button provides "Clear All" as the only
 /// supplementary action.
+///
+/// The system-app caveat (Messages, Phone staying available) is
+/// presented as a lightweight footer below the picker rather than
+/// in the header, keeping the top of the screen clean while
+/// remaining honest about platform limitations.
 private struct AppBlockingSelectionContent: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @State private var isShowingClearConfirmation = false
@@ -56,10 +61,13 @@ private struct AppBlockingSelectionContent: View {
         @Bindable var bindable = screenTimeManager
 
         FamilyActivityPicker(
-            headerText: "Choose apps to block during focus sessions. Some system apps like Messages and Phone may remain available due to iOS restrictions.",
+            headerText: "Choose apps to block during focus sessions.",
             selection: $bindable.activitySelection
         )
         .id(pickerID)
+        .safeAreaInset(edge: .bottom) {
+            ScreenTimeCaveatFooter()
+        }
         .toolbar {
             if screenTimeManager.hasSelectedApps {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -84,6 +92,33 @@ private struct AppBlockingSelectionContent: View {
         } message: {
             Text("This will remove all blocked apps and categories.")
         }
+    }
+}
+
+// MARK: - Screen Time Caveat Footer
+
+/// Subdued footer communicating Apple platform limitations.
+///
+/// Uses the native footnote pattern: small text, secondary color,
+/// info symbol — visually consistent with iOS Settings footers.
+/// Placed at the bottom via `safeAreaInset` so it stays visible
+/// without competing with the picker's header area.
+private struct ScreenTimeCaveatFooter: View {
+    var body: some View {
+        Label {
+            Text("Some system apps like Messages and Phone may remain available due to iOS restrictions.")
+        } icon: {
+            Image(systemName: "info.circle")
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .accessibilityLabel(
+            "Note: some system apps like Messages and Phone may remain available due to iOS restrictions."
+        )
     }
 }
 
