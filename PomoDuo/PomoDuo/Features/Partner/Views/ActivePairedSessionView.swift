@@ -17,6 +17,7 @@ struct ActivePairedSessionView: View {
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
     @Environment(HeartbeatManager.self) private var heartbeatManager
     @Environment(FocusStatsReporter.self) private var focusStatsReporter
+    @Environment(ConnectionMonitor.self) private var connectionMonitor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var haptic = HapticTrigger()
@@ -66,9 +67,10 @@ struct ActivePairedSessionView: View {
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .safeAreaInset(edge: .top, spacing: 0) {
+        .safeAreaInset(edge: .top, spacing: 6) {
             ConnectionStatusBanner()
         }
+        .animation(.smooth, value: connectionMonitor.isConnected)
         .confirmationDialog(
             "End study session?",
             isPresented: $isShowingEndConfirmation,

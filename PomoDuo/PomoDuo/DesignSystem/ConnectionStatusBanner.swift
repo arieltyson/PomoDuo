@@ -1,24 +1,32 @@
 import SwiftUI
 
-/// Compact banner shown at the top of views when the device is offline.
+/// Compact status capsule shown when the device is offline.
 ///
 /// Animates in/out based on ``ConnectionMonitor/isConnected`` and
-/// provides a clear signal that real-time partner sync is unavailable.
+/// provides a clear, non-alarming signal that real-time partner sync
+/// is unavailable. Styled as a material capsule to integrate with the
+/// app's glass/material design language rather than a flat alert bar.
 struct ConnectionStatusBanner: View {
     @Environment(ConnectionMonitor.self) private var connectionMonitor
 
     var body: some View {
         if !connectionMonitor.isConnected {
-            Label("Offline — partner sync paused", systemImage: "wifi.slash")
-                .font(.caption)
-                .foregroundStyle(.white)
-                .padding(.vertical, 6)
-                .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity)
-                .background(.orange.gradient, in: .rect(cornerRadius: 8))
-                .padding(.horizontal)
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .accessibilityAddTraits(.updatesFrequently)
+            HStack(spacing: 6) {
+                Image(systemName: "wifi.slash")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppColors.pauseTint)
+
+                Text("Offline — partner sync paused")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .background(.ultraThinMaterial, in: .capsule)
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.updatesFrequently)
+            .accessibilityLabel("Offline, partner sync paused")
         }
     }
 }

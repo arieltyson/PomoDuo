@@ -189,6 +189,7 @@ private struct FriendsAndPairingContent: View {
     @Binding var isShowingCodeSheet: Bool
     @Binding var isShowingUsernameSetup: Bool
     @Binding var pendingFriendRequestID: String?
+    @Environment(ConnectionMonitor.self) private var connectionMonitor
 
     var body: some View {
         VStack(spacing: 0) {
@@ -240,9 +241,10 @@ private struct FriendsAndPairingContent: View {
                 )
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
+        .safeAreaInset(edge: .top, spacing: 6) {
             ConnectionStatusBanner()
         }
+        .animation(.smooth, value: connectionMonitor.isConnected)
         .alert(
             "Solo Session Active",
             isPresented: $sessionViewModel.isShowingSoloSessionConflict
