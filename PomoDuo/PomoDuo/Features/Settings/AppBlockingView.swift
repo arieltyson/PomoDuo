@@ -66,14 +66,14 @@ private struct AppBlockingSelectionContent: View {
                 }
             }
         }
-        .confirmationDialog(
-            "Clear Selection",
-            isPresented: $isShowingClearConfirmation,
-            titleVisibility: .visible
+        .alert(
+            "Clear Selection?",
+            isPresented: $isShowingClearConfirmation
         ) {
-            Button("Clear All Blocked Apps", role: .destructive) {
+            Button("Clear All", role: .destructive) {
                 screenTimeManager.clearSelection()
             }
+            Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will remove all blocked apps and categories.")
         }
