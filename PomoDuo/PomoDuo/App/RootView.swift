@@ -145,35 +145,22 @@ struct RootView: View {
             selectedTab = .timer
         }
         .onOpenURL { url in
-            guard url.scheme == "pomoduo" else { return }
-            switch url.host() {
-            case "timer":
+            guard let route = DeepLinkRouter.route(from: url) else { return }
+
+            switch route {
+            case .timer:
                 selectedTab = .timer
-            case "partner":
+            case .partner:
                 selectedTab = .partner
-            case "friend-request":
+            case .friendRequest(let requestID):
                 selectedTab = .partner
-                // Extract request ID from path: pomoduo://friend-request/{id}
-                let requestID = url.pathComponents.dropFirst().first
-                if let requestID, !requestID.isEmpty {
-                    pendingFriendRequestID = requestID
-                }
-            case "pair":
+                pendingFriendRequestID = requestID
+            case .pair(let code):
                 selectedTab = .partner
-                // Extract code from path: pomoduo://pair/{code}
-                let code = url.pathComponents.dropFirst().first
-                if let code, !code.isEmpty {
-                    pendingPairCode = code.uppercased()
-                }
-            case "add-friend":
-                // Extract username from path: pomoduo://add-friend/{username}
-                let username = url.pathComponents.dropFirst().first
-                if let username, !username.isEmpty {
-                    addFriendLinkUsername = username.lowercased()
-                    isShowingAddFriendFromLink = true
-                }
-            default:
-                break
+                pendingPairCode = code
+            case .addFriend(let username):
+                addFriendLinkUsername = username
+                isShowingAddFriendFromLink = true
             }
         }
         .sheet(item: $feedbackCategory) { category in

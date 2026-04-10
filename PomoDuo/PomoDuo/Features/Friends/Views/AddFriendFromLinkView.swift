@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Presented when the user opens a `pomoduo://add-friend/{username}` deep link.
+/// Presented when the user opens a friend link (Universal Link or custom scheme).
 ///
 /// Looks up the target user, displays their profile, and offers to send
 /// a friend request. Handles edge cases like self-lookup, unknown usernames,

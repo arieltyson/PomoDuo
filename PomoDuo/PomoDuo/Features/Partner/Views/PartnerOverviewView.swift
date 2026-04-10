@@ -400,15 +400,10 @@ private struct ProfileShareSheet: UIViewControllerRepresentable {
     let username: String
     let senderName: String
 
-    private var appStoreURL: URL {
-        URL(string: "https://apps.apple.com/app/pomo-duo/id6759349583")!
-    }
-
     func makeUIViewController(context: Context) -> UIActivityViewController {
         let itemSource = ProfileActivityItemSource(
             username: username,
             senderName: senderName,
-            appStoreURL: appStoreURL,
             iconImage: renderShareIcon()
         )
         return UIActivityViewController(
@@ -433,29 +428,28 @@ private struct ProfileShareSheet: UIViewControllerRepresentable {
 private final class ProfileActivityItemSource: NSObject, UIActivityItemSource {
     let username: String
     let senderName: String
-    let appStoreURL: URL
     let iconImage: UIImage
 
-    private var deepLink: URL {
-        URL(string: "pomoduo://add-friend/\(username)")!
+    /// Single HTTPS link that works as a Universal Link when the app is
+    /// installed and falls back to a landing page when it is not.
+    private var friendLink: URL {
+        DeepLinkRouter.addFriendURL(username: username)
     }
 
     init(
         username: String,
         senderName: String,
-        appStoreURL: URL,
         iconImage: UIImage
     ) {
         self.username = username
         self.senderName = senderName
-        self.appStoreURL = appStoreURL
         self.iconImage = iconImage
     }
 
     func activityViewControllerPlaceholderItem(
         _ activityViewController: UIActivityViewController
     ) -> Any {
-        appStoreURL
+        friendLink
     }
 
     func activityViewController(
@@ -463,12 +457,7 @@ private final class ProfileActivityItemSource: NSObject, UIActivityItemSource {
         itemForActivityType activityType: UIActivity.ActivityType?
     ) -> Any? {
         let name = senderName.isEmpty ? "Someone" : senderName
-        return """
-        \(name) wants to be your study friend on PomoDuo! \
-        Add me: \(deepLink.absoluteString)
-
-        Don't have PomoDuo yet? Download it here: \(appStoreURL.absoluteString)
-        """
+        return "\(name) wants to be your study friend on PomoDuo! \(friendLink.absoluteString)"
     }
 
     func activityViewController(
@@ -482,8 +471,8 @@ private final class ProfileActivityItemSource: NSObject, UIActivityItemSource {
         _ activityViewController: UIActivityViewController
     ) -> LPLinkMetadata? {
         let metadata = LPLinkMetadata()
-        metadata.originalURL = appStoreURL
-        metadata.url = appStoreURL
+        metadata.originalURL = friendLink
+        metadata.url = friendLink
         metadata.title = "Add Me on PomoDuo \u{2014} @\(username)"
         metadata.iconProvider = NSItemProvider(object: iconImage)
         return metadata
