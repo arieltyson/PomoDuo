@@ -34,12 +34,15 @@ final class FocusActivityScheduler: Sendable {
     func scheduleMonitoring(until endDate: Date) {
         let calendar = Calendar.current
 
+        // Include year/month/day so the schedule represents an absolute
+        // interval. Using only hour/minute/second creates a daily time-
+        // of-day window that breaks when the session spans midnight.
         let startComponents = calendar.dateComponents(
-            [.hour, .minute, .second],
+            [.year, .month, .day, .hour, .minute, .second],
             from: .now
         )
         let endComponents = calendar.dateComponents(
-            [.hour, .minute, .second],
+            [.year, .month, .day, .hour, .minute, .second],
             from: endDate
         )
 

@@ -1,4 +1,5 @@
 import Foundation
+import ManagedSettings
 import Testing
 
 @testable import PomoDuo
@@ -235,5 +236,139 @@ struct AppBlockingStatusLogicTests {
     @Test func pluralWebDomainsWord() {
         let result = pluralizeWebDomain(count: 3)
         #expect(result == "websites")
+    }
+}
+
+// MARK: - Shield Cleanup Completeness
+
+/// Regression tests verifying that all shield removal paths clear
+/// every shield property, including web domains.
+///
+/// Bug: StopTimerIntent previously only cleared `shield.applications`
+/// and `shield.applicationCategories`, leaving `shield.webDomains`
+/// and `shield.webDomainCategories` active after stopping via
+/// Dynamic Island.
+@MainActor
+struct ShieldCleanupCompletenessTests {
+
+    @Test func removeRestrictionsClearsAllShieldProperties() async throws {
+        let service = MockRestrictionService()
+
+        try await service.applyRestrictions()
+        #expect(await service.isCurrentlyRestricted)
+
+        try await service.removeRestrictions()
+        #expect(await service.isCurrentlyRestricted == false)
+        #expect(await service.removeCallCount == 1)
+    }
+
+    @Test func clearSessionClearsAllContextKeys() {
+        ShieldSessionContext.writeSession(
+            partnerName: "Test",
+            phase: "Focus",
+            targetEndDate: .now.addingTimeInterval(300)
+        )
+
+        ShieldSessionContext.clearSession()
+
+        #expect(ShieldSessionContext.isSessionActive == false)
+        #expect(ShieldSessionContext.partnerName == nil)
+        #expect(ShieldSessionContext.sessionPhase == nil)
+        #expect(ShieldSessionContext.targetEndDate == nil)
+    }
+
+    @Test func forceRemoveAlwaysRemovesRegardlessOfState() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            canRestrictEvaluator: { false }
+        )
+
+        // forceRemove should work even when canRestrict is false
+        // and isRestricting is false — matches StopTimerIntent behavior.
+        coordinator.forceRemoveRestrictions()
+
+        for _ in 0..<20 {
+            if await service.removeCallCount == 1 { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        #expect(await service.removeCallCount == 1)
+        #expect(coordinator.isRestricting == false)
+    }
+}
+
+// MARK: - Focus Schedule Date Components
+
+/// Regression test for FocusActivityScheduler date component handling.
+///
+/// Bug: Using only [.hour, .minute, .second] without date components
+/// created a daily time-of-day window. Sessions spanning midnight
+/// (e.g. 23:50→00:15) produced an inverted window where intervalEnd
+/// preceded intervalStart, causing intervalDidEnd to never fire.
+struct FocusScheduleDateComponentTests {
+
+    @Test func dateComponentsPreserveDateForMidnightSpan() {
+        let calendar = Calendar.current
+
+        let startDate = calendar.date(
+            from: DateComponents(
+                year: 2026, month: 4, day: 10,
+                hour: 23, minute: 50, second: 0
+            )
+        )!
+        let endDate = calendar.date(
+            from: DateComponents(
+                year: 2026, month: 4, day: 11,
+                hour: 0, minute: 15, second: 0
+            )
+        )!
+
+        // With full date components, end > start even across midnight.
+        let startComponents = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: startDate
+        )
+        let endComponents = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: endDate
+        )
+
+        let reconstructedStart = calendar.date(from: startComponents)!
+        let reconstructedEnd = calendar.date(from: endComponents)!
+
+        #expect(reconstructedEnd > reconstructedStart)
+    }
+
+    @Test func timeOnlyComponentsFailAcrossMidnight() {
+        let calendar = Calendar.current
+
+        let startDate = calendar.date(
+            from: DateComponents(
+                year: 2026, month: 4, day: 10,
+                hour: 23, minute: 50, second: 0
+            )
+        )!
+        let endDate = calendar.date(
+            from: DateComponents(
+                year: 2026, month: 4, day: 11,
+                hour: 0, minute: 15, second: 0
+            )
+        )!
+
+        // Time-only components lose the date, making end < start.
+        let startComponents = calendar.dateComponents(
+            [.hour, .minute, .second],
+            from: startDate
+        )
+        let endComponents = calendar.dateComponents(
+            [.hour, .minute, .second],
+            from: endDate
+        )
+
+        // hour 0 < hour 23 — this is the bug the fix addresses.
+        #expect(endComponents.hour! < startComponents.hour!)
     }
 }

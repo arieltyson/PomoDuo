@@ -22,11 +22,14 @@ struct StopTimerIntent: LiveActivityIntent {
         [.background, .foreground(.dynamic)]
     }
 
+    @MainActor
     func perform() async throws -> some IntentResult {
         // Remove shields immediately so blocked apps are usable right away.
         let store = ManagedSettingsStore()
         store.shield.applications = nil
         store.shield.applicationCategories = nil
+        store.shield.webDomains = nil
+        store.shield.webDomainCategories = nil
 
         // Cancel DeviceActivity monitoring to prevent the monitor extension
         // from reapplying shields after this intent completes.
