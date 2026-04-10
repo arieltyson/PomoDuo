@@ -1,11 +1,12 @@
 import FamilyControls
 import SwiftUI
 
-/// Screen Time app blocking — routes to setup or management based on
+/// Screen Time app blocking — routes to setup or inline selection based on
 /// authorization state.
 ///
-/// - **Authorized**: Shows the selection management view and auto-presents
-///   the picker when no apps are selected yet.
+/// - **Authorized**: Embeds `FamilyActivityPicker` directly as the page
+///   content. The user reaches the selection interface immediately with
+///   no intermediate management screen.
 /// - **Unauthorized**: Shows a dedicated setup screen focused on getting
 ///   Screen Time permission.
 struct AppBlockingView: View {
@@ -15,7 +16,7 @@ struct AppBlockingView: View {
     var body: some View {
         Group {
             if screenTimeManager.isAuthorized {
-                AppBlockingManagementContent()
+                AppBlockingSelectionContent()
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else {
                 AppBlockingSetupContent(screenTimeManager: screenTimeManager)
@@ -34,105 +35,47 @@ struct AppBlockingView: View {
     }
 }
 
-// MARK: - Management Content (Authorized)
+// MARK: - Inline Selection (Authorized)
 
-/// Selection management for authorized users. Auto-presents the
-/// `FamilyActivityPicker` on first appearance when no apps are selected,
-/// giving the user the lowest-friction path to their goal.
-private struct AppBlockingManagementContent: View {
+/// Embeds `FamilyActivityPicker` directly as the screen content.
+///
+/// The picker is the entire authorized experience — no summary screen,
+/// no intermediate management layer. Users check and uncheck items
+/// directly. A toolbar button provides "Clear All" as the only
+/// supplementary action.
+private struct AppBlockingSelectionContent: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
-    @State private var isPickerPresented = false
-    @State private var hasAutoPresented = false
+    @State private var isShowingClearConfirmation = false
 
     var body: some View {
         @Bindable var bindable = screenTimeManager
 
-        Form {
-            if screenTimeManager.hasSelectedApps {
-                SelectedAppsSection(
-                    screenTimeManager: screenTimeManager,
-                    onEdit: { isPickerPresented = true }
-                )
-            } else {
-                EmptyBlockingSection(
-                    onChoose: { isPickerPresented = true }
-                )
-            }
-        }
-        .familyActivityPicker(
-            isPresented: $isPickerPresented,
+        FamilyActivityPicker(
+            headerText: "Choose apps to block during focus sessions.",
             selection: $bindable.activitySelection
         )
-        .task {
-            guard !screenTimeManager.hasSelectedApps, !hasAutoPresented else { return }
-            hasAutoPresented = true
-            try? await Task.sleep(for: .milliseconds(400))
-            guard !Task.isCancelled else { return }
-            isPickerPresented = true
+        .toolbar {
+            if screenTimeManager.hasSelectedApps {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Clear All", systemImage: "trash") {
+                        isShowingClearConfirmation = true
+                    }
+                    .tint(AppColors.stopTint)
+                    .accessibilityHint("Removes all blocked app selections.")
+                    .accessibilityInputLabels(["Clear All", "Clear", "Reset"])
+                }
+            }
         }
-    }
-}
-
-/// Shows the current selection summary with edit and clear actions.
-private struct SelectedAppsSection: View {
-    let screenTimeManager: ScreenTimeManager
-    let onEdit: () -> Void
-
-    var body: some View {
-        Section("Blocked Apps") {
-            BlockSelectionSummary(screenTimeManager: screenTimeManager)
-        }
-
-        Section {
-            Button("Edit Selection", systemImage: "pencil", action: onEdit)
-                .accessibilityHint("Opens Apple's app picker to change blocked apps.")
-                .accessibilityInputLabels(["Edit Selection", "Edit", "Change"])
-
-            Button(
-                "Clear Selection",
-                systemImage: "trash",
-                role: .destructive
-            ) {
+        .confirmationDialog(
+            "Clear Selection",
+            isPresented: $isShowingClearConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear All Blocked Apps", role: .destructive) {
                 screenTimeManager.clearSelection()
             }
-            .accessibilityHint("Removes all blocked app selections.")
-            .accessibilityInputLabels(["Clear Selection", "Clear", "Reset"])
-        }
-    }
-}
-
-/// Empty state shown when authorized but no apps are selected.
-private struct EmptyBlockingSection: View {
-    let onChoose: () -> Void
-
-    var body: some View {
-        Section {
-            VStack(spacing: 16) {
-                Image(systemName: "shield.lefthalf.filled")
-                    .font(.system(size: 36))
-                    .foregroundStyle(AppColors.lavender.opacity(0.5))
-                    .accessibilityHidden(true)
-
-                Text("No Apps Blocked")
-                    .font(.headline)
-
-                Text("Choose apps and categories to block during focus sessions.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 24)
-        }
-
-        Section {
-            Button(
-                "Choose Apps to Block",
-                systemImage: "plus.app",
-                action: onChoose
-            )
-            .accessibilityHint("Opens Apple's app picker.")
-            .accessibilityInputLabels(["Choose Apps to Block", "Choose Apps", "Select"])
+        } message: {
+            Text("This will remove all blocked apps and categories.")
         }
     }
 }
@@ -293,98 +236,5 @@ private enum SetupVariant {
 
     var showsOpenSettingsButton: Bool {
         self == .denied
-    }
-}
-
-// MARK: - Selection Summary
-
-private struct BlockSelectionSummary: View {
-    let screenTimeManager: ScreenTimeManager
-
-    private var allCategoriesSelected: Bool {
-        screenTimeManager.activitySelection.categoryTokens.count
-            >= ShieldSessionContext.allCategoriesThreshold
-    }
-
-    var body: some View {
-        let appCount = screenTimeManager.activitySelection.applicationTokens
-            .count
-        let categoryCount = screenTimeManager.activitySelection.categoryTokens
-            .count
-        let webDomainCount = screenTimeManager.activitySelection
-            .webDomainTokens.count
-
-        VStack(alignment: .leading) {
-            if allCategoriesSelected {
-                Text("All apps & categories selected")
-            } else {
-                if appCount > 0 {
-                    let appWord = appCount == 1 ? "app" : "apps"
-                    Text("\(appCount) \(appWord) selected")
-                }
-
-                if categoryCount > 0 {
-                    let categoryWord =
-                        categoryCount == 1 ? "category" : "categories"
-                    Text("\(categoryCount) \(categoryWord) selected")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if webDomainCount > 0 {
-                let domainWord =
-                    webDomainCount == 1 ? "website" : "websites"
-                Text("\(webDomainCount) \(domainWord) selected")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if allCategoriesSelected {
-                Text(
-                    "Some system apps may remain available due to iOS restrictions."
-                )
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            summaryLabel(
-                appCount: appCount,
-                webDomainCount: webDomainCount,
-                categoryCount: categoryCount
-            )
-        )
-    }
-
-    private func summaryLabel(
-        appCount: Int,
-        webDomainCount: Int,
-        categoryCount: Int
-    ) -> String {
-        if allCategoriesSelected {
-            var label = "All apps and categories selected for blocking"
-            if webDomainCount > 0 {
-                let domainWord = webDomainCount == 1 ? "website" : "websites"
-                label += " and \(webDomainCount) \(domainWord)"
-            }
-            return label
-        }
-
-        var parts: [String] = []
-        if appCount > 0 {
-            let appWord = appCount == 1 ? "app" : "apps"
-            parts.append("\(appCount) \(appWord)")
-        }
-        if webDomainCount > 0 {
-            let domainWord = webDomainCount == 1 ? "website" : "websites"
-            parts.append("\(webDomainCount) \(domainWord)")
-        }
-        if categoryCount > 0 {
-            let categoryWord = categoryCount == 1 ? "category" : "categories"
-            parts.append("\(categoryCount) \(categoryWord)")
-        }
-        return "\(parts.joined(separator: " and ")) selected for blocking"
     }
 }

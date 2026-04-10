@@ -302,17 +302,10 @@ private struct AppBlockingStatusBadge: View {
 
     var body: some View {
         if screenTimeManager.isAuthorized && screenTimeManager.hasSelectedApps {
-            let blockedCount =
-                screenTimeManager.activitySelection.applicationTokens.count
-                + screenTimeManager.activitySelection.categoryTokens.count
-            Text("\(blockedCount)")
-                .font(.caption2)
-                .bold()
-                .foregroundStyle(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(AppColors.lavender, in: .capsule)
-                .accessibilityLabel("\(blockedCount) items blocked")
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(AppColors.success)
+                .accessibilityLabel("App blocking active")
         } else if screenTimeManager.isAuthorized {
             Text("Set Up")
                 .font(.caption2)
