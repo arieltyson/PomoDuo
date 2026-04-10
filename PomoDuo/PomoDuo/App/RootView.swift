@@ -145,23 +145,11 @@ struct RootView: View {
             selectedTab = .timer
         }
         .onOpenURL { url in
-            guard let route = DeepLinkRouter.route(from: url) else { return }
-
-            switch route {
-            case .timer:
-                selectedTab = .timer
-            case .partner:
-                selectedTab = .partner
-            case .friendRequest(let requestID):
-                selectedTab = .partner
-                pendingFriendRequestID = requestID
-            case .pair(let code):
-                selectedTab = .partner
-                pendingPairCode = code
-            case .addFriend(let username):
-                addFriendLinkUsername = username
-                isShowingAddFriendFromLink = true
-            }
+            handleDeepLink(url)
+        }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            guard let url = activity.webpageURL else { return }
+            handleDeepLink(url)
         }
         .sheet(item: $feedbackCategory) { category in
             FeedbackView(category: category)
@@ -198,6 +186,26 @@ struct RootView: View {
                 await sessionManager.completeSession()
             }
         )
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        guard let route = DeepLinkRouter.route(from: url) else { return }
+
+        switch route {
+        case .timer:
+            selectedTab = .timer
+        case .partner:
+            selectedTab = .partner
+        case .friendRequest(let requestID):
+            selectedTab = .partner
+            pendingFriendRequestID = requestID
+        case .pair(let code):
+            selectedTab = .partner
+            pendingPairCode = code
+        case .addFriend(let username):
+            addFriendLinkUsername = username
+            isShowingAddFriendFromLink = true
+        }
     }
 
     private func presentFeedbackFromQuickActionIfNeeded() {
