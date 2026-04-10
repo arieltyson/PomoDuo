@@ -47,13 +47,19 @@ private struct AppBlockingSelectionContent: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @State private var isShowingClearConfirmation = false
 
+    /// Forces `FamilyActivityPicker` to recreate after a programmatic
+    /// selection clear. The picker is UIKit-backed and does not visually
+    /// refresh when its bound selection changes outside of user interaction.
+    @State private var pickerID = UUID()
+
     var body: some View {
         @Bindable var bindable = screenTimeManager
 
         FamilyActivityPicker(
-            headerText: "Choose apps to block during focus sessions.",
+            headerText: "Choose apps to block during focus sessions. Some system apps like Messages and Phone may remain available due to iOS restrictions.",
             selection: $bindable.activitySelection
         )
+        .id(pickerID)
         .toolbar {
             if screenTimeManager.hasSelectedApps {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -72,6 +78,7 @@ private struct AppBlockingSelectionContent: View {
         ) {
             Button("Clear All", role: .destructive) {
                 screenTimeManager.clearSelection()
+                pickerID = UUID()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
