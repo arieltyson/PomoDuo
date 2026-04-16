@@ -49,16 +49,26 @@ final class AuthManager {
     }
 
     /// Starts auth lifecycle observation and signs in anonymously if needed.
+    ///
+    /// Bootstrap runs **before** the state listener subscribes. The auth
+    /// service's state stream (Firebase's `addStateDidChangeListener` and
+    /// ``MockAuthService/authStateChanges()``) yields its current value at
+    /// subscription time — which is `nil` on a cold start. Subscribing before
+    /// bootstrap would buffer that `nil` and then race with the direct
+    /// `authState` mutations in ``signInAnonymously()`` / ``updateDisplayName(_:)``,
+    /// causing `authState` to transiently regress to `.signedOut` (or an
+    /// older user) whenever the listener drained its backlog after a direct
+    /// write. Bootstrapping first makes the listener's very first emission
+    /// equal to the user that direct writes already established.
     func start() async {
-        startListeningForStateChanges()
-        startListeningForAppleRevocation()
-
         if let existing = await authService.currentUser {
             authState = .signedIn(existing)
-            return
+        } else {
+            await signInAnonymously()
         }
 
-        await signInAnonymously()
+        startListeningForStateChanges()
+        startListeningForAppleRevocation()
     }
 
     func stop() {
@@ -227,6 +237,17 @@ final class AuthManager {
         authError = nil
     }
 
+    #if DEBUG
+    /// Test-only hook that forwards a synthetic stream emission through the
+    /// same reconciliation path the real listener uses.
+    ///
+    /// Used to deterministically reproduce — and prove the fix for — the
+    /// stale-emission race that caused `savePropagatesDisplayName` to flake.
+    func simulateStreamEmissionForTests(_ user: AuthUser?) {
+        applyStreamEmission(user)
+    }
+    #endif
+
     // MARK: - State Listeners
 
     private func startListeningForStateChanges() {
@@ -242,12 +263,33 @@ final class AuthManager {
                     return
                 }
 
-                if let user {
-                    self.authState = .signedIn(user)
-                } else {
-                    self.authState = .signedOut
-                }
+                self.applyStreamEmission(user)
             }
+        }
+    }
+
+    /// Reconciles a stream emission with the current ``authState``.
+    ///
+    /// The stream is authoritative for identity transitions (sign-in,
+    /// sign-out, user switch). It is **not** authoritative for profile
+    /// updates on the same identity — those ride on direct writes in
+    /// ``updateDisplayName(_:)`` and ``linkWithApple()``. A subscription-time
+    /// snapshot of the user can otherwise replay *after* a direct write
+    /// completes and clobber the fresh profile data with an older copy.
+    private func applyStreamEmission(_ emitted: AuthUser?) {
+        switch (authState, emitted) {
+        case (.signedIn(let current), .some(let incoming))
+        where current.id == incoming.id:
+            // Same identity — keep whatever the direct writes established.
+            // Firebase's state listener never fires for profile-only
+            // changes, so production won't miss real updates by skipping
+            // this emission; ``MockAuthService`` does fire, and the skip
+            // is what keeps the test flake from recurring.
+            break
+        case (_, .some(let incoming)):
+            authState = .signedIn(incoming)
+        case (_, .none):
+            authState = .signedOut
         }
     }
 
