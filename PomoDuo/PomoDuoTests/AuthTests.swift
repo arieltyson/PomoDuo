@@ -242,4 +242,118 @@ struct AuthManagerTests {
         #expect(manager.currentUser?.displayName == "Fresh Name")
         #expect(manager.currentUser?.id == initialUser.id)
     }
+
+    /// The pull channel for same-identity profile updates.
+    ///
+    /// The stream listener's same-id filter correctly protects direct
+    /// writes against stale push replays, but it also drops genuine profile
+    /// updates made on another device. ``refreshCurrentUserProfile`` is the
+    /// counterpart pull channel — it must apply any refreshed snapshot even
+    /// when the identity is unchanged.
+    @Test("Profile refresh applies same-identity updates")
+    func profileRefreshAppliesSameIdentityUpdates() async {
+        let signedInID = "user-refresh-test"
+        let localSnapshot = AuthUser(
+            id: signedInID,
+            displayName: "Local Name",
+            isAnonymous: true,
+            createdAt: .now,
+            authProvider: .anonymous
+        )
+        let externallyRenamed = AuthUser(
+            id: signedInID,
+            displayName: "Renamed From Other Device",
+            isAnonymous: true,
+            createdAt: localSnapshot.createdAt,
+            authProvider: .anonymous
+        )
+
+        let service = StubRefreshingAuthService(refreshedUser: externallyRenamed)
+        let manager = AuthManager(authService: service)
+        manager.simulateStreamEmissionForTests(localSnapshot)
+        #expect(manager.currentUser?.displayName == "Local Name")
+
+        await manager.refreshCurrentUserProfile()
+
+        #expect(
+            manager.currentUser?.displayName == "Renamed From Other Device"
+        )
+        #expect(manager.currentUser?.id == signedInID)
+    }
+
+    @Test("Profile refresh no-ops when signed out")
+    func profileRefreshNoOpsWhenSignedOut() async {
+        let service = StubRefreshingAuthService(
+            refreshedUser: AuthUser(
+                id: "ghost",
+                displayName: "Should Not Apply",
+                isAnonymous: false,
+                createdAt: .now,
+                authProvider: .email
+            )
+        )
+        let manager = AuthManager(authService: service)
+        // Not calling start() — manager stays `.unknown` (signed-out).
+
+        await manager.refreshCurrentUserProfile()
+
+        #expect(manager.currentUser == nil)
+    }
+}
+
+/// Minimal `AuthService` stub whose `refreshCurrentUser` returns a
+/// pre-configured snapshot. Used to verify the profile-refresh pull channel
+/// without touching the real mock's persistence machinery.
+@MainActor
+private final class StubRefreshingAuthService: AuthService, @unchecked Sendable {
+    private let refreshedUser: AuthUser?
+
+    init(refreshedUser: AuthUser?) {
+        self.refreshedUser = refreshedUser
+    }
+
+    var currentUser: AuthUser? { nil }
+
+    func signInAnonymously() async throws -> AuthUser {
+        throw AuthServiceError.notAuthenticated
+    }
+
+    func signIn(email: String, password: String) async throws -> AuthUser {
+        throw AuthServiceError.notAuthenticated
+    }
+
+    func createAccount(
+        email: String,
+        password: String,
+        displayName: String
+    ) async throws -> AuthUser {
+        throw AuthServiceError.notAuthenticated
+    }
+
+    func signInWithApple(
+        credential: AppleAuthCredential
+    ) async throws -> AuthUser {
+        throw AuthServiceError.notAuthenticated
+    }
+
+    func linkAppleCredential(
+        _ credential: AppleAuthCredential
+    ) async throws -> AuthUser {
+        throw AuthServiceError.notAuthenticated
+    }
+
+    func signOut() async throws {}
+    func deleteAccount() async throws {}
+
+    func updateDisplayName(_ name: String) async throws -> AuthUser {
+        throw AuthServiceError.notAuthenticated
+    }
+
+    func refreshCurrentUser() async throws -> AuthUser? {
+        refreshedUser
+    }
+
+    nonisolated func authStateChanges() -> AsyncStream<AuthUser?> {
+        AsyncStream { $0.finish() }
+    }
 }

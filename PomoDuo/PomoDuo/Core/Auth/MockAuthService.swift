@@ -251,6 +251,15 @@ final class MockAuthService: AuthService {
         return updated
     }
 
+    /// Mirrors the Firebase `User.reload()` contract: returns the current
+    /// persisted profile, or `nil` when no user is signed in. The mock
+    /// already re-reads from ``UserDefaults`` on every access, so this is
+    /// equivalent to reading ``currentUser``.
+    func refreshCurrentUser() async throws -> AuthUser? {
+        try await Task.sleep(for: simulatedDelay)
+        return currentUser
+    }
+
     func authStateChanges() -> AsyncStream<AuthUser?> {
         AsyncStream { continuation in
             let subscriptionID = UUID()

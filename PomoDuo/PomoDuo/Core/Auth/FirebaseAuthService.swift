@@ -197,6 +197,27 @@ final class FirebaseAuthService: AuthService {
         }
     }
 
+    /// Forces a server-authoritative read of the currently-signed-in user.
+    ///
+    /// Firebase's `addStateDidChangeListener` fires on identity transitions
+    /// but not on profile-only updates, so changes made on another device
+    /// (display name, email, linked providers) won't flow through the
+    /// identity stream. `User.reload()` refreshes the local profile from
+    /// the auth backend and `auth.currentUser` then returns the updated
+    /// snapshot.
+    func refreshCurrentUser() async throws -> AuthUser? {
+        guard let user = auth.currentUser else { return nil }
+
+        do {
+            try await user.reload()
+        } catch {
+            throw mapAuthError(error)
+        }
+
+        guard let refreshedUser = auth.currentUser else { return nil }
+        return Self.makeAuthUser(from: refreshedUser)
+    }
+
     // MARK: - State Stream
 
     func authStateChanges() -> AsyncStream<AuthUser?> {

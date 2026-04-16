@@ -237,6 +237,41 @@ final class AuthManager {
         authError = nil
     }
 
+    // MARK: - Profile Refresh (Same-Identity Pull Channel)
+
+    /// Pulls the server-authoritative profile for the currently signed-in
+    /// user and applies the result even when the identity hasn't changed.
+    ///
+    /// The identity stream listener (``applyStreamEmission(_:)``) filters
+    /// same-id emissions to prevent stale subscription-time snapshots from
+    /// regressing direct writes. That filter is correct for the push path,
+    /// but it also drops *genuine* profile updates made on another device.
+    /// This method is the pull counterpart: it explicitly asks the auth
+    /// service for a fresh read and then bypasses the filter via
+    /// ``applyProfileRefresh(_:)``, trusting the refreshed snapshot over
+    /// the locally cached state.
+    ///
+    /// Errors are intentionally swallowed — a foreground refresh is a
+    /// best-effort background task, and any real identity change (user
+    /// disabled, user deleted) will still flow through the identity stream
+    /// on its next emission.
+    func refreshCurrentUserProfile() async {
+        guard case .signedIn = authState else { return }
+
+        let refreshed = try? await authService.refreshCurrentUser()
+        applyProfileRefresh(refreshed)
+    }
+
+    /// Applies a profile-refresh result authoritatively.
+    ///
+    /// Unlike ``applyStreamEmission(_:)``, this does **not** filter same-id
+    /// updates — the caller has explicitly requested a fresh read, so any
+    /// returned profile (including an unchanged one) is treated as the new
+    /// truth. A `nil` result is still interpreted as signed-out.
+    private func applyProfileRefresh(_ refreshed: AuthUser?) {
+        authState = refreshed.map { .signedIn($0) } ?? .signedOut
+    }
+
     #if DEBUG
     /// Test-only hook that forwards a synthetic stream emission through the
     /// same reconciliation path the real listener uses.

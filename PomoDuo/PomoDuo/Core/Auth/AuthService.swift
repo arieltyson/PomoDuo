@@ -60,6 +60,23 @@ protocol AuthService: Sendable {
     /// Updates display name for the active account.
     func updateDisplayName(_ name: String) async throws -> AuthUser
 
+    /// Forces a server-authoritative refresh of the current user's profile
+    /// and returns the up-to-date identity.
+    ///
+    /// This exists as a **pull channel** for same-identity profile changes.
+    /// The identity stream ``authStateChanges()`` intentionally filters out
+    /// same-id replays at the ``AuthManager`` layer to prevent stale
+    /// subscription-time snapshots from clobbering direct writes, which
+    /// means genuine profile updates delivered on that stream would also be
+    /// dropped. Calling this method explicitly asks for a fresh read and
+    /// signals intent to accept the result even when the identity is the
+    /// same.
+    ///
+    /// Implementations should reload from the backend's authoritative source
+    /// (e.g. `FIRUser.reload()`) when available. Returns `nil` when no user
+    /// is currently signed in.
+    func refreshCurrentUser() async throws -> AuthUser?
+
     /// Emits auth state whenever it changes.
     func authStateChanges() -> AsyncStream<AuthUser?>
 }

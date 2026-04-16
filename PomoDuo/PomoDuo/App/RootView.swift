@@ -19,6 +19,7 @@ struct RootView: View {
     @Environment(HeartbeatManager.self) private var heartbeatManager
     @Environment(QuickActionManager.self) private var quickActionManager
     @Environment(FriendRequestNotificationObserver.self) private var friendRequestObserver
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var selectedTab = AppTab.timer
     @State private var settingsPath: [SettingsDestination] = []
@@ -121,6 +122,14 @@ struct RootView: View {
             // profile updates, so paired-session notifications (sender name)
             // would otherwise keep using the pre-rename value.
             sessionManager.currentDisplayName = newName
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            // Pull same-identity profile updates (e.g. displayName edits made
+            // on another device) on foreground. The identity stream listener
+            // filters same-id emissions to protect direct writes from stale
+            // replays, so this is the complementary pull channel.
+            guard newPhase == .active else { return }
+            Task { await authManager.refreshCurrentUserProfile() }
         }
         .task(id: quickActionManager.pendingAction) {
             presentFeedbackFromQuickActionIfNeeded()
