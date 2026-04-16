@@ -228,7 +228,9 @@ struct ActivePairedSessionView: View {
 
             startLiveActivityForFocus(isPaused: session.isPaused)
             if !session.isPaused {
-                restrictionCoordinator.enforceFocusRestrictions()
+                restrictionCoordinator.enforceFocusRestrictions(
+                    until: session.targetEndDate
+                )
             }
         case .shortBreak:
             guard !currentPhaseHasEnded else {
@@ -266,7 +268,9 @@ struct ActivePairedSessionView: View {
             focusStartedAt = session.startTime
             haptic.fire(.start)
             startLiveActivityForFocus(isPaused: session.isPaused)
-            restrictionCoordinator.enforceFocusRestrictions()
+            restrictionCoordinator.enforceFocusRestrictions(
+                until: session.targetEndDate
+            )
             AccessibilityAnnouncer.announcePairedFocusBegan(
                 round: session.currentRound,
                 totalRounds: session.totalRounds,
@@ -291,7 +295,9 @@ struct ActivePairedSessionView: View {
             focusStartedAt = session.startTime
             haptic.fire(.start)
             startLiveActivityForFocus(isPaused: session.isPaused)
-            restrictionCoordinator.enforceFocusRestrictions()
+            restrictionCoordinator.enforceFocusRestrictions(
+                until: session.targetEndDate
+            )
             AccessibilityAnnouncer.announcePairedFocusBegan(
                 round: session.currentRound,
                 totalRounds: session.totalRounds,
@@ -342,7 +348,9 @@ struct ActivePairedSessionView: View {
         } else if wasPaused && !isPaused {
             haptic.fire(.resume)
             updateLiveActivityPaused(false)
-            restrictionCoordinator.enforceFocusRestrictions()
+            restrictionCoordinator.enforceFocusRestrictions(
+                until: session.targetEndDate
+            )
             AccessibilityAnnouncer.announcePairedResume()
         }
     }

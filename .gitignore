@@ -109,8 +109,8 @@ yarn-error.log*
 # Claude Code
 # ===========================
 
-## Local settings contain machine-specific config — never commit
-.claude/settings.local.json
+## Entire Claude Code workspace — local agent state, settings, memory, etc.
+.claude/
 
 # ===========================
 # Misc

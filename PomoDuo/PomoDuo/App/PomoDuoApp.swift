@@ -65,10 +65,20 @@ struct PomoDuoApp: App {
             screenTimeManager: screenTimeManager,
             store: managedSettingsStore
         )
+
+        // The focus scheduler registers DeviceActivity monitoring intervals
+        // so the Monitor extension can reapply or remove shields even if
+        // the user force-quits the app mid-session. A single instance is
+        // shared between the solo flow (via RestrictionCoordinator) and the
+        // paired flow (via SessionManager) so both write to the same
+        // DeviceActivityCenter activity name.
+        let focusScheduler = FocusActivityScheduler()
+
         _restrictionCoordinator = State(
             initialValue: RestrictionCoordinator(
                 screenTimeManager: screenTimeManager,
-                restrictionService: restrictionService
+                restrictionService: restrictionService,
+                focusScheduler: focusScheduler
             )
         )
 
@@ -79,11 +89,6 @@ struct PomoDuoApp: App {
         let notificationService = LocalNotificationService(
             pushSender: pushSender
         )
-
-        // The focus scheduler registers DeviceActivity monitoring intervals
-        // so the Monitor extension can reapply or remove shields even if
-        // the user force-quits the app mid-session.
-        let focusScheduler = FocusActivityScheduler()
 
         let sessionManager = SessionManager(
             syncService: syncService,

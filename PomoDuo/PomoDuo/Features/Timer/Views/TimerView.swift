@@ -202,7 +202,7 @@ struct TimerView: View {
             phaseDuration: configuration.focusDuration
         )
 
-        restrictionCoordinator.enforceFocusRestrictions()
+        restrictionCoordinator.enforceFocusRestrictions(until: targetEndDate)
 
         AccessibilityAnnouncer.announceStart(
             round: currentRound,
@@ -369,7 +369,7 @@ struct TimerView: View {
                 phaseDuration: configuration.focusDuration
             )
 
-            restrictionCoordinator.enforceFocusRestrictions()
+            restrictionCoordinator.enforceFocusRestrictions(until: targetEndDate)
 
             AccessibilityAnnouncer.announceFocusResumed(
                 round: currentRound,
@@ -402,7 +402,7 @@ struct TimerView: View {
                 phaseDuration: configuration.focusDuration
             )
 
-            restrictionCoordinator.enforceFocusRestrictions()
+            restrictionCoordinator.enforceFocusRestrictions(until: targetEndDate)
 
             AccessibilityAnnouncer.announceFocusResumed(
                 round: currentRound,
@@ -619,7 +619,9 @@ struct TimerView: View {
         )
 
         if snapshot.phase == .focus {
-            restrictionCoordinator.enforceFocusRestrictions()
+            restrictionCoordinator.enforceFocusRestrictions(
+                until: snapshot.targetEndDate
+            )
         } else {
             restrictionCoordinator.liftRestrictions()
         }

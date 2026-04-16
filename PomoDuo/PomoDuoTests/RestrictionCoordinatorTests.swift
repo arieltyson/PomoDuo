@@ -14,6 +14,10 @@ private final class MutableEligibility {
 @MainActor
 struct RestrictionCoordinatorTests {
 
+    /// Stable end date used by enforce calls in tests so the comparison
+    /// against ``ShieldSessionContext.targetEndDate`` is deterministic.
+    private static let sampleEndDate = Date(timeIntervalSince1970: 2_500_000_000)
+
     /// Polls a condition up to ~400ms, yielding between checks so the
     /// coordinator's inner `Task` can complete its actor round-trip.
     private func waitUntil(
@@ -47,7 +51,7 @@ struct RestrictionCoordinatorTests {
             canRestrictEvaluator: { false }
         )
 
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil {
             coordinator.lastError != nil || coordinator.isRestricting
         }
@@ -65,7 +69,7 @@ struct RestrictionCoordinatorTests {
             canRestrictEvaluator: { true }
         )
 
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil { coordinator.isRestricting }
 
         #expect(await service.applyCallCount == 1)
@@ -82,9 +86,9 @@ struct RestrictionCoordinatorTests {
             canRestrictEvaluator: { true }
         )
 
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil { coordinator.isRestricting }
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await Task.sleep(for: .milliseconds(60))
 
         #expect(await service.applyCallCount == 1)
@@ -115,7 +119,7 @@ struct RestrictionCoordinatorTests {
             canRestrictEvaluator: { true }
         )
 
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil { coordinator.isRestricting }
 
         coordinator.liftRestrictions()
@@ -167,7 +171,7 @@ struct RestrictionCoordinatorTests {
             canRestrictEvaluator: { true }
         )
 
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil { coordinator.isRestricting }
 
         coordinator.refreshRestrictions()
@@ -189,7 +193,7 @@ struct RestrictionCoordinatorTests {
         )
 
         // Start restricting.
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil { coordinator.isRestricting }
         #expect(coordinator.isRestricting)
 
@@ -212,7 +216,7 @@ struct RestrictionCoordinatorTests {
         )
 
         // Start restricting.
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil { coordinator.isRestricting }
 
         // Simulate removing one app (canRestrict still true).
@@ -234,7 +238,7 @@ struct RestrictionCoordinatorTests {
             canRestrictEvaluator: { true }
         )
 
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil { coordinator.lastError != nil }
 
         #expect(await service.applyCallCount == 0)
@@ -251,7 +255,7 @@ struct RestrictionCoordinatorTests {
             canRestrictEvaluator: { true }
         )
 
-        coordinator.enforceFocusRestrictions()
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
         try await waitUntil { coordinator.isRestricting }
 
         await service.setRemoveError(NSError(domain: "tests", code: 99))
@@ -261,6 +265,117 @@ struct RestrictionCoordinatorTests {
 
         #expect(await service.removeCallCount == 0)
         #expect(coordinator.isRestricting)
+        #expect(coordinator.lastError != nil)
+    }
+}
+
+// MARK: - Full Pipeline Coverage
+
+/// Spy that records the coordinator's context writes without touching the
+/// process-global App Group `UserDefaults` that backs the real
+/// ``ShieldSessionContext``.
+///
+/// Reading `UserDefaults` from multiple parallel test suites races, so
+/// routing writes through an injected spy is the only way to verify
+/// coordinator behavior deterministically.
+@MainActor
+private final class SpyFocusSessionContextWriter: FocusSessionContextWriting {
+    private(set) var lastWrittenEndDate: Date?
+    private(set) var writeCount = 0
+    private(set) var clearCount = 0
+
+    func writeFocus(targetEndDate: Date) {
+        lastWrittenEndDate = targetEndDate
+        writeCount += 1
+    }
+
+    func clearFocus() {
+        lastWrittenEndDate = nil
+        clearCount += 1
+    }
+}
+
+/// Regression coverage for the bug where the solo focus flow set the
+/// in-process shield but never wrote shared session context or registered
+/// DeviceActivity monitoring — leaving the OS with no extension-backed
+/// re-applier and the user able to launch supposedly-blocked apps.
+@MainActor
+struct RestrictionCoordinatorPipelineTests {
+
+    private static let sampleEndDate = Date(timeIntervalSince1970: 2_500_000_500)
+
+    private func waitUntil(
+        timeout: Int = 40,
+        _ condition: @MainActor () async -> Bool
+    ) async throws {
+        for _ in 0..<timeout {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    @Test func enforceWritesSessionContextWithEndDate() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let spy = SpyFocusSessionContextWriter()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            sessionContextWriter: spy,
+            canRestrictEvaluator: { true }
+        )
+
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
+        try await waitUntil { coordinator.isRestricting }
+
+        #expect(spy.writeCount == 1)
+        #expect(spy.lastWrittenEndDate == Self.sampleEndDate)
+        #expect(spy.clearCount == 0)
+        #expect(coordinator.isRestricting)
+    }
+
+    @Test func liftClearsSessionContext() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let spy = SpyFocusSessionContextWriter()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            sessionContextWriter: spy,
+            canRestrictEvaluator: { true }
+        )
+
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
+        try await waitUntil { coordinator.isRestricting }
+
+        coordinator.liftRestrictions()
+        try await waitUntil { !coordinator.isRestricting }
+
+        #expect(spy.writeCount == 1)
+        #expect(spy.clearCount == 1)
+        #expect(spy.lastWrittenEndDate == nil)
+    }
+
+    @Test func forceRemoveAlwaysClearsContextEvenOnRemovalError() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        await service.setRemoveError(NSError(domain: "tests", code: 7))
+        let spy = SpyFocusSessionContextWriter()
+
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            sessionContextWriter: spy,
+            canRestrictEvaluator: { false }
+        )
+
+        coordinator.forceRemoveRestrictions()
+        try await waitUntil { coordinator.lastError != nil }
+
+        // Even though removeRestrictions threw, the safety-net teardown of
+        // shared context must still run so the Monitor extension cannot
+        // re-assert shields against a stale session.
+        #expect(spy.clearCount == 1)
         #expect(coordinator.lastError != nil)
     }
 }
