@@ -116,6 +116,12 @@ struct RootView: View {
                 heartbeatManager.stopBeating()
             }
         }
+        .onChange(of: authManager.currentUser?.displayName) { _, newName in
+            // Identity-keyed `.task` above does not fire for same-identity
+            // profile updates, so paired-session notifications (sender name)
+            // would otherwise keep using the pre-rename value.
+            sessionManager.currentDisplayName = newName
+        }
         .task(id: quickActionManager.pendingAction) {
             presentFeedbackFromQuickActionIfNeeded()
         }

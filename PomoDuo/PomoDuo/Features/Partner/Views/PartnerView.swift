@@ -104,6 +104,13 @@ struct PartnerView: View {
                 activePartner = nil
             }
         }
+        .onChange(of: authManager.currentUser?.displayName) { _, newName in
+            // Identity-keyed `.task` does not fire for same-identity profile
+            // updates, so share/invite surfaces would otherwise keep an
+            // older sender name until sign-out/sign-in.
+            guard authManager.isSignedIn else { return }
+            friendsViewModel.updateDisplayName(newName ?? "")
+        }
     }
 }
 

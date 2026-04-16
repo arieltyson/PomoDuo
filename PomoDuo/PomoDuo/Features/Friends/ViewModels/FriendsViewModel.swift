@@ -119,6 +119,30 @@ final class FriendsViewModel {
         currentUsername = nil
     }
 
+    /// Refreshes the display name shown on invite/share surfaces without
+    /// tearing down the friends, requests, and username streams.
+    ///
+    /// The tab-level `.task(id: authManager.isSignedIn)` only re-runs on
+    /// identity transitions, so same-identity profile updates (e.g.
+    /// `AuthManager.updateDisplayName`) would otherwise leave
+    /// ``currentDisplayName`` stale in Partner share/invite UI. Pushing
+    /// the new name through this method keeps the observer pipeline stable
+    /// while still propagating the update.
+    func updateDisplayName(_ newName: String) {
+        currentDisplayName = newName
+    }
+
+    #if DEBUG
+    /// Awaits completion of the currently in-flight username fetch, if any.
+    ///
+    /// Used by lifecycle tests to synchronize deterministically instead of
+    /// sleeping for an arbitrary duration and hoping the async work finishes
+    /// in time under full-suite main-actor contention.
+    func waitForCurrentUsernameFetchForTests() async {
+        await usernameTask?.value
+    }
+    #endif
+
     // MARK: - Username
 
     func validateUsername() {

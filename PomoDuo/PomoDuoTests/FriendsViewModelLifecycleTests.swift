@@ -11,13 +11,11 @@ struct FriendsViewModelLifecycleTests {
         let viewModel = FriendsViewModel(friendService: service)
 
         viewModel.startObserving(displayName: "Test")
-
-        // The username fetch task is now in-flight.
-        // Stop before it can complete.
+        // Stop before the fetch can complete. `stopObserving` cancels the
+        // in-flight task and nils it out, so the deterministic wait just
+        // observes that there is nothing left to drain.
         viewModel.stopObserving()
-
-        // Allow any in-flight work to settle.
-        try? await Task.sleep(for: .milliseconds(100))
+        await viewModel.waitForCurrentUsernameFetchForTests()
 
         // After stopObserving, currentUsername must remain nil
         // even though the stub would return "testuser".
@@ -29,9 +27,7 @@ struct FriendsViewModelLifecycleTests {
         let viewModel = FriendsViewModel(friendService: service)
 
         viewModel.startObserving(displayName: "Test")
-
-        // Allow the username fetch to complete.
-        try? await Task.sleep(for: .milliseconds(100))
+        await viewModel.waitForCurrentUsernameFetchForTests()
 
         #expect(viewModel.currentUsername == "testuser")
     }
@@ -40,18 +36,41 @@ struct FriendsViewModelLifecycleTests {
         let service = SlowFriendService()
         let viewModel = FriendsViewModel(friendService: service)
 
-        // Start with a slow service — username fetch takes 500ms.
+        // First fetch is slow (500ms in `SlowFriendService`).
         viewModel.startObserving(displayName: "First")
 
-        // Immediately restart — should cancel the first fetch.
+        // Immediately restart — the first fetch is cancelled, the second is
+        // the only one allowed to write back to `currentUsername`.
         viewModel.startObserving(displayName: "Second")
 
-        // Wait for the second fetch to complete (500ms service + margin).
-        try? await Task.sleep(for: .milliseconds(800))
+        // Deterministically wait for the second fetch to finish, instead of
+        // racing a sleep threshold against main-actor contention in CI.
+        await viewModel.waitForCurrentUsernameFetchForTests()
 
         // Should have the result from the second call, not stale data.
         #expect(viewModel.currentUsername == "testuser")
         #expect(viewModel.currentDisplayName == "Second")
+    }
+
+    /// Regression: after the auth fix made same-identity profile updates
+    /// deterministic, Partner share/invite surfaces must reflect a renamed
+    /// user without tearing down the friends/requests/username streams.
+    @Test func updateDisplayNameRefreshesWithoutRestartingObservation() async {
+        let service = StubFriendService()
+        let viewModel = FriendsViewModel(friendService: service)
+
+        viewModel.startObserving(displayName: "Old Name")
+        await viewModel.waitForCurrentUsernameFetchForTests()
+        #expect(viewModel.currentUsername == "testuser")
+        #expect(viewModel.currentDisplayName == "Old Name")
+
+        viewModel.updateDisplayName("New Name")
+
+        // The observer pipeline must not have been torn down — the
+        // already-fetched username is still present — and the invite/share
+        // display name must reflect the rename.
+        #expect(viewModel.currentUsername == "testuser")
+        #expect(viewModel.currentDisplayName == "New Name")
     }
 }
 
