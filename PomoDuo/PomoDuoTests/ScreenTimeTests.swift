@@ -1,3 +1,4 @@
+import FamilyControls
 import Foundation
 import ManagedSettings
 import Testing
@@ -416,6 +417,185 @@ struct ShieldPolicyMapperTests {
         #expect(withExceptionsShape.applicationCategories == .allExcept)
         #expect(noExceptionsShape.writesSpecificApplicationsChannel == false)
         #expect(withExceptionsShape.writesSpecificApplicationsChannel == false)
+    }
+}
+
+// MARK: - FamilyActivitySelection Persistence Semantics
+
+/// Nails down exactly what Apple's `FamilyActivitySelection` preserves
+/// across `Codable` round-trips. The fix for the restored-selection
+/// downgrade depends on these facts staying true; if Apple ever changes
+/// them, the fix has to change with them.
+@MainActor
+struct FamilyActivitySelectionPersistenceTests {
+
+    @Test("Codable preserves includeEntireCategory for selections saved with the new true flag")
+    func codablePreservesTrueFlag() throws {
+        let original = FamilyActivitySelection(includeEntireCategory: true)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(
+            FamilyActivitySelection.self,
+            from: data
+        )
+
+        // iOS 26's FamilyControls does preserve the flag — the prior code
+        // comment that claimed otherwise was wrong. Documenting the real
+        // behavior here so any regression in future iOS versions surfaces
+        // loudly instead of silently re-introducing the restore bug.
+        #expect(decoded.includeEntireCategory == true)
+    }
+
+    @Test("Fresh includeEntireCategory: true construction preserves the flag")
+    func freshSelectionKeepsFlag() {
+        let selection = FamilyActivitySelection(includeEntireCategory: true)
+        #expect(selection.includeEntireCategory == true)
+    }
+
+    @Test("Fresh includeEntireCategory: false construction preserves the flag")
+    func freshDefaultSelectionKeepsFlag() {
+        let selection = FamilyActivitySelection()
+        #expect(selection.includeEntireCategory == false)
+    }
+
+    /// Establishes whether legacy payloads (persisted before the mapper
+    /// fix, flag `false`) actually carry `false` through the `Codable`
+    /// pipeline — this is the real source of the restore-path downgrade.
+    @Test("Legacy false-flag selection decodes with false flag")
+    func legacyFalseFlagRoundTripStaysFalse() throws {
+        let original = FamilyActivitySelection(includeEntireCategory: false)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(
+            FamilyActivitySelection.self,
+            from: data
+        )
+        #expect(decoded.includeEntireCategory == false)
+    }
+
+    /// Determines whether the runtime fix can mutate a decoded selection in
+    /// place. If this test fails to compile or fails at runtime, we need a
+    /// different canonicalization shape.
+    @Test("A decoded selection can be upgraded in place to includeEntireCategory: true")
+    func decodedSelectionCanBeCanonicalized() throws {
+        let original = FamilyActivitySelection(includeEntireCategory: false)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(
+            FamilyActivitySelection.self,
+            from: data
+        )
+
+        let canonical = ScreenTimeManager.canonicalizeRestoredSelection(
+            decoded
+        )
+
+        #expect(canonical.includeEntireCategory == true)
+        // Token sets must survive the canonicalization since they carry
+        // the user's actual picker choices.
+        #expect(canonical.applicationTokens == decoded.applicationTokens)
+        #expect(canonical.categoryTokens == decoded.categoryTokens)
+        #expect(canonical.webDomainTokens == decoded.webDomainTokens)
+    }
+
+    /// Regression: a selection that already carries the canonical
+    /// `includeEntireCategory: true` flag must pass through
+    /// `canonicalizeRestoredSelection` unchanged — the helper has to be
+    /// a no-op for fresh payloads so there's no churn on every launch.
+    @Test("canonicalizeRestoredSelection is a no-op for already-canonical payloads")
+    func canonicalizePassesThroughAlreadyCanonicalPayloads() {
+        let original = FamilyActivitySelection(includeEntireCategory: true)
+        let canonical = ScreenTimeManager.canonicalizeRestoredSelection(original)
+
+        #expect(canonical.includeEntireCategory == true)
+        #expect(canonical.applicationTokens == original.applicationTokens)
+        #expect(canonical.categoryTokens == original.categoryTokens)
+        #expect(canonical.webDomainTokens == original.webDomainTokens)
+    }
+}
+
+/// End-to-end regression coverage for the restore/edit lifecycle through
+/// ``ScreenTimeManager`` itself. Exercises the flow an upgraded user
+/// actually hits on the first launch after the policy-mapper fix:
+/// legacy data was persisted with `includeEntireCategory: false`, gets
+/// decoded, and the manager's `activitySelection` must come out with
+/// `true` so the picker's next edit uses exception-aware semantics.
+@MainActor
+struct ScreenTimeManagerRestoreLifecycleTests {
+
+    /// Builds a ``ScreenTimeManager`` backed by an isolated `UserDefaults`
+    /// suite so persistence and restore can be tested without leaking
+    /// state across cases or across the full-suite run.
+    private func makeManager(withLegacyPayload legacyFlag: Bool?) -> (
+        manager: ScreenTimeManager,
+        defaults: UserDefaults
+    ) {
+        let suiteName = "com.pomoduo.tests.screentime.\(UUID().uuidString)"
+        let defaults: UserDefaults
+        if let suiteDefaults = UserDefaults(suiteName: suiteName) {
+            suiteDefaults.removePersistentDomain(forName: suiteName)
+            defaults = suiteDefaults
+        } else {
+            defaults = .standard
+        }
+
+        if let legacyFlag {
+            let legacy = FamilyActivitySelection(
+                includeEntireCategory: legacyFlag
+            )
+            if let data = try? JSONEncoder().encode(legacy) {
+                defaults.set(
+                    data,
+                    forKey: "com.pomoduo.screentime.selection"
+                )
+            }
+        }
+
+        let manager = ScreenTimeManager(
+            store: ManagedSettingsStore(),
+            persistenceDefaults: defaults
+        )
+        return (manager, defaults)
+    }
+
+    @Test("Fresh install leaves the selection empty with canonical flag")
+    func freshInstallUsesCanonicalFlag() {
+        let (manager, _) = makeManager(withLegacyPayload: nil)
+
+        #expect(manager.activitySelection.includeEntireCategory == true)
+        #expect(manager.activitySelection.applicationTokens.isEmpty)
+        #expect(manager.activitySelection.categoryTokens.isEmpty)
+        #expect(manager.activitySelection.webDomainTokens.isEmpty)
+    }
+
+    /// The exact scenario the user described: a selection saved before the
+    /// mapper fix is restored on first post-upgrade launch and must carry
+    /// `includeEntireCategory: true` so the picker's next "All + deselect
+    /// some apps" edit behaves correctly.
+    @Test("Legacy payload with false flag is upgraded to canonical true on restore")
+    func legacyPayloadIsUpgradedOnRestore() {
+        let (manager, defaults) = makeManager(withLegacyPayload: false)
+
+        #expect(manager.activitySelection.includeEntireCategory == true)
+
+        // The persisted payload gets re-encoded with the canonical flag so
+        // subsequent launches don't need to re-upgrade on every boot.
+        if let data = defaults.data(
+            forKey: "com.pomoduo.screentime.selection"
+        ),
+            let redecoded = try? JSONDecoder().decode(
+                FamilyActivitySelection.self,
+                from: data
+            )
+        {
+            #expect(redecoded.includeEntireCategory == true)
+        } else {
+            Issue.record("Expected persisted selection to be re-encoded after canonicalization.")
+        }
+    }
+
+    @Test("Post-fix payload with true flag round-trips unchanged")
+    func postFixPayloadRoundTripsUnchanged() {
+        let (manager, _) = makeManager(withLegacyPayload: true)
+
+        #expect(manager.activitySelection.includeEntireCategory == true)
     }
 }
 

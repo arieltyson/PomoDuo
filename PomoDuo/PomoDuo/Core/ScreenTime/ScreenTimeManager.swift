@@ -22,10 +22,11 @@ final class ScreenTimeManager {
     /// every uncategorized app plus every app in that category the picker
     /// hadn't enumerated.
     ///
-    /// - Note: `includeEntireCategory` is not preserved across `Codable`
-    ///   round-trips, which is why every construction site in this file
-    ///   (init, clear, app-group reset) uses the same flag explicitly
-    ///   rather than relying on the persisted payload.
+    /// - Note: Legacy payloads saved before the ``ShieldPolicyMapper`` fix
+    ///   carry `includeEntireCategory: false`. ``canonicalizeRestoredSelection(_:)``
+    ///   normalizes every restored value back to `true` so the picker's
+    ///   next edit uses exception-aware semantics, without needing any
+    ///   migration step on the user's side.
     var activitySelection = FamilyActivitySelection(includeEntireCategory: true) {
         didSet {
             persistSelection()
@@ -49,11 +50,16 @@ final class ScreenTimeManager {
     }
 
     private let store: ManagedSettingsStore
+    private let persistenceDefaults: UserDefaults
 
     private static let selectionDefaultsKey = "com.pomoduo.screentime.selection"
 
-    init(store: ManagedSettingsStore) {
+    init(
+        store: ManagedSettingsStore,
+        persistenceDefaults: UserDefaults = .standard
+    ) {
         self.store = store
+        self.persistenceDefaults = persistenceDefaults
         authorizationStatus = AuthorizationCenter.shared.authorizationStatus
         restoreSelection()
     }
@@ -86,7 +92,7 @@ final class ScreenTimeManager {
 
     func clearSelection() {
         activitySelection = FamilyActivitySelection(includeEntireCategory: true)
-        UserDefaults.standard.removeObject(forKey: Self.selectionDefaultsKey)
+        persistenceDefaults.removeObject(forKey: Self.selectionDefaultsKey)
         store.shield.applications = nil
         store.shield.applicationCategories = nil
         store.shield.webDomains = nil
@@ -104,7 +110,7 @@ final class ScreenTimeManager {
         }
 
         // Standard defaults for fast main-app reads.
-        UserDefaults.standard.set(data, forKey: Self.selectionDefaultsKey)
+        persistenceDefaults.set(data, forKey: Self.selectionDefaultsKey)
 
         // App Group so the DeviceActivity Monitor extension can read the
         // selection and reapply shields if the app is force-quit.
@@ -118,12 +124,12 @@ final class ScreenTimeManager {
             !shared.applicationTokens.isEmpty || !shared.categoryTokens.isEmpty
                 || !shared.webDomainTokens.isEmpty
         {
-            activitySelection = shared
+            activitySelection = Self.canonicalizeRestoredSelection(shared)
             return
         }
 
         guard
-            let data = UserDefaults.standard.data(
+            let data = persistenceDefaults.data(
                 forKey: Self.selectionDefaultsKey
             ),
             let selection = try? JSONDecoder().decode(
@@ -134,10 +140,46 @@ final class ScreenTimeManager {
             return
         }
 
-        activitySelection = selection
+        let canonical = Self.canonicalizeRestoredSelection(selection)
+        activitySelection = canonical
 
-        // Migrate legacy data to App Group for extension access.
-        ShieldSessionContext.writeSelection(selection)
+        // Migrate legacy data to App Group for extension access. Writing the
+        // canonical form here (rather than the raw legacy `selection`) means
+        // subsequent reads — including by the DeviceActivity Monitor
+        // extension — land on the exception-aware flag, not the downgraded
+        // one that the legacy payload was saved with.
+        ShieldSessionContext.writeSelection(canonical)
+    }
+
+    /// Rebuilds a decoded ``FamilyActivitySelection`` so it always carries
+    /// `includeEntireCategory: true`.
+    ///
+    /// Legacy payloads — saved before the ``ShieldPolicyMapper`` fix —
+    /// carry `includeEntireCategory: false`. `FamilyActivityPicker` reads
+    /// the flag off the bound selection, so without this canonicalization
+    /// step an upgraded user who had a saved "All Apps & Categories +
+    /// exceptions" selection would silently lose the exception-aware
+    /// semantics the next time they opened the picker.
+    ///
+    /// Fresh payloads saved after the fix already carry `true` — Apple's
+    /// `Codable` conformance preserves the flag — so this helper is a
+    /// no-op for them. It is always safe to call.
+    ///
+    /// - Note: `internal` rather than `private` so regression tests can
+    ///   cover the behavior directly. `@testable import` is the only
+    ///   caller outside this type.
+    static func canonicalizeRestoredSelection(
+        _ decoded: FamilyActivitySelection
+    ) -> FamilyActivitySelection {
+        guard !decoded.includeEntireCategory else {
+            return decoded
+        }
+
+        var canonical = FamilyActivitySelection(includeEntireCategory: true)
+        canonical.applicationTokens = decoded.applicationTokens
+        canonical.categoryTokens = decoded.categoryTokens
+        canonical.webDomainTokens = decoded.webDomainTokens
+        return canonical
     }
 
     private static func userFacingMessage(for error: Error) -> String {
