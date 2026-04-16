@@ -70,6 +70,7 @@ final class FriendsViewModel {
     private var requestsTask: Task<Void, Never>?
     private var usernameTask: Task<Void, Never>?
     private var availabilityTask: Task<Void, Never>?
+    private var searchTask: Task<Void, Never>?
 
     init(friendService: any FriendService) {
         self.friendService = friendService
@@ -114,6 +115,8 @@ final class FriendsViewModel {
         requestsTask = nil
         usernameTask?.cancel()
         usernameTask = nil
+        searchTask?.cancel()
+        searchTask = nil
         friends = []
         incomingRequests = []
         currentUsername = nil
@@ -214,24 +217,49 @@ final class FriendsViewModel {
 
     // MARK: - Search
 
+    /// Searches for a user by exact-match username.
+    ///
+    /// Newest-query-wins: rapid successive calls (keyboard submit, magnifying
+    /// glass button, deeplinks) cancel the previous in-flight search and
+    /// guard the commit step with `!Task.isCancelled`, so a slower earlier
+    /// query can never overwrite a newer query's result when it finishes
+    /// after cancellation. Mirrors the same freshness pattern already used
+    /// by ``startObserving(displayName:)``'s username fetch and
+    /// ``checkAvailability(for:)``.
     func searchForUser() async {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let query = searchQuery
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
         guard !query.isEmpty else { return }
+
+        searchTask?.cancel()
 
         isSearching = true
         searchFoundNoResults = false
         searchResult = nil
         error = nil
 
-        do {
-            let result = try await friendService.searchByUsername(query)
-            searchResult = result
-            searchFoundNoResults = result == nil
-        } catch {
-            self.error = "Search failed. Please try again."
+        let task = Task { [weak self, friendService] in
+            do {
+                let result = try await friendService.searchByUsername(query)
+                guard let self, !Task.isCancelled else { return }
+                self.searchResult = result
+                self.searchFoundNoResults = result == nil
+                self.isSearching = false
+            } catch is CancellationError {
+                // Superseded by a newer search — leave `isSearching`
+                // alone so the in-flight successor continues to show the
+                // loading state, and don't touch `searchResult` which the
+                // successor is about to own.
+            } catch {
+                guard let self, !Task.isCancelled else { return }
+                self.error = "Search failed. Please try again."
+                self.isSearching = false
+            }
         }
 
-        isSearching = false
+        searchTask = task
+        await task.value
     }
 
     func sendFriendRequest() async {
