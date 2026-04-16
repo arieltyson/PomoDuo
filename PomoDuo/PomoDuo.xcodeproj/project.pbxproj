@@ -155,6 +155,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Core/ScreenTime/ShieldSessionContext.swift,
+				Core/ScreenTime/ShieldPolicyMapper.swift,
 			);
 			target = AF56366D2F4684A00067D4DE /* PomoDuoMonitorExtension */;
 		};

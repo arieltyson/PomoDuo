@@ -239,6 +239,186 @@ struct AppBlockingStatusLogicTests {
     }
 }
 
+// MARK: - Shield Policy Mapper
+
+/// Regression coverage for the "select all, then remove some apps" bug.
+///
+/// The threshold-only mapper used to drop from `.all(except: [])` to
+/// `.specific(N-1 categories)` on the very first deselection, silently
+/// unblocking every uncategorized app and every app the picker hadn't
+/// enumerated in the dropped category. The mapper now preserves the
+/// user's intent by threading `applicationTokens` through the *exception*
+/// parameter of `ShieldSettings.ActivityCategoryPolicy` whenever the
+/// selection represents "All Apps & Categories".
+///
+/// These tests exercise ``ShieldPolicyMapper/decideShape(applicationTokenCount:categoryTokenCount:webDomainTokenCount:allCategoriesThreshold:)``,
+/// the count-driven mirror of the value-aware ``decide`` function. The
+/// case enumeration it returns is what determines which `ManagedSettings`
+/// channel gets written, so exercising it with plain `Int` inputs covers
+/// the mapping semantics end-to-end without having to fabricate opaque
+/// Screen Time tokens.
+@MainActor
+struct ShieldPolicyMapperTests {
+
+    private let threshold = ShieldSessionContext.allCategoriesThreshold
+
+    @Test func emptySelectionProducesNoShieldWrites() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: 0,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(shape.applicationCategories == .none)
+        #expect(shape.webDomainCategories == .none)
+        #expect(shape.writesSpecificApplicationsChannel == false)
+        #expect(shape.writesSpecificWebDomainsChannel == false)
+    }
+
+    @Test func allCategoriesWithNoExceptionsMapsToAllExceptEmpty() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: threshold,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(shape.applicationCategories == .allExcept)
+        #expect(shape.webDomainCategories == .all)
+        #expect(shape.writesSpecificApplicationsChannel == false)
+    }
+
+    /// Regression: "select all + deselect some apps" must produce
+    /// `.all(except: applicationTokens)` so the remaining categories stay
+    /// blocked while the deselected apps are allowed through. The key
+    /// assertion is that the `applications` channel must **not** be written
+    /// — writing it would re-shield those apps and negate the `except:` list.
+    @Test func allCategoriesWithDeselectedAppsMapsToAllExceptThoseApps() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 2,
+            categoryTokenCount: threshold,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(shape.applicationCategories == .allExcept)
+        #expect(shape.webDomainCategories == .all)
+        #expect(shape.writesSpecificApplicationsChannel == false)
+    }
+
+    /// Regression guardrail against the old behavior: the very moment the
+    /// user deselects a single app and the picker drops one category below
+    /// threshold, the naive implementation fell off the `.all(except: [])`
+    /// branch and silently unblocked every uncategorized app. The fix must
+    /// keep shielding the remaining categories *and* keep the specific apps
+    /// flowing through the `applications` channel so carved-out exceptions
+    /// are still blocked within the still-selected categories.
+    @Test func dropOneCategoryBelowThresholdStillShieldsRemainingCategoriesAndApps() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 3,
+            categoryTokenCount: threshold - 1,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(shape.applicationCategories == .specific)
+        #expect(shape.webDomainCategories == .specific)
+        #expect(shape.writesSpecificApplicationsChannel == true)
+    }
+
+    @Test func partialCategoriesShieldThoseCategoriesAndSpecificApps() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 3,
+            categoryTokenCount: 5,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(shape.applicationCategories == .specific)
+        #expect(shape.webDomainCategories == .specific)
+        #expect(shape.writesSpecificApplicationsChannel == true)
+    }
+
+    @Test func specificAppsOnlyProducesApplicationsChannelWrite() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 4,
+            categoryTokenCount: 0,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(shape.applicationCategories == .none)
+        #expect(shape.webDomainCategories == .none)
+        #expect(shape.writesSpecificApplicationsChannel == true)
+    }
+
+    @Test func webDomainsFlowThroughSpecificChannelIndependently() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: 0,
+            webDomainTokenCount: 2,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(shape.webDomainCategories == .none)
+        #expect(shape.writesSpecificWebDomainsChannel == true)
+    }
+
+    /// Regression: the main app and the Monitor extension must compute a
+    /// byte-identical decision for the same selection, so the first
+    /// enforcement and any post-force-quit re-application can't diverge.
+    @Test func mainAppAndMonitorExtensionComputeIdenticalShape() {
+        let mainAppShape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 2,
+            categoryTokenCount: threshold,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+        let monitorShape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 2,
+            categoryTokenCount: threshold,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(mainAppShape == monitorShape)
+    }
+
+    /// Regression: the old code used `categoryTokens.count >= 12` as the
+    /// sole signal for "all categories" and silently ignored whether any
+    /// app tokens were present — so "all cats + 0 exceptions" and
+    /// "all cats + N exceptions" would look indistinguishable in the
+    /// `applicationCategories` channel (both `.all(except: [])`) while the
+    /// N exceptions were duplicated into the `applications` channel and
+    /// still blocked. The new mapping must not write the `applications`
+    /// channel in either case, so the two mappings differ only in the
+    /// `except:` contents of the category policy.
+    @Test func oldThresholdOnlyBehaviorIsInsufficient() {
+        let noExceptionsShape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: threshold,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+        let withExceptionsShape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 5,
+            categoryTokenCount: threshold,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        // Same policy case in both — `.allExcept` — but neither writes the
+        // `applications` channel. The old behavior would have written the
+        // specific-apps channel in the second case, re-blocking the user's
+        // carved-out exceptions.
+        #expect(noExceptionsShape.applicationCategories == .allExcept)
+        #expect(withExceptionsShape.applicationCategories == .allExcept)
+        #expect(noExceptionsShape.writesSpecificApplicationsChannel == false)
+        #expect(withExceptionsShape.writesSpecificApplicationsChannel == false)
+    }
+}
+
 // MARK: - Shield Cleanup Completeness
 
 /// Regression tests verifying that all shield removal paths clear

@@ -11,7 +11,22 @@ final class ScreenTimeManager {
     private(set) var authorizationError: String?
     private(set) var isRequestingAuthorization = false
 
-    var activitySelection = FamilyActivitySelection() {
+    /// The user's current picker selection.
+    ///
+    /// Constructed with `includeEntireCategory: true` so that picking
+    /// "All Apps & Categories" and then deselecting specific apps records
+    /// those deselections as exceptions in ``FamilyActivitySelection/applicationTokens``.
+    /// ``ShieldPolicyMapper`` depends on that semantic to emit the correct
+    /// `.all(except:)` policy — without it, deselecting a single app would
+    /// drop an entire category from `categoryTokens` and silently unblock
+    /// every uncategorized app plus every app in that category the picker
+    /// hadn't enumerated.
+    ///
+    /// - Note: `includeEntireCategory` is not preserved across `Codable`
+    ///   round-trips, which is why every construction site in this file
+    ///   (init, clear, app-group reset) uses the same flag explicitly
+    ///   rather than relying on the persisted payload.
+    var activitySelection = FamilyActivitySelection(includeEntireCategory: true) {
         didSet {
             persistSelection()
         }
@@ -70,7 +85,7 @@ final class ScreenTimeManager {
     }
 
     func clearSelection() {
-        activitySelection = FamilyActivitySelection()
+        activitySelection = FamilyActivitySelection(includeEntireCategory: true)
         UserDefaults.standard.removeObject(forKey: Self.selectionDefaultsKey)
         store.shield.applications = nil
         store.shield.applicationCategories = nil
@@ -78,7 +93,9 @@ final class ScreenTimeManager {
         store.shield.webDomainCategories = nil
 
         // Clear App Group so extensions stay in sync.
-        ShieldSessionContext.writeSelection(FamilyActivitySelection())
+        ShieldSessionContext.writeSelection(
+            FamilyActivitySelection(includeEntireCategory: true)
+        )
     }
 
     private func persistSelection() {

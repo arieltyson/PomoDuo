@@ -21,37 +21,25 @@ final class ManagedSettingsRestrictionService: RestrictionService {
         }
     }
 
+    /// Applies shields using the shared ``ShieldPolicyMapper`` so the main app
+    /// and ``DeviceActivityMonitorExtension`` always compute and write the
+    /// same policy for a given selection.
+    ///
+    /// This deliberately threads ``FamilyActivitySelection/applicationTokens``
+    /// through the *exception* parameter of
+    /// ``ShieldSettings/ActivityCategoryPolicy`` when the user picked
+    /// "All Apps & Categories" and then deselected some apps — the older
+    /// count-threshold-only mapping dropped from `.all(except: [])` to
+    /// `.specific(N-1 categories)` on the first deselection and silently
+    /// unblocked every uncategorized app and every app in the dropped
+    /// category that the picker hadn't enumerated.
     func applyRestrictions() async throws {
-        let selection = screenTimeManager.activitySelection
+        let decision = ShieldPolicyMapper.decide(
+            for: screenTimeManager.activitySelection,
+            allCategoriesThreshold: ShieldSessionContext.allCategoriesThreshold
+        )
 
-        let appTokens = selection.applicationTokens
-        let categoryTokens = selection.categoryTokens
-        let webDomainTokens = selection.webDomainTokens
-
-        // When the selection is empty, clear all shields so that stale
-        // restrictions are never left behind (e.g. emergency mid-session unblock).
-        store.shield.applications = appTokens.isEmpty ? nil : appTokens
-        store.shield.webDomains =
-            webDomainTokens.isEmpty ? nil : webDomainTokens
-
-        // "All Apps & Categories" from the picker populates categoryTokens
-        // with every ActivityCategory. Using `.specific()` only covers apps
-        // Apple has explicitly categorized — uncategorized or edge-case apps
-        // slip through. `.all(except: [])` tells ManagedSettings to shield
-        // everything regardless of category assignment.
-        let allSelected = categoryTokens.count
-            >= ShieldSessionContext.allCategoriesThreshold
-
-        if categoryTokens.isEmpty {
-            store.shield.applicationCategories = nil
-            store.shield.webDomainCategories = nil
-        } else if allSelected {
-            store.shield.applicationCategories = .all(except: [])
-            store.shield.webDomainCategories = .all(except: [])
-        } else {
-            store.shield.applicationCategories = .specific(categoryTokens)
-            store.shield.webDomainCategories = .specific(categoryTokens)
-        }
+        ShieldPolicyMapper.apply(decision, to: store)
     }
 
     func removeRestrictions() async throws {

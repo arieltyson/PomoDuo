@@ -43,37 +43,25 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     // MARK: - Shield Management
 
-    /// Reads the user's app selection from the shared App Group and
-    /// applies shields via the default ``ManagedSettingsStore``.
+    /// Reads the user's app selection from the shared App Group and applies
+    /// shields via the same ``ShieldPolicyMapper`` the main app uses.
+    ///
+    /// Sharing the mapper guarantees the extension's re-application after a
+    /// force-quit produces byte-identical shield writes — otherwise the
+    /// first enforcement and the extension's re-application could disagree
+    /// on whether the user's "All Apps & Categories + deselected exceptions"
+    /// should be `.all(except:)` or a narrower `.specific(...)`.
     private func applyShields() {
         guard let selection = ShieldSessionContext.readSelection() else {
             return
         }
 
-        let appTokens = selection.applicationTokens
-        let categoryTokens = selection.categoryTokens
-        let webDomainTokens = selection.webDomainTokens
+        let decision = ShieldPolicyMapper.decide(
+            for: selection,
+            allCategoriesThreshold: ShieldSessionContext.allCategoriesThreshold
+        )
 
-        store.shield.applications = appTokens.isEmpty ? nil : appTokens
-        store.shield.webDomains =
-            webDomainTokens.isEmpty ? nil : webDomainTokens
-
-        // Mirror the main app's policy: use `.all(except: [])` when the
-        // user selected "All Apps & Categories" so uncategorized apps
-        // are also shielded.
-        let allSelected = categoryTokens.count
-            >= ShieldSessionContext.allCategoriesThreshold
-
-        if categoryTokens.isEmpty {
-            store.shield.applicationCategories = nil
-            store.shield.webDomainCategories = nil
-        } else if allSelected {
-            store.shield.applicationCategories = .all(except: [])
-            store.shield.webDomainCategories = .all(except: [])
-        } else {
-            store.shield.applicationCategories = .specific(categoryTokens)
-            store.shield.webDomainCategories = .specific(categoryTokens)
-        }
+        ShieldPolicyMapper.apply(decision, to: store)
     }
 
     /// Removes all shields from the default ``ManagedSettingsStore``.
