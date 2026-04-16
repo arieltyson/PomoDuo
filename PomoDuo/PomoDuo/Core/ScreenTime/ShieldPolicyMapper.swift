@@ -37,10 +37,21 @@ import ManagedSettings
 enum ShieldPolicyMapper {
 
     /// Application-side category policy derived from a selection.
+    ///
+    /// The `specificExcept` case covers the "partial categories with
+    /// within-category exceptions" workflow that `includeEntireCategory: true`
+    /// produces — e.g. "block Games except Candy Crush". Without it, the
+    /// mapper had no way to represent that intent and fell back to writing
+    /// `applicationTokens` through `store.shield.applications`, which
+    /// re-shielded the apps the user just deselected.
     enum ApplicationCategoryPolicy: Equatable {
         case none
         case allExcept(Set<ApplicationToken>)
         case specific(Set<ActivityCategoryToken>)
+        case specificExcept(
+            Set<ActivityCategoryToken>,
+            Set<ApplicationToken>
+        )
     }
 
     /// Web-domain-side category policy derived from a selection.
@@ -93,13 +104,24 @@ enum ShieldPolicyMapper {
             applicationCategories = .allExcept(applicationTokens)
             specificApplications = nil
         } else if hasAnyCategory {
-            // Some categories + optional additional specific apps.
-            // `applicationTokens` are inclusions in this mode — extra apps
-            // to shield alongside the selected categories.
-            applicationCategories = .specific(categoryTokens)
-            specificApplications = hasApps ? applicationTokens : nil
+            // Partial categories. With ``FamilyActivitySelection(includeEntireCategory:)``
+            // set to `true` (which ``ScreenTimeManager`` canonicalizes
+            // every selection to), `applicationTokens` in this branch
+            // represent within-category exceptions — apps the user
+            // deselected from one of the picked categories.
+            //
+            // Mapping them through the `except:` parameter preserves the
+            // user's intent ("block Games, just not Candy Crush") without
+            // also writing the specific-apps channel, which would re-shield
+            // the exempted apps and defeat the exception.
+            applicationCategories = hasApps
+                ? .specificExcept(categoryTokens, applicationTokens)
+                : .specific(categoryTokens)
+            specificApplications = nil
         } else {
-            // Only specific apps (or nothing at all).
+            // Only specific apps (or nothing at all). No categories means
+            // no exception semantic applies — these are standalone
+            // inclusions selected directly.
             applicationCategories = .none
             specificApplications = hasApps ? applicationTokens : nil
         }
@@ -144,6 +166,7 @@ enum ShieldPolicyMapper {
         case none
         case allExcept
         case specific
+        case specificExcept
     }
 
     enum WebDomainPolicyCase: Equatable {
@@ -186,8 +209,11 @@ enum ShieldPolicyMapper {
             applicationCategories = .allExcept
             writesApplicationsChannel = false
         } else if hasAnyCategory {
-            applicationCategories = .specific
-            writesApplicationsChannel = hasApps
+            applicationCategories = hasApps ? .specificExcept : .specific
+            // Exceptions flow through the category policy's `except:`
+            // parameter, not through the specific-apps channel — writing
+            // both would re-shield the exempted apps.
+            writesApplicationsChannel = false
         } else {
             applicationCategories = .none
             writesApplicationsChannel = hasApps
@@ -223,6 +249,11 @@ enum ShieldPolicyMapper {
             store.shield.applicationCategories = .all(except: exceptions)
         case .specific(let categories):
             store.shield.applicationCategories = .specific(categories)
+        case .specificExcept(let categories, let exceptions):
+            store.shield.applicationCategories = .specific(
+                categories,
+                except: exceptions
+            )
         }
 
         switch decision.webDomainCategories {

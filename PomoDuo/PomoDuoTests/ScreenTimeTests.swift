@@ -308,14 +308,14 @@ struct ShieldPolicyMapperTests {
         #expect(shape.writesSpecificApplicationsChannel == false)
     }
 
-    /// Regression guardrail against the old behavior: the very moment the
-    /// user deselects a single app and the picker drops one category below
-    /// threshold, the naive implementation fell off the `.all(except: [])`
-    /// branch and silently unblocked every uncategorized app. The fix must
-    /// keep shielding the remaining categories *and* keep the specific apps
-    /// flowing through the `applications` channel so carved-out exceptions
-    /// are still blocked within the still-selected categories.
-    @Test func dropOneCategoryBelowThresholdStillShieldsRemainingCategoriesAndApps() {
+    /// Regression: when the picker drops one category below threshold and
+    /// also carries app tokens (the "picked some categories + deselected
+    /// an app inside them" case), the mapping must use
+    /// `.specific(categories, except: apps)` so the exempted apps are
+    /// released while the rest of those categories stay shielded. Writing
+    /// the specific-apps channel in this case would re-shield the
+    /// exceptions and defeat the user's intent.
+    @Test func partialCategoriesWithExceptionsRouteThroughSpecificExcept() {
         let shape = ShieldPolicyMapper.decideShape(
             applicationTokenCount: 3,
             categoryTokenCount: threshold - 1,
@@ -323,14 +323,17 @@ struct ShieldPolicyMapperTests {
             allCategoriesThreshold: threshold
         )
 
-        #expect(shape.applicationCategories == .specific)
+        #expect(shape.applicationCategories == .specificExcept)
         #expect(shape.webDomainCategories == .specific)
-        #expect(shape.writesSpecificApplicationsChannel == true)
+        #expect(shape.writesSpecificApplicationsChannel == false)
     }
 
-    @Test func partialCategoriesShieldThoseCategoriesAndSpecificApps() {
+    /// Partial categories with no app tokens means the user picked whole
+    /// categories and did not exempt anything — the mapping stays at the
+    /// plain `.specific(_)` policy with no exception list.
+    @Test func partialCategoriesWithoutExceptionsUsePlainSpecific() {
         let shape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 3,
+            applicationTokenCount: 0,
             categoryTokenCount: 5,
             webDomainTokenCount: 0,
             allCategoriesThreshold: threshold
@@ -338,7 +341,19 @@ struct ShieldPolicyMapperTests {
 
         #expect(shape.applicationCategories == .specific)
         #expect(shape.webDomainCategories == .specific)
-        #expect(shape.writesSpecificApplicationsChannel == true)
+        #expect(shape.writesSpecificApplicationsChannel == false)
+    }
+
+    @Test func partialCategoriesWithExceptionsKeepWebDomainChannelsSymmetric() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 2,
+            categoryTokenCount: 5,
+            webDomainTokenCount: 0,
+            allCategoriesThreshold: threshold
+        )
+
+        #expect(shape.applicationCategories == .specificExcept)
+        #expect(shape.webDomainCategories == .specific)
     }
 
     @Test func specificAppsOnlyProducesApplicationsChannelWrite() {
