@@ -60,7 +60,9 @@ private struct SearchFieldSection: View {
                 .textContentType(.username)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .submitLabel(.search)
                 .onSubmit {
+                    guard !isSearchButtonDisabled else { return }
                     Task { await viewModel.searchForUser() }
                 }
 
@@ -69,12 +71,29 @@ private struct SearchFieldSection: View {
             } label: {
                 Image(systemName: "magnifyingglass")
             }
-            .disabled(
-                viewModel.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            .disabled(isSearchButtonDisabled)
+            .accessibilityLabel("Search")
+            .accessibilityHint(
+                viewModel.isSearching
+                    ? "Search in progress."
+                    : "Searches for a user by username."
             )
         }
         .padding(12)
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 12))
+    }
+
+    /// Single source of truth for whether the query can be submitted.
+    ///
+    /// The TextField's `onSubmit` and the Button's `disabled` read the same
+    /// value so a blank query or an already in-flight search is blocked
+    /// from both paths — the view model's newest-wins cancellation still
+    /// catches anything that slips through timing-wise.
+    private var isSearchButtonDisabled: Bool {
+        viewModel.isSearching
+            || viewModel.searchQuery
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty
     }
 }
 

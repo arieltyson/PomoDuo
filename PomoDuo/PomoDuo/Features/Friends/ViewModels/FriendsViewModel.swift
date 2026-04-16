@@ -115,11 +115,31 @@ final class FriendsViewModel {
         requestsTask = nil
         usernameTask?.cancel()
         usernameTask = nil
+        availabilityTask?.cancel()
+        availabilityTask = nil
         searchTask?.cancel()
         searchTask = nil
+
+        // Observable collections and derived state all roll back to the
+        // signed-out baseline so a subsequent sign-in with a different
+        // identity can't see stale carry-over from the previous session.
         friends = []
         incomingRequests = []
         currentUsername = nil
+        highlightedRequestID = nil
+
+        searchQuery = ""
+        searchResult = nil
+        searchFoundNoResults = false
+        isSearching = false
+        isSendingRequest = false
+        error = nil
+
+        usernameInput = ""
+        usernameValidation = .empty
+        isUsernameAvailable = nil
+        isCheckingAvailability = false
+        isClaimingUsername = false
     }
 
     /// Refreshes the display name shown on invite/share surfaces without
@@ -143,6 +163,24 @@ final class FriendsViewModel {
     /// in time under full-suite main-actor contention.
     func waitForCurrentUsernameFetchForTests() async {
         await usernameTask?.value
+    }
+
+    /// Awaits completion of the currently in-flight search, if any.
+    ///
+    /// Lets race-regression tests observe the post-cancellation steady state
+    /// deterministically without `Task.sleep` or `Task.yield` heuristics.
+    func waitForCurrentSearchForTests() async {
+        await searchTask?.value
+    }
+
+    /// Seeds `searchResult` for tests that need to exercise paths downstream
+    /// of search (e.g. `sendFriendRequest`) without running an actual search.
+    ///
+    /// Keeps `searchFoundNoResults` in sync with the injected value so
+    /// tests don't need to reach into private state.
+    func forceSearchResultForTests(_ result: UserSearchResult?) {
+        searchResult = result
+        searchFoundNoResults = result == nil
     }
     #endif
 
@@ -262,8 +300,14 @@ final class FriendsViewModel {
         await task.value
     }
 
+    /// Sends a friend request for the currently-selected search result.
+    ///
+    /// The `!isSendingRequest` guard protects against duplicate server
+    /// writes if the Button's `.disabled(isSending)` binding hasn't yet
+    /// re-rendered — the UI and the view model enforce the same invariant
+    /// from both sides so a double-tap can't get past either.
     func sendFriendRequest() async {
-        guard let result = searchResult else { return }
+        guard let result = searchResult, !isSendingRequest else { return }
 
         isSendingRequest = true
         error = nil

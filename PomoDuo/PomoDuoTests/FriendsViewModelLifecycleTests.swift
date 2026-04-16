@@ -126,6 +126,76 @@ struct FriendsViewModelLifecycleTests {
         #expect(viewModel.searchFoundNoResults == true)
         #expect(viewModel.isSearching == false)
     }
+
+    /// Regression: `sendFriendRequest` must ignore a second call while one
+    /// is already in flight so the backend never sees duplicate writes for
+    /// a double-tap that slips past the Button's `disabled` binding.
+    @Test func sendFriendRequestIgnoresConcurrentCalls() async {
+        let service = CountingSendFriendService()
+        let viewModel = FriendsViewModel(friendService: service)
+
+        viewModel.forceSearchResultForTests(
+            UserSearchResult(
+                id: "friend-1",
+                displayName: "Study Buddy",
+                username: "buddy"
+            )
+        )
+
+        // Start the first send, let it enter the service's await so
+        // `isSendingRequest` flips to `true`, then fire the second call —
+        // the `!isSendingRequest` guard must reject it, leaving the
+        // server-side `callCount` at exactly one.
+        async let firstSend: Void = viewModel.sendFriendRequest()
+        await Task.yield()
+
+        await viewModel.sendFriendRequest()
+        await firstSend
+
+        #expect(service.callCount == 1)
+        #expect(viewModel.isSendingRequest == false)
+        #expect(viewModel.searchResult == nil)
+        #expect(viewModel.searchQuery == "")
+    }
+
+    /// Regression: signing out must tear down not just the observation
+    /// streams but also every piece of derived user state so a subsequent
+    /// sign-in with a different identity starts from a clean baseline.
+    @Test func stopObservingClearsSearchAndUsernameSetupState() async {
+        let service = StubFriendService()
+        let viewModel = FriendsViewModel(friendService: service)
+
+        viewModel.startObserving(displayName: "Old Name")
+        await viewModel.waitForCurrentUsernameFetchForTests()
+        viewModel.searchQuery = "buddy"
+        await viewModel.searchForUser()
+        viewModel.usernameInput = "old_handle"
+        viewModel.forceSearchResultForTests(
+            UserSearchResult(
+                id: "friend-1",
+                displayName: "Stale",
+                username: "stale"
+            )
+        )
+        viewModel.highlightedRequestID = "req-1"
+
+        viewModel.stopObserving()
+
+        #expect(viewModel.friends.isEmpty)
+        #expect(viewModel.incomingRequests.isEmpty)
+        #expect(viewModel.currentUsername == nil)
+        #expect(viewModel.highlightedRequestID == nil)
+        #expect(viewModel.searchQuery == "")
+        #expect(viewModel.searchResult == nil)
+        #expect(viewModel.searchFoundNoResults == false)
+        #expect(viewModel.isSearching == false)
+        #expect(viewModel.isSendingRequest == false)
+        #expect(viewModel.error == nil)
+        #expect(viewModel.usernameInput == "")
+        #expect(viewModel.isUsernameAvailable == nil)
+        #expect(viewModel.isCheckingAvailability == false)
+        #expect(viewModel.isClaimingUsername == false)
+    }
 }
 
 // MARK: - Test Doubles
@@ -232,6 +302,38 @@ private final class RaceableSearchFriendService: FriendService, @unchecked Senda
     nonisolated func isUsernameAvailable(_ username: String) async throws -> Bool { true }
     nonisolated func claimUsername(_ username: String) async throws -> Bool { true }
     nonisolated func sendFriendRequest(toUsername username: String) async throws {}
+    nonisolated func acceptFriendRequest(_ requestID: String) async throws {}
+    nonisolated func declineFriendRequest(_ requestID: String) async throws {}
+    nonisolated func removeFriend(_ friendID: String) async throws {}
+    nonisolated func friends() async throws -> [FriendProfile] { [] }
+    nonisolated func reportFocusSession(minutes: Int) async throws {}
+    nonisolated func leaderboardEntries() async throws -> [LeaderboardEntry] { [] }
+    nonisolated func propagateDisplayName(_ newName: String) async throws {}
+    nonisolated func deleteAccountData() async throws {}
+}
+
+/// Send stub that records invocation count and yields briefly so the
+/// caller's `isSendingRequest` latch has time to flip before the test
+/// fires a concurrent second send.
+@MainActor
+private final class CountingSendFriendService: FriendService, @unchecked Sendable {
+    private(set) var callCount = 0
+
+    nonisolated func sendFriendRequest(toUsername username: String) async throws {
+        await MainActor.run { self.callCount += 1 }
+        try? await Task.sleep(for: .milliseconds(50))
+    }
+
+    nonisolated func friendsStream() -> AsyncStream<[FriendProfile]> {
+        AsyncStream { $0.finish() }
+    }
+    nonisolated func incomingRequestsStream() -> AsyncStream<[FriendRequest]> {
+        AsyncStream { $0.finish() }
+    }
+    nonisolated func currentUsername() async throws -> String? { nil }
+    nonisolated func isUsernameAvailable(_ username: String) async throws -> Bool { true }
+    nonisolated func claimUsername(_ username: String) async throws -> Bool { true }
+    nonisolated func searchByUsername(_ username: String) async throws -> UserSearchResult? { nil }
     nonisolated func acceptFriendRequest(_ requestID: String) async throws {}
     nonisolated func declineFriendRequest(_ requestID: String) async throws {}
     nonisolated func removeFriend(_ friendID: String) async throws {}
