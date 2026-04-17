@@ -302,6 +302,19 @@ struct ActivePairedSessionView: View {
         }
     }
 
+    /// Handles view-side concerns of a session transition: haptics, Live
+    /// Activity updates, accessibility announcements, and persistence of
+    /// the just-completed focus round.
+    ///
+    /// **Screen Time side effects are deliberately not driven from here.**
+    /// ``SessionManager`` already routes every state transition (local
+    /// *and* remote) through ``RestrictionCoordinator``, so duplicating
+    /// `enforce` / `lift` / `forceRemove` calls here would either race the
+    /// coordinator's serialized queue or cancel the canonical write that
+    /// ``SessionManager`` just enqueued. The view repairs background drift
+    /// via the scene-phase reconcile hook and the `.task`-time
+    /// reconcile in ``configureForInitialState``; both are repair concerns
+    /// distinct from transition writes.
     private func handleStateTransition(
         from oldState: SessionState,
         to newState: SessionState
@@ -314,9 +327,6 @@ struct ActivePairedSessionView: View {
             focusStartedAt = session.startTime
             haptic.fire(.start)
             startLiveActivityForFocus(isPaused: session.isPaused)
-            restrictionCoordinator.enforceFocusRestrictions(
-                until: session.targetEndDate
-            )
             AccessibilityAnnouncer.announcePairedFocusBegan(
                 round: session.currentRound,
                 totalRounds: session.totalRounds,
@@ -327,23 +337,18 @@ struct ActivePairedSessionView: View {
             recordCompletedFocusRound()
             haptic.fire(.phaseChange)
             updateLiveActivityForBreak(isLong: false)
-            restrictionCoordinator.liftRestrictions()
             AccessibilityAnnouncer.announcePairedBreak(isLong: false)
 
         case (.focus, .longBreak):
             recordCompletedFocusRound()
             haptic.fire(.phaseChange)
             updateLiveActivityForBreak(isLong: true)
-            restrictionCoordinator.liftRestrictions()
             AccessibilityAnnouncer.announcePairedBreak(isLong: true)
 
         case (.shortBreak, .focus), (.longBreak, .focus):
             focusStartedAt = session.startTime
             haptic.fire(.start)
             startLiveActivityForFocus(isPaused: session.isPaused)
-            restrictionCoordinator.enforceFocusRestrictions(
-                until: session.targetEndDate
-            )
             AccessibilityAnnouncer.announcePairedFocusBegan(
                 round: session.currentRound,
                 totalRounds: session.totalRounds,
@@ -354,7 +359,6 @@ struct ActivePairedSessionView: View {
             recordPartialFocusRound()
             haptic.fire(.complete)
             liveActivityManager.end()
-            restrictionCoordinator.liftRestrictions()
             AccessibilityAnnouncer.announcePairedSessionCompleted()
 
         case (.longBreak, .completed):
@@ -362,20 +366,16 @@ struct ActivePairedSessionView: View {
             liveActivityManager.end()
             AccessibilityAnnouncer.announcePairedSessionCompleted()
 
-        case (.focus, .idle):
-            recordPartialFocusRound()
-            haptic.fire(.stop)
-            liveActivityManager.end()
-            restrictionCoordinator.forceRemoveRestrictions()
-            AccessibilityAnnouncer.announcePairedSessionEnded()
-
-        case (.requesting, .idle),
+        case (.focus, .idle),
+            (.requesting, .idle),
             (.shortBreak, .idle),
             (.longBreak, .idle),
             (.completed, .idle):
+            if oldState == .focus {
+                recordPartialFocusRound()
+            }
             haptic.fire(.stop)
             liveActivityManager.end()
-            restrictionCoordinator.forceRemoveRestrictions()
             AccessibilityAnnouncer.announcePairedSessionEnded()
 
         default:
@@ -383,20 +383,23 @@ struct ActivePairedSessionView: View {
         }
     }
 
+    /// View-side response to a pause/resume toggle.
+    ///
+    /// Same ownership note as ``handleStateTransition``: ``SessionManager``
+    /// drives the coordinator on both pause and resume (locally via
+    /// ``SessionManager/pause()`` / ``SessionManager/resume()``, remotely
+    /// via ``SessionManager/handleRemoteUpdate(_:)``), so the view only
+    /// owns Live Activity, haptics, and announcements here.
     private func handlePauseChange(wasPaused: Bool, isPaused: Bool) {
         guard session.state == .focus else { return }
 
         if !wasPaused && isPaused {
             haptic.fire(.pause)
             updateLiveActivityPaused(true)
-            restrictionCoordinator.liftRestrictions()
             AccessibilityAnnouncer.announcePairedPause()
         } else if wasPaused && !isPaused {
             haptic.fire(.resume)
             updateLiveActivityPaused(false)
-            restrictionCoordinator.enforceFocusRestrictions(
-                until: session.targetEndDate
-            )
             AccessibilityAnnouncer.announcePairedResume()
         }
     }

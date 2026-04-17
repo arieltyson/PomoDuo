@@ -56,11 +56,10 @@ struct PomoDuoApp: App {
         let screenTimeManager = ScreenTimeManager(store: managedSettingsStore)
         _screenTimeManager = State(initialValue: screenTimeManager)
 
-        // The restriction and notification services are shared between
-        // SessionManager (for paired sessions) and the solo timer flow.
-        // Both paths target the same ManagedSettingsStore and notification
-        // center, so the last writer wins - which is correct because solo
-        // and paired sessions are mutually exclusive.
+        // The restriction service writes shield channels for both the solo
+        // flow (via RestrictionCoordinator) and the paired flow (now also
+        // via the coordinator, since SessionManager delegates Screen Time
+        // side effects rather than owning them directly).
         let restrictionService = ManagedSettingsRestrictionService(
             screenTimeManager: screenTimeManager,
             store: managedSettingsStore
@@ -68,19 +67,15 @@ struct PomoDuoApp: App {
 
         // The focus scheduler registers DeviceActivity monitoring intervals
         // so the Monitor extension can reapply or remove shields even if
-        // the user force-quits the app mid-session. A single instance is
-        // shared between the solo flow (via RestrictionCoordinator) and the
-        // paired flow (via SessionManager) so both write to the same
-        // DeviceActivityCenter activity name.
+        // the user force-quits the app mid-session. The coordinator owns it.
         let focusScheduler = FocusActivityScheduler()
 
-        _restrictionCoordinator = State(
-            initialValue: RestrictionCoordinator(
-                screenTimeManager: screenTimeManager,
-                restrictionService: restrictionService,
-                focusScheduler: focusScheduler
-            )
+        let restrictionCoordinator = RestrictionCoordinator(
+            screenTimeManager: screenTimeManager,
+            restrictionService: restrictionService,
+            focusScheduler: focusScheduler
         )
+        _restrictionCoordinator = State(initialValue: restrictionCoordinator)
 
         // Push notification sender writes requests to Firestore; a Cloud
         // Function picks them up and delivers via FCM. If the function
@@ -90,11 +85,15 @@ struct PomoDuoApp: App {
             pushSender: pushSender
         )
 
+        // SessionManager delegates every paired-session Screen Time side
+        // effect to the coordinator. This is what makes remote updates
+        // (which arrive through SessionObserver → SessionManager even when
+        // no Partner view is mounted) reach the same single owner that the
+        // solo flow already drives.
         let sessionManager = SessionManager(
             syncService: syncService,
-            restrictionService: restrictionService,
             notificationService: notificationService,
-            focusScheduler: focusScheduler
+            restrictionCoordinator: restrictionCoordinator
         )
         _sessionManager = State(initialValue: sessionManager)
         _sessionObserver = State(

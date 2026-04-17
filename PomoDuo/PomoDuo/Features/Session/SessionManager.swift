@@ -40,22 +40,46 @@ final class SessionManager {
     // MARK: - Dependencies
 
     private let syncService: (any SessionSyncService)?
-    private let restrictionService: (any RestrictionService)?
     private let notificationService: (any NotificationService)?
-    private let focusScheduler: FocusActivityScheduler?
+
+    /// Single owner of every Screen Time side effect for paired sessions.
+    ///
+    /// Held weakly because the app shell owns both the manager and the
+    /// coordinator and we don't want a retain cycle through the coordinator's
+    /// own back-reference into ``ScreenTimeManager``. `nil` is safe — paired
+    /// state transitions still update local + remote state, just without
+    /// driving Screen Time enforcement (the configuration tests rely on this).
+    ///
+    /// Before this consolidation, `SessionManager` directly held a
+    /// `RestrictionService`, a `FocusActivityScheduler`, and wrote
+    /// `ShieldSessionContext` itself. That meant remote-driven paired updates
+    /// (the ones that arrive through ``handleRemoteUpdate(_:)`` even when
+    /// no Partner view is mounted) wrote shields, scheduled monitoring, and
+    /// updated App-Group context without ever touching the coordinator —
+    /// leaving `coordinator.isRestricting` stale, `runtimeHealth` un-refreshed,
+    /// and the active-session chip pointed at the wrong source of truth.
+    private weak var restrictionCoordinator: RestrictionCoordinator?
 
     // MARK: - Initialization
 
     init(
         syncService: (any SessionSyncService)? = nil,
-        restrictionService: (any RestrictionService)? = nil,
         notificationService: (any NotificationService)? = nil,
-        focusScheduler: FocusActivityScheduler? = nil
+        restrictionCoordinator: RestrictionCoordinator? = nil
     ) {
         self.syncService = syncService
-        self.restrictionService = restrictionService
         self.notificationService = notificationService
-        self.focusScheduler = focusScheduler
+        self.restrictionCoordinator = restrictionCoordinator
+    }
+
+    /// Late-binds the Screen Time owner.
+    ///
+    /// ``PomoDuoApp`` constructs the coordinator and the manager in the same
+    /// `init`, so the wired path uses the initializer. This setter exists so
+    /// test scaffolding can build a manager first and attach a coordinator
+    /// once the supporting mocks are in place.
+    func attachRestrictionCoordinator(_ coordinator: RestrictionCoordinator) {
+        self.restrictionCoordinator = coordinator
     }
 
     // MARK: - Intent Methods
@@ -200,15 +224,19 @@ final class SessionManager {
     ///
     /// Use this to dismiss completed or cancelled sessions and return
     /// the UI to the idle pairing state.
+    ///
+    /// Screen Time teardown is delegated to ``RestrictionCoordinator``
+    /// (`forceRemoveRestrictions()`) so the coordinator's `isRestricting`
+    /// flag, `ShieldSessionContext`, and DeviceActivity schedule come down
+    /// together. Bypassing the coordinator here would leave its in-memory
+    /// flag stuck at `true` while shields were already removed.
     func clearSession() async {
         if let sessionID = currentSession?.id {
             try? await syncService?.deleteSession(sessionID)
         }
 
-        try? await restrictionService?.removeRestrictions()
+        restrictionCoordinator?.forceRemoveRestrictions()
         try? await notificationService?.cancelPendingNotifications()
-        focusScheduler?.stopMonitoring()
-        ShieldSessionContext.clearSession()
 
         currentSession = nil
         lastError = nil
@@ -282,65 +310,44 @@ final class SessionManager {
     /// Shared side-effect enforcement used by both local transitions and
     /// remote updates.
     ///
-    /// In addition to managing restrictions and notifications, this writes
-    /// session context to the App Group for the Shield Configuration extension
-    /// and schedules/cancels DeviceActivity monitoring for the Monitor extension.
+    /// **Ownership boundary.** Screen Time side effects (shield writes,
+    /// `ShieldSessionContext`, DeviceActivity monitoring schedule, and the
+    /// runtime-health refresh) are delegated to ``RestrictionCoordinator``.
+    /// Notification side effects stay here because they're a paired-session
+    /// concern, not a Screen Time pipeline concern.
+    ///
+    /// Routing every state-driven Screen Time write through the coordinator
+    /// is what closes the remote-update bypass: `handleRemoteUpdate(_:)` runs
+    /// even when no Partner view is mounted, so the coordinator is the only
+    /// piece guaranteed to be reachable on every transition.
     private func enforceRestrictions(for session: StudySession) async {
         switch session.state {
         case .focus where !session.isPaused && !session.hasReachedPhaseEnd():
-            try? await restrictionService?.applyRestrictions()
+            restrictionCoordinator?.enforceFocusRestrictions(
+                until: session.targetEndDate
+            )
             if session.targetEndDate > .now {
                 try? await notificationService?.scheduleTimerEndNotification(
                     at: session.targetEndDate,
                     message: "Focus session complete! Time for a break."
                 )
             }
-            // Write context so the Shield extension shows the right message
-            // and the Monitor extension can reapply shields if the app is killed.
-            ShieldSessionContext.writeSession(
-                partnerName: nil,
-                phase: "Focus",
-                targetEndDate: session.targetEndDate
-            )
-            focusScheduler?.scheduleMonitoring(until: session.targetEndDate)
 
         case .focus:
-            try? await restrictionService?.removeRestrictions()
+            restrictionCoordinator?.liftRestrictions()
             try? await notificationService?.cancelPendingNotifications()
-            focusScheduler?.stopMonitoring()
-            ShieldSessionContext.clearSession()
 
-        case .shortBreak where session.targetEndDate > .now:
-            try? await restrictionService?.removeRestrictions()
+        case .shortBreak where session.targetEndDate > .now,
+            .longBreak where session.targetEndDate > .now:
+            restrictionCoordinator?.liftRestrictions()
             try? await notificationService?.scheduleTimerEndNotification(
                 at: session.targetEndDate,
                 message: "Break's over! Ready to focus?"
             )
-            // Shields are removed during breaks; clear the monitor schedule.
-            focusScheduler?.stopMonitoring()
-            ShieldSessionContext.clearSession()
 
-        case .longBreak where session.targetEndDate > .now:
-            try? await restrictionService?.removeRestrictions()
-            try? await notificationService?.scheduleTimerEndNotification(
-                at: session.targetEndDate,
-                message: "Break's over! Ready to focus?"
-            )
-            // Shields are removed during breaks; clear the monitor schedule.
-            focusScheduler?.stopMonitoring()
-            ShieldSessionContext.clearSession()
-
-        case .shortBreak, .longBreak:
-            try? await restrictionService?.removeRestrictions()
+        case .shortBreak, .longBreak, .completed, .idle:
+            restrictionCoordinator?.liftRestrictions()
             try? await notificationService?.cancelPendingNotifications()
-            focusScheduler?.stopMonitoring()
-            ShieldSessionContext.clearSession()
-
-        case .completed, .idle:
-            try? await restrictionService?.removeRestrictions()
-            try? await notificationService?.cancelPendingNotifications()
-            focusScheduler?.stopMonitoring()
-            ShieldSessionContext.clearSession()
 
         default:
             break
