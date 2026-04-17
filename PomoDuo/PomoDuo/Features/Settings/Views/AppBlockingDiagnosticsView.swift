@@ -392,15 +392,46 @@ private struct DiagnosticsRow: View {
 // MARK: - Display Labels
 
 private extension AuthorizationStatus {
+    /// Human-readable label for each authorization state.
+    ///
+    /// `AuthorizationStatus.approvedWithDataAccess` is a **known** case in
+    /// the iOS 26.4 SDK, so it must be handled explicitly — `@unknown
+    /// default` is reserved for genuinely future cases Apple may add
+    /// after this code was compiled, not for known-but-availability-
+    /// gated cases. Hoisting an `if #available` check above a single
+    /// switch doesn't narrow the enum for Swift's flow analysis, which
+    /// is why the compiler still reports the switch as non-exhaustive.
+    ///
+    /// The idiomatic fix is an availability-branched pair of switches:
+    /// each branch is exhaustive for the cases available in its
+    /// deployment window, and both retain `@unknown default` so any
+    /// *future* case Apple adds is still handled forward-compatibly.
     var displayLabel: String {
-        if #available(iOS 26.4, *), self == .approvedWithDataAccess {
-            return "Approved with data access"
-        }
-        switch self {
-        case .notDetermined: return "Not determined"
-        case .denied: return "Denied"
-        case .approved: return "Approved"
-        @unknown default: return "Unknown"
+        if #available(iOS 26.4, *) {
+            // Compiled against the iOS 26.4 SDK, every currently-known
+            // case must be handled explicitly. `@unknown default` still
+            // pulls its weight by catching any future case Apple adds.
+            switch self {
+            case .notDetermined: return "Not determined"
+            case .denied: return "Denied"
+            case .approved: return "Approved"
+            case .approvedWithDataAccess: return "Approved with data access"
+            @unknown default: return "Unknown"
+            }
+        } else {
+            // Running on iOS 26.0–26.3. `.approvedWithDataAccess` is
+            // `@available(iOS 26.4, *)` so it cannot be referenced by
+            // name here — the compiler would reject the case pattern.
+            // A plain `default` (not `@unknown default`) is the
+            // idiomatic cover for "known-in-SDK but unreachable on this
+            // OS version" in Swift: it silences the exhaustiveness
+            // warning without pretending the case is unknown.
+            switch self {
+            case .notDetermined: return "Not determined"
+            case .denied: return "Denied"
+            case .approved: return "Approved"
+            default: return "Unknown"
+            }
         }
     }
 }
