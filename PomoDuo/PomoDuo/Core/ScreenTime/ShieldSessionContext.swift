@@ -18,15 +18,6 @@ enum ShieldSessionContext {
     /// ``FocusActivityScheduler`` (main app) and the Monitor extension.
     static let focusActivityID = "com.pomoduo.focus"
 
-    /// Approximate count of Apple's `ActivityCategory` cases (iOS 26).
-    ///
-    /// When a `FamilyActivitySelection` contains at least this many category
-    /// tokens, the selection represents the "All Apps & Categories" option
-    /// from the picker. In that case, enforcement should use
-    /// `.all(except: [])` rather than `.specific()` to cover uncategorized
-    /// and edge-case apps that `.specific()` misses.
-    static let allCategoriesThreshold = 12
-
     // MARK: - Keys
 
     private enum Keys {

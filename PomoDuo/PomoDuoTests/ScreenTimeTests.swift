@@ -144,43 +144,15 @@ struct RestrictionLifecycleTests {
     }
 }
 
-/// Regression tests for the "All Apps & Categories" enforcement path.
-///
-/// Verifies that selecting all categories triggers `.all(except: [])` policy
-/// rather than `.specific()`, which would miss uncategorized apps.
-@MainActor
-struct AllCategoriesEnforcementTests {
-
-    @Test func allCategoriesDetectedWhenAtThreshold() {
-        let threshold = ShieldSessionContext.allCategoriesThreshold
-        #expect(threshold == 12)
-        // 12 or more category tokens = "All Apps & Categories"
-        #expect(12 >= threshold)
-        #expect(13 >= threshold)
-    }
-
-    @Test func partialCategoriesNotDetectedAsAll() {
-        let threshold = ShieldSessionContext.allCategoriesThreshold
-        #expect(5 < threshold)
-        #expect(11 < threshold)
-    }
-
-    @Test func zeroCategoriesNotDetectedAsAll() {
-        let threshold = ShieldSessionContext.allCategoriesThreshold
-        #expect(0 < threshold)
-    }
-
-    @Test func enforcementRoundTripWithAllCategories() async throws {
-        // Verifies the mock service correctly tracks apply/remove
-        // for the "all categories" scenario.
-        let service = MockRestrictionService()
-        try await service.applyRestrictions()
-        #expect(await service.isCurrentlyRestricted)
-
-        try await service.removeRestrictions()
-        #expect(await service.isCurrentlyRestricted == false)
-    }
-}
+// MARK: - Removed: AllCategoriesEnforcementTests
+//
+// This suite existed purely to test the 12-category threshold heuristic
+// that drove the old exception-based mapping. Under the inclusive model
+// described in Apple's docs (and now implemented in
+// ``ShieldPolicyMapper``), the number of categories doesn't flip a mode
+// — it just picks how many categories to shield via
+// ``ShieldSettings/ActivityCategoryPolicy/specific(_:)``. Coverage for
+// the inclusive behavior lives in ``ShieldPolicyMapperTests``.
 
 @MainActor
 struct AppBlockingStatusLogicTests {
@@ -242,33 +214,33 @@ struct AppBlockingStatusLogicTests {
 
 // MARK: - Shield Policy Mapper
 
-/// Regression coverage for the "select all, then remove some apps" bug.
+/// Coverage for the inclusive ``ShieldPolicyMapper``.
 ///
-/// The threshold-only mapper used to drop from `.all(except: [])` to
-/// `.specific(N-1 categories)` on the very first deselection, silently
-/// unblocking every uncategorized app and every app the picker hadn't
-/// enumerated in the dropped category. The mapper now preserves the
-/// user's intent by threading `applicationTokens` through the *exception*
-/// parameter of `ShieldSettings.ActivityCategoryPolicy` whenever the
-/// selection represents "All Apps & Categories".
-///
-/// These tests exercise ``ShieldPolicyMapper/decideShape(applicationTokenCount:categoryTokenCount:webDomainTokenCount:allCategoriesThreshold:)``,
+/// A ``FamilyActivitySelection`` is inclusive per Apple's docs: every
+/// token it holds is something the user picked to block. The mapper
+/// writes category shields via
+/// ``ShieldSettings/ActivityCategoryPolicy/specific(_:)`` for any
+/// selected categories and writes the individual-applications / web-
+/// domains channels for any tokens picked in addition. These tests
+/// exercise ``ShieldPolicyMapper/decideShape(applicationTokenCount:categoryTokenCount:webDomainTokenCount:)``,
 /// the count-driven mirror of the value-aware ``decide`` function. The
-/// case enumeration it returns is what determines which `ManagedSettings`
-/// channel gets written, so exercising it with plain `Int` inputs covers
-/// the mapping semantics end-to-end without having to fabricate opaque
-/// Screen Time tokens.
+/// case enumeration it returns is exactly what determines which
+/// `ManagedSettings` channel gets written.
+///
+/// **Regression history.** A prior mapper implementation treated
+/// `applicationTokens` as an *exception* list for `.all(except:)` /
+/// `.specific(_:except:)`. That was the inverse of the product's
+/// intent — the apps the user picked were being exempted from the
+/// shield — and kept blocked apps launching normally. The tests below
+/// lock the corrected inclusive interpretation in place.
 @MainActor
 struct ShieldPolicyMapperTests {
-
-    private let threshold = ShieldSessionContext.allCategoriesThreshold
 
     @Test func emptySelectionProducesNoShieldWrites() {
         let shape = ShieldPolicyMapper.decideShape(
             applicationTokenCount: 0,
             categoryTokenCount: 0,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
+            webDomainTokenCount: 0
         )
 
         #expect(shape.applicationCategories == .none)
@@ -277,108 +249,89 @@ struct ShieldPolicyMapperTests {
         #expect(shape.writesSpecificWebDomainsChannel == false)
     }
 
-    @Test func allCategoriesWithNoExceptionsMapsToAllExceptEmpty() {
-        let shape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 0,
-            categoryTokenCount: threshold,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
-        )
-
-        #expect(shape.applicationCategories == .allExcept)
-        #expect(shape.webDomainCategories == .all)
-        #expect(shape.writesSpecificApplicationsChannel == false)
-    }
-
-    /// Regression: "select all + deselect some apps" must produce
-    /// `.all(except: applicationTokens)` so the remaining categories stay
-    /// blocked while the deselected apps are allowed through. The key
-    /// assertion is that the `applications` channel must **not** be written
-    /// — writing it would re-shield those apps and negate the `except:` list.
-    @Test func allCategoriesWithDeselectedAppsMapsToAllExceptThoseApps() {
+    /// Specific apps only (no categories picked) must route through
+    /// `store.shield.applications`. This is the baseline "block these two
+    /// apps" scenario — the simplest correct verification.
+    @Test func specificAppsOnlyWritesApplicationsChannel() {
         let shape = ShieldPolicyMapper.decideShape(
             applicationTokenCount: 2,
-            categoryTokenCount: threshold,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
-        )
-
-        #expect(shape.applicationCategories == .allExcept)
-        #expect(shape.webDomainCategories == .all)
-        #expect(shape.writesSpecificApplicationsChannel == false)
-    }
-
-    /// Regression: when the picker drops one category below threshold and
-    /// also carries app tokens (the "picked some categories + deselected
-    /// an app inside them" case), the mapping must use
-    /// `.specific(categories, except: apps)` so the exempted apps are
-    /// released while the rest of those categories stay shielded. Writing
-    /// the specific-apps channel in this case would re-shield the
-    /// exceptions and defeat the user's intent.
-    @Test func partialCategoriesWithExceptionsRouteThroughSpecificExcept() {
-        let shape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 3,
-            categoryTokenCount: threshold - 1,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
-        )
-
-        #expect(shape.applicationCategories == .specificExcept)
-        #expect(shape.webDomainCategories == .specific)
-        #expect(shape.writesSpecificApplicationsChannel == false)
-    }
-
-    /// Partial categories with no app tokens means the user picked whole
-    /// categories and did not exempt anything — the mapping stays at the
-    /// plain `.specific(_)` policy with no exception list.
-    @Test func partialCategoriesWithoutExceptionsUsePlainSpecific() {
-        let shape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 0,
-            categoryTokenCount: 5,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
-        )
-
-        #expect(shape.applicationCategories == .specific)
-        #expect(shape.webDomainCategories == .specific)
-        #expect(shape.writesSpecificApplicationsChannel == false)
-    }
-
-    @Test func partialCategoriesWithExceptionsKeepWebDomainChannelsSymmetric() {
-        let shape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 2,
-            categoryTokenCount: 5,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
-        )
-
-        #expect(shape.applicationCategories == .specificExcept)
-        #expect(shape.webDomainCategories == .specific)
-    }
-
-    @Test func specificAppsOnlyProducesApplicationsChannelWrite() {
-        let shape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 4,
             categoryTokenCount: 0,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
+            webDomainTokenCount: 0
         )
 
         #expect(shape.applicationCategories == .none)
         #expect(shape.webDomainCategories == .none)
         #expect(shape.writesSpecificApplicationsChannel == true)
+        #expect(shape.writesSpecificWebDomainsChannel == false)
     }
 
-    @Test func webDomainsFlowThroughSpecificChannelIndependently() {
+    /// One category picked: the mapper must emit `.specific(categories)`
+    /// for both the application and web-domain category channels. Under
+    /// `includeEntireCategory: true` the picker may also expand category
+    /// apps into `applicationTokens`, and the mapper faithfully writes
+    /// those through the applications channel too so any app outside a
+    /// system-defined category still gets shielded if the user picked it
+    /// explicitly.
+    @Test func categoryOnlySelectionShieldsCategoryAcrossBothChannels() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: 1,
+            webDomainTokenCount: 0
+        )
+
+        #expect(shape.applicationCategories == .specific)
+        #expect(shape.webDomainCategories == .specific)
+        #expect(shape.writesSpecificApplicationsChannel == false)
+        #expect(shape.writesSpecificWebDomainsChannel == false)
+    }
+
+    /// The realistic "user picked 13 categories and the picker enumerated
+    /// 97 apps and 42 web domains from them" snapshot. All three channels
+    /// must be written — category shields for the system-enumerated
+    /// universe, specific-apps / specific-web-domains for the enumerated
+    /// tokens (a belt-and-braces overlap iOS handles cleanly).
+    @Test func categoryPlusAppsAndWebDomainsWritesAllThreeChannels() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 97,
+            categoryTokenCount: 13,
+            webDomainTokenCount: 42
+        )
+
+        #expect(shape.applicationCategories == .specific)
+        #expect(shape.webDomainCategories == .specific)
+        #expect(shape.writesSpecificApplicationsChannel == true)
+        #expect(shape.writesSpecificWebDomainsChannel == true)
+    }
+
+    /// Web domains only (no apps, no categories): only the web-domains
+    /// channel gets written.
+    @Test func webDomainsOnlyWritesWebDomainsChannel() {
         let shape = ShieldPolicyMapper.decideShape(
             applicationTokenCount: 0,
             categoryTokenCount: 0,
-            webDomainTokenCount: 2,
-            allCategoriesThreshold: threshold
+            webDomainTokenCount: 3
         )
 
+        #expect(shape.applicationCategories == .none)
         #expect(shape.webDomainCategories == .none)
+        #expect(shape.writesSpecificApplicationsChannel == false)
         #expect(shape.writesSpecificWebDomainsChannel == true)
+    }
+
+    /// Mix of categories + apps outside any selected category: both the
+    /// category-specific channel and the specific-apps channel fire. The
+    /// apps *are* the user's block list, not an exception carve-out.
+    @Test func categoryPlusExtraAppsWritesBothChannels() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 3,
+            categoryTokenCount: 2,
+            webDomainTokenCount: 0
+        )
+
+        #expect(shape.applicationCategories == .specific)
+        #expect(shape.webDomainCategories == .specific)
+        #expect(shape.writesSpecificApplicationsChannel == true)
+        #expect(shape.writesSpecificWebDomainsChannel == false)
     }
 
     /// Regression: the main app and the Monitor extension must compute a
@@ -386,52 +339,17 @@ struct ShieldPolicyMapperTests {
     /// enforcement and any post-force-quit re-application can't diverge.
     @Test func mainAppAndMonitorExtensionComputeIdenticalShape() {
         let mainAppShape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 2,
-            categoryTokenCount: threshold,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
+            applicationTokenCount: 97,
+            categoryTokenCount: 13,
+            webDomainTokenCount: 42
         )
         let monitorShape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 2,
-            categoryTokenCount: threshold,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
+            applicationTokenCount: 97,
+            categoryTokenCount: 13,
+            webDomainTokenCount: 42
         )
 
         #expect(mainAppShape == monitorShape)
-    }
-
-    /// Regression: the old code used `categoryTokens.count >= 12` as the
-    /// sole signal for "all categories" and silently ignored whether any
-    /// app tokens were present — so "all cats + 0 exceptions" and
-    /// "all cats + N exceptions" would look indistinguishable in the
-    /// `applicationCategories` channel (both `.all(except: [])`) while the
-    /// N exceptions were duplicated into the `applications` channel and
-    /// still blocked. The new mapping must not write the `applications`
-    /// channel in either case, so the two mappings differ only in the
-    /// `except:` contents of the category policy.
-    @Test func oldThresholdOnlyBehaviorIsInsufficient() {
-        let noExceptionsShape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 0,
-            categoryTokenCount: threshold,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
-        )
-        let withExceptionsShape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: 5,
-            categoryTokenCount: threshold,
-            webDomainTokenCount: 0,
-            allCategoriesThreshold: threshold
-        )
-
-        // Same policy case in both — `.allExcept` — but neither writes the
-        // `applications` channel. The old behavior would have written the
-        // specific-apps channel in the second case, re-blocking the user's
-        // carved-out exceptions.
-        #expect(noExceptionsShape.applicationCategories == .allExcept)
-        #expect(withExceptionsShape.applicationCategories == .allExcept)
-        #expect(noExceptionsShape.writesSpecificApplicationsChannel == false)
-        #expect(withExceptionsShape.writesSpecificApplicationsChannel == false)
     }
 }
 

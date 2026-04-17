@@ -316,9 +316,7 @@ private extension ShieldPolicyMapper.ApplicationPolicyCase {
     var displayLabel: String {
         switch self {
         case .none: "None"
-        case .allExcept: "All apps, with exceptions"
-        case .specific: "Specific categories"
-        case .specificExcept: "Specific categories, with exceptions"
+        case .specific: "Selected categories"
         }
     }
 }
@@ -327,8 +325,7 @@ private extension ShieldPolicyMapper.WebDomainPolicyCase {
     var displayLabel: String {
         switch self {
         case .none: "None"
-        case .all: "All web domains"
-        case .specific: "Specific categories"
+        case .specific: "Selected categories"
         }
     }
 }

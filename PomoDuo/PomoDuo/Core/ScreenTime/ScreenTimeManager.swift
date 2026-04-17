@@ -26,20 +26,21 @@ final class ScreenTimeManager {
 
     /// The user's current picker selection.
     ///
-    /// Constructed with `includeEntireCategory: true` so that picking
-    /// "All Apps & Categories" and then deselecting specific apps records
-    /// those deselections as exceptions in ``FamilyActivitySelection/applicationTokens``.
-    /// ``ShieldPolicyMapper`` depends on that semantic to emit the correct
-    /// `.all(except:)` policy — without it, deselecting a single app would
-    /// drop an entire category from `categoryTokens` and silently unblock
-    /// every uncategorized app plus every app in that category the picker
-    /// hadn't enumerated.
+    /// Constructed with `includeEntireCategory: true` so the picker
+    /// enumerates applications and web domains from any selected category
+    /// into ``FamilyActivitySelection/applicationTokens`` and
+    /// ``FamilyActivitySelection/webDomainTokens``. Apple's docs describe
+    /// `includeEntireCategory` as "whether the selection should include
+    /// applications and web domains from the selected categories" — this
+    /// gives ``ShieldPolicyMapper`` a complete inclusive token set to
+    /// shield, covering every app and domain the user picked directly
+    /// *and* every app/domain that belongs to a picked category.
     ///
-    /// - Note: Legacy payloads saved before the ``ShieldPolicyMapper`` fix
-    ///   carry `includeEntireCategory: false`. ``canonicalizeRestoredSelection(_:)``
+    /// - Note: Legacy payloads saved by earlier builds carry
+    ///   `includeEntireCategory: false`. ``canonicalizeRestoredSelection(_:)``
     ///   normalizes every restored value back to `true` so the picker's
-    ///   next edit uses exception-aware semantics, without needing any
-    ///   migration step on the user's side.
+    ///   next edit includes the full expansion of any chosen category,
+    ///   without needing any migration step on the user's side.
     var activitySelection = FamilyActivitySelection(includeEntireCategory: true) {
         didSet {
             persistSelection()
@@ -154,8 +155,7 @@ final class ScreenTimeManager {
         let policyShape = ShieldPolicyMapper.decideShape(
             applicationTokenCount: selection.applicationTokens.count,
             categoryTokenCount: selection.categoryTokens.count,
-            webDomainTokenCount: selection.webDomainTokens.count,
-            allCategoriesThreshold: ShieldSessionContext.allCategoriesThreshold
+            webDomainTokenCount: selection.webDomainTokens.count
         )
 
         let registered = activityCenter.activities.contains(

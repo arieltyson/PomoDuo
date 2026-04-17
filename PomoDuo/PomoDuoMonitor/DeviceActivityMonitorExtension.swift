@@ -47,19 +47,15 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     /// shields via the same ``ShieldPolicyMapper`` the main app uses.
     ///
     /// Sharing the mapper guarantees the extension's re-application after a
-    /// force-quit produces byte-identical shield writes — otherwise the
-    /// first enforcement and the extension's re-application could disagree
-    /// on whether the user's "All Apps & Categories + deselected exceptions"
-    /// should be `.all(except:)` or a narrower `.specific(...)`.
+    /// force-quit produces byte-identical shield writes — the inclusive
+    /// mapping is a straight read of the selection, so this extension and
+    /// the main app cannot disagree on what to shield.
     private func applyShields() {
         guard let selection = ShieldSessionContext.readSelection() else {
             return
         }
 
-        let decision = ShieldPolicyMapper.decide(
-            for: selection,
-            allCategoriesThreshold: ShieldSessionContext.allCategoriesThreshold
-        )
+        let decision = ShieldPolicyMapper.decide(for: selection)
 
         ShieldPolicyMapper.apply(decision, to: store)
     }

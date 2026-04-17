@@ -21,22 +21,19 @@ final class ManagedSettingsRestrictionService: RestrictionService {
         }
     }
 
-    /// Applies shields using the shared ``ShieldPolicyMapper`` so the main app
-    /// and ``DeviceActivityMonitorExtension`` always compute and write the
-    /// same policy for a given selection.
+    /// Applies shields using the shared ``ShieldPolicyMapper`` so the main
+    /// app and ``DeviceActivityMonitorExtension`` always compute and write
+    /// the same policy for a given selection.
     ///
-    /// This deliberately threads ``FamilyActivitySelection/applicationTokens``
-    /// through the *exception* parameter of
-    /// ``ShieldSettings/ActivityCategoryPolicy`` when the user picked
-    /// "All Apps & Categories" and then deselected some apps — the older
-    /// count-threshold-only mapping dropped from `.all(except: [])` to
-    /// `.specific(N-1 categories)` on the first deselection and silently
-    /// unblocked every uncategorized app and every app in the dropped
-    /// category that the picker hadn't enumerated.
+    /// ``FamilyActivitySelection`` is inclusive: every token it carries is
+    /// something the user picked to block. The mapper writes category
+    /// shields via ``ShieldSettings/ActivityCategoryPolicy/specific(_:)``
+    /// for any selected categories, and writes the individual-applications
+    /// and web-domains channels for any tokens picked outside of (or in
+    /// addition to) the selected categories.
     func applyRestrictions() async throws {
         let decision = ShieldPolicyMapper.decide(
-            for: screenTimeManager.activitySelection,
-            allCategoriesThreshold: ShieldSessionContext.allCategoriesThreshold
+            for: screenTimeManager.activitySelection
         )
 
         ShieldPolicyMapper.apply(decision, to: store)
