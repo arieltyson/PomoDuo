@@ -352,9 +352,23 @@ private struct WebDomainExceptionsSection: View {
     }
 }
 
-/// CTA for the pushed editor + diagnostics link. The picker lives
-/// behind an explicit button so the user understands that editing is
-/// a distinct action from reading the committed state.
+/// CTA for the pushed editor. The picker lives behind an explicit
+/// button so the user understands that editing is a distinct action
+/// from reading the committed state.
+///
+/// **Diagnostics visibility.** The "App Blocking Diagnostics"
+/// `NavigationLink` is gated behind `#if DEBUG`, so it appears only in
+/// development and TestFlight-from-source builds — never in App Store
+/// builds. The diagnostics view itself
+/// (``AppBlockingDiagnosticsView``), the
+/// ``SettingsDestination/appBlockingDiagnostics`` enum case, and the
+/// `RootView` destination resolver all remain in the codebase
+/// unchanged so the developer experience is unaffected; we strip only
+/// the user-facing entry point from release builds. Apple's docs allow
+/// shipping diagnostics surfaces but the current copy is engineer-
+/// oriented (raw `monitor.intervalDidStart` / `.specificExcept` /
+/// `ManagedSettings` terminology), and the Reset action it leads to
+/// is destructive, so hiding it from end users is the safer default.
 private struct EditorPushSection: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
 
@@ -374,17 +388,19 @@ private struct EditorPushSection: View {
                 "Opens Apple's activity picker to change which apps, categories, and web domains are blocked."
             )
 
-            NavigationLink(
-                value: SettingsDestination.appBlockingDiagnostics
-            ) {
-                Label(
-                    "App Blocking Diagnostics",
-                    systemImage: "stethoscope"
+            #if DEBUG
+                NavigationLink(
+                    value: SettingsDestination.appBlockingDiagnostics
+                ) {
+                    Label(
+                        "App Blocking Diagnostics",
+                        systemImage: "stethoscope"
+                    )
+                }
+                .accessibilityHint(
+                    "Inspect the configured Screen Time state and reset it if something looks wrong."
                 )
-            }
-            .accessibilityHint(
-                "Inspect the configured Screen Time state and reset it if something looks wrong."
-            )
+            #endif
         }
     }
 }
