@@ -38,9 +38,19 @@ struct PartnerOverviewView: View {
                     onStartSession: { isShowingStartSession = true }
                 )
 
-                if let username = friendsViewModel.currentUsername {
+                // Only render the "Share My Friend Link" affordance
+                // when we have a *usable* username. A profile that
+                // stored its `username` field as `""` (incomplete
+                // claim, partial migration) would otherwise produce a
+                // share link of `https://…/add-friend/`, which would
+                // crash on tap when the receiver hits Firestore. The
+                // ``UsernameNormalizer`` predicate keeps the gate in
+                // lockstep with the service-layer guards.
+                if let username = friendsViewModel.currentUsername,
+                    let normalized = UsernameNormalizer.normalize(username)
+                {
                     ShareProfileSection(
-                        username: username,
+                        username: normalized,
                         senderName: friendsViewModel.currentDisplayName
                     )
                 }

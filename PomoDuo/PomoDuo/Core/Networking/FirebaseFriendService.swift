@@ -1,7 +1,7 @@
-import Foundation
-import OSLog
 @preconcurrency import FirebaseAuth
 @preconcurrency import FirebaseFirestore
+import Foundation
+import OSLog
 
 /// Firestore-backed implementation of ``FriendService``.
 @MainActor
@@ -58,9 +58,16 @@ final class FirebaseFriendService: FriendService {
     // MARK: - Username
 
     func claimUsername(_ username: String) async throws -> Bool {
+        // Firestore's `CollectionReference.document(_:)` throws an
+        // un-recoverable `FIRInvalidArgumentException` for empty IDs.
+        // Refuse the claim before constructing the reference.
+        guard let normalized = UsernameNormalizer.normalize(username) else {
+            return false
+        }
         let user = try requireCurrentUser()
-        let normalized = username.lowercased()
-        let usernameRef = database.collection(Collections.usernames).document(normalized)
+        let usernameRef = database.collection(Collections.usernames).document(
+            normalized
+        )
         let userRef = database.collection(Collections.users).document(user.uid)
 
         // Check-then-write: first verify availability, then batch create.
@@ -73,29 +80,45 @@ final class FirebaseFriendService: FriendService {
             }
 
             let batch = database.batch()
-            batch.setData([
-                Fields.uid: user.uid,
-                Fields.createdAt: FieldValue.serverTimestamp(),
-            ], forDocument: usernameRef)
+            batch.setData(
+                [
+                    Fields.uid: user.uid,
+                    Fields.createdAt: FieldValue.serverTimestamp(),
+                ],
+                forDocument: usernameRef
+            )
 
-            batch.setData([
-                Fields.username: username,
-                Fields.usernameNormalized: normalized,
-                Fields.displayName: Self.displayName(for: user),
-                Fields.updatedAt: FieldValue.serverTimestamp(),
-            ], forDocument: userRef, merge: true)
+            batch.setData(
+                [
+                    Fields.username: username,
+                    Fields.usernameNormalized: normalized,
+                    Fields.displayName: Self.displayName(for: user),
+                    Fields.updatedAt: FieldValue.serverTimestamp(),
+                ],
+                forDocument: userRef,
+                merge: true
+            )
 
             try await batch.commit()
             return true
         } catch {
-            Self.logger.error("Username claim failed: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error(
+                "Username claim failed: \(error.localizedDescription, privacy: .public)"
+            )
             return false
         }
     }
 
     func isUsernameAvailable(_ username: String) async throws -> Bool {
-        let normalized = username.lowercased()
-        let snapshot = try await database
+        // Empty/whitespace-only inputs are *trivially available*
+        // because nothing's claimed the empty string — but we never
+        // want to materialize a `usernames/` Firestore reference for
+        // that case, so short-circuit before touching the SDK.
+        guard let normalized = UsernameNormalizer.normalize(username) else {
+            return true
+        }
+        let snapshot =
+            try await database
             .collection(Collections.usernames)
             .document(normalized)
             .getDocument()
@@ -104,18 +127,34 @@ final class FirebaseFriendService: FriendService {
 
     func currentUsername() async throws -> String? {
         let user = try requireCurrentUser()
-        let snapshot = try await database
+        let snapshot =
+            try await database
             .collection(Collections.users)
             .document(user.uid)
             .getDocument()
-        return snapshot.data()?[Fields.username] as? String
+        // A partially-written profile can store the field as `""`;
+        // treat that as "no username" so downstream UI (link
+        // generation, share sheet) doesn't produce malformed
+        // add-friend URLs that would later crash on tap.
+        let raw = snapshot.data()?[Fields.username] as? String
+        return UsernameNormalizer.normalize(raw)
     }
 
-    func searchByUsername(_ username: String) async throws -> UserSearchResult? {
+    func searchByUsername(_ username: String) async throws -> UserSearchResult?
+    {
+        // The deep-link ingress (``AddFriendFromLinkView``) used to call
+        // this with an empty string when a malformed `add-friend/`
+        // link arrived, which crashed Firestore inside
+        // `.document(normalized)`. Treating an empty input as
+        // "not found" preserves the caller's `Optional` contract and
+        // closes the crash class without changing any other behavior.
+        guard let normalized = UsernameNormalizer.normalize(username) else {
+            return nil
+        }
         let user = try requireCurrentUser()
-        let normalized = username.lowercased()
 
-        let usernameSnapshot = try await database
+        let usernameSnapshot =
+            try await database
             .collection(Collections.usernames)
             .document(normalized)
             .getDocument()
@@ -128,7 +167,8 @@ final class FirebaseFriendService: FriendService {
             return nil
         }
 
-        let userSnapshot = try await database
+        let userSnapshot =
+            try await database
             .collection(Collections.users)
             .document(targetUID)
             .getDocument()
@@ -137,7 +177,8 @@ final class FirebaseFriendService: FriendService {
             return nil
         }
 
-        let displayName = (userData[Fields.displayName] as? String) ?? "Focus Friend"
+        let displayName =
+            (userData[Fields.displayName] as? String) ?? "Focus Friend"
         let storedUsername = (userData[Fields.username] as? String) ?? username
 
         return UserSearchResult(
@@ -150,10 +191,16 @@ final class FirebaseFriendService: FriendService {
     // MARK: - Friend Requests
 
     func sendFriendRequest(toUsername username: String) async throws {
+        // Same Firestore document-ID guard as ``searchByUsername`` —
+        // surface the empty/whitespace case as `userNotFound` rather
+        // than crashing inside `.document(normalized)`.
+        guard let normalized = UsernameNormalizer.normalize(username) else {
+            throw FriendServiceError.userNotFound
+        }
         let user = try requireCurrentUser()
-        let normalized = username.lowercased()
 
-        let usernameSnapshot = try await database
+        let usernameSnapshot =
+            try await database
             .collection(Collections.usernames)
             .document(normalized)
             .getDocument()
@@ -171,7 +218,8 @@ final class FirebaseFriendService: FriendService {
 
         // Check if friendship already exists.
         let friendshipID = Self.friendshipID(user.uid, targetUID)
-        let existingFriendship = try await database
+        let existingFriendship =
+            try await database
             .collection(Collections.friendships)
             .document(friendshipID)
             .getDocument()
@@ -182,7 +230,8 @@ final class FirebaseFriendService: FriendService {
 
         // Filter by a single field to avoid requiring a composite index,
         // then check the second field in memory.
-        let outgoingRequests = try await database
+        let outgoingRequests =
+            try await database
             .collection(Collections.friendRequests)
             .whereField(Fields.fromUID, isEqualTo: user.uid)
             .getDocuments()
@@ -190,7 +239,8 @@ final class FirebaseFriendService: FriendService {
         let hasPendingOutgoing = outgoingRequests.documents.contains { doc in
             let data = doc.data()
             return (data[Fields.toUID] as? String) == targetUID
-                && (data[Fields.status] as? String) == FriendRequestStatus.pending.rawValue
+                && (data[Fields.status] as? String)
+                    == FriendRequestStatus.pending.rawValue
         }
 
         if hasPendingOutgoing {
@@ -210,11 +260,14 @@ final class FirebaseFriendService: FriendService {
             Fields.updatedAt: FieldValue.serverTimestamp(),
         ]
 
-        let requestRef = try await database
+        let requestRef =
+            try await database
             .collection(Collections.friendRequests)
             .addDocument(data: requestData)
 
-        Self.logger.info("Friend request sent to \(targetUID, privacy: .private)")
+        Self.logger.info(
+            "Friend request sent to \(targetUID, privacy: .private)"
+        )
 
         try? await pushSender?.sendPush(
             to: targetUID,
@@ -230,7 +283,8 @@ final class FirebaseFriendService: FriendService {
 
     func acceptFriendRequest(_ requestID: String) async throws {
         let user = try requireCurrentUser()
-        let requestRef = database.collection(Collections.friendRequests).document(requestID)
+        let requestRef = database.collection(Collections.friendRequests)
+            .document(requestID)
         let requestSnapshot = try await requestRef.getDocument()
 
         guard
@@ -249,14 +303,17 @@ final class FirebaseFriendService: FriendService {
         ])
 
         // Fetch both user profiles for the friendship doc.
-        let fromUserSnapshot = try await database
+        let fromUserSnapshot =
+            try await database
             .collection(Collections.users)
             .document(fromUID)
             .getDocument()
 
-        let fromDisplayName = (fromUserSnapshot.data()?[Fields.displayName] as? String)
+        let fromDisplayName =
+            (fromUserSnapshot.data()?[Fields.displayName] as? String)
             ?? "Focus Friend"
-        let fromUsername = (fromUserSnapshot.data()?[Fields.username] as? String) ?? ""
+        let fromUsername =
+            (fromUserSnapshot.data()?[Fields.username] as? String) ?? ""
 
         let toDisplayName = Self.displayName(for: user)
         let toUsername = try await currentUsername() ?? ""
@@ -314,7 +371,8 @@ final class FirebaseFriendService: FriendService {
 
     func friends() async throws -> [FriendProfile] {
         let user = try requireCurrentUser()
-        let snapshot = try await database
+        let snapshot =
+            try await database
             .collection(Collections.friendships)
             .whereField(Fields.members, arrayContains: user.uid)
             .getDocuments()
@@ -329,7 +387,8 @@ final class FirebaseFriendService: FriendService {
             return AsyncStream { $0.finish() }
         }
 
-        let query = database
+        let query =
+            database
             .collection(Collections.friendships)
             .whereField(Fields.members, arrayContains: currentUserID)
 
@@ -341,7 +400,10 @@ final class FirebaseFriendService: FriendService {
                 }
 
                 let friends = (snapshot?.documents ?? []).compactMap { doc in
-                    Self.makeFriendProfile(from: doc.data(), currentUserID: currentUserID)
+                    Self.makeFriendProfile(
+                        from: doc.data(),
+                        currentUserID: currentUserID
+                    )
                 }
                 continuation.yield(friends)
             }
@@ -357,10 +419,14 @@ final class FirebaseFriendService: FriendService {
             return AsyncStream { $0.finish() }
         }
 
-        let query = database
+        let query =
+            database
             .collection(Collections.friendRequests)
             .whereField(Fields.toUID, isEqualTo: currentUserID)
-            .whereField(Fields.status, isEqualTo: FriendRequestStatus.pending.rawValue)
+            .whereField(
+                Fields.status,
+                isEqualTo: FriendRequestStatus.pending.rawValue
+            )
 
         return AsyncStream { continuation in
             let listener = query.addSnapshotListener { snapshot, error in
@@ -369,7 +435,8 @@ final class FirebaseFriendService: FriendService {
                     return
                 }
 
-                let requests = (snapshot?.documents ?? []).compactMap { doc -> FriendRequest? in
+                let requests = (snapshot?.documents ?? []).compactMap {
+                    doc -> FriendRequest? in
                     let data = doc.data()
                     guard
                         let fromUID = data[Fields.fromUID] as? String,
@@ -380,13 +447,17 @@ final class FirebaseFriendService: FriendService {
                         return nil
                     }
 
-                    let createdAt = (data[Fields.createdAt] as? Timestamp)?.dateValue() ?? .now
+                    let createdAt =
+                        (data[Fields.createdAt] as? Timestamp)?.dateValue()
+                        ?? .now
 
                     return FriendRequest(
                         id: doc.documentID,
                         fromUID: fromUID,
-                        fromDisplayName: (data[Fields.fromDisplayName] as? String) ?? "Focus Friend",
-                        fromUsername: (data[Fields.fromUsername] as? String) ?? "",
+                        fromDisplayName: (data[Fields.fromDisplayName]
+                            as? String) ?? "Focus Friend",
+                        fromUsername: (data[Fields.fromUsername] as? String)
+                            ?? "",
                         toUID: toUID,
                         status: status,
                         createdAt: createdAt
@@ -415,22 +486,30 @@ final class FirebaseFriendService: FriendService {
         let snapshot = try await userRef.getDocument()
         let data = snapshot.data() ?? [:]
 
-        let storedWeekStart = (data[Fields.weekStartDate] as? Timestamp)?.dateValue()
-        let storedLastSession = (data[Fields.lastSessionDate] as? Timestamp)?.dateValue()
+        let storedWeekStart = (data[Fields.weekStartDate] as? Timestamp)?
+            .dateValue()
+        let storedLastSession = (data[Fields.lastSessionDate] as? Timestamp)?
+            .dateValue()
         let storedStreak = (data[Fields.currentStreak] as? Int) ?? 0
 
         // Reset daily minutes if the stored session date is a different day.
         let dailyMinutes: Int
-        if let storedLastSession, calendar.isDate(storedLastSession, inSameDayAs: today) {
-            dailyMinutes = ((data[Fields.dailyFocusMinutes] as? Int) ?? 0) + minutes
+        if let storedLastSession,
+            calendar.isDate(storedLastSession, inSameDayAs: today)
+        {
+            dailyMinutes =
+                ((data[Fields.dailyFocusMinutes] as? Int) ?? 0) + minutes
         } else {
             dailyMinutes = minutes
         }
 
         // Reset weekly minutes if the stored week is different from the current week.
         let weeklyMinutes: Int
-        if let storedWeekStart, calendar.isDate(storedWeekStart, inSameDayAs: weekStart) {
-            weeklyMinutes = ((data[Fields.weeklyFocusMinutes] as? Int) ?? 0) + minutes
+        if let storedWeekStart,
+            calendar.isDate(storedWeekStart, inSameDayAs: weekStart)
+        {
+            weeklyMinutes =
+                ((data[Fields.weeklyFocusMinutes] as? Int) ?? 0) + minutes
         } else {
             weeklyMinutes = minutes
         }
@@ -441,7 +520,11 @@ final class FirebaseFriendService: FriendService {
             let lastDay = calendar.startOfDay(for: storedLastSession)
             if calendar.isDate(lastDay, inSameDayAs: today) {
                 newStreak = storedStreak
-            } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+            } else if let yesterday = calendar.date(
+                byAdding: .day,
+                value: -1,
+                to: today
+            ),
                 calendar.isDate(lastDay, inSameDayAs: yesterday)
             {
                 newStreak = storedStreak + 1
@@ -452,15 +535,18 @@ final class FirebaseFriendService: FriendService {
             newStreak = 1
         }
 
-        try await userRef.setData([
-            Fields.dailyFocusMinutes: dailyMinutes,
-            Fields.weeklyFocusMinutes: weeklyMinutes,
-            Fields.totalFocusMinutes: FieldValue.increment(Int64(minutes)),
-            Fields.currentStreak: newStreak,
-            Fields.weekStartDate: Timestamp(date: weekStart),
-            Fields.lastSessionDate: Timestamp(date: today),
-            Fields.updatedAt: FieldValue.serverTimestamp(),
-        ], merge: true)
+        try await userRef.setData(
+            [
+                Fields.dailyFocusMinutes: dailyMinutes,
+                Fields.weeklyFocusMinutes: weeklyMinutes,
+                Fields.totalFocusMinutes: FieldValue.increment(Int64(minutes)),
+                Fields.currentStreak: newStreak,
+                Fields.weekStartDate: Timestamp(date: weekStart),
+                Fields.lastSessionDate: Timestamp(date: today),
+                Fields.updatedAt: FieldValue.serverTimestamp(),
+            ],
+            merge: true
+        )
     }
 
     func leaderboardEntries() async throws -> [LeaderboardEntry] {
@@ -468,7 +554,8 @@ final class FirebaseFriendService: FriendService {
         let currentUsername = try await currentUsername() ?? ""
 
         // Fetch current user's stats.
-        let userDoc = try await database
+        let userDoc =
+            try await database
             .collection(Collections.users)
             .document(user.uid)
             .getDocument()
@@ -489,11 +576,12 @@ final class FirebaseFriendService: FriendService {
                 fallbackDisplayName: Self.displayName(for: user),
                 fallbackUsername: currentUsername,
                 isCurrentUser: true
-            ),
+            )
         ]
 
         // Fetch all friends.
-        let friendships = try await database
+        let friendships =
+            try await database
             .collection(Collections.friendships)
             .whereField(Fields.members, arrayContains: user.uid)
             .getDocuments()
@@ -505,9 +593,12 @@ final class FirebaseFriendService: FriendService {
 
         // Fetch each friend's stats. Batching in groups of 10 for efficiency.
         for batch in stride(from: 0, to: friendIDs.count, by: 10) {
-            let batchIDs = Array(friendIDs[batch..<min(batch + 10, friendIDs.count)])
+            let batchIDs = Array(
+                friendIDs[batch..<min(batch + 10, friendIDs.count)]
+            )
 
-            let friendDocs = try await database
+            let friendDocs =
+                try await database
                 .collection(Collections.users)
                 .whereField(FieldPath.documentID(), in: batchIDs)
                 .getDocuments()
@@ -540,12 +631,17 @@ final class FirebaseFriendService: FriendService {
         fallbackUsername: String,
         isCurrentUser: Bool
     ) -> LeaderboardEntry {
-        let storedWeekStart = (data[Fields.weekStartDate] as? Timestamp)?.dateValue()
-        let storedLastSession = (data[Fields.lastSessionDate] as? Timestamp)?.dateValue()
+        let storedWeekStart = (data[Fields.weekStartDate] as? Timestamp)?
+            .dateValue()
+        let storedLastSession = (data[Fields.lastSessionDate] as? Timestamp)?
+            .dateValue()
 
         let isCurrentWeek: Bool
         if let storedWeekStart {
-            isCurrentWeek = calendar.isDate(storedWeekStart, inSameDayAs: weekStart)
+            isCurrentWeek = calendar.isDate(
+                storedWeekStart,
+                inSameDayAs: weekStart
+            )
         } else {
             isCurrentWeek = false
         }
@@ -559,7 +655,8 @@ final class FirebaseFriendService: FriendService {
 
         return LeaderboardEntry(
             id: uid,
-            displayName: (data[Fields.displayName] as? String) ?? fallbackDisplayName,
+            displayName: (data[Fields.displayName] as? String)
+                ?? fallbackDisplayName,
             username: (data[Fields.username] as? String) ?? fallbackUsername,
             dailyFocusMinutes: isToday
                 ? ((data[Fields.dailyFocusMinutes] as? Int) ?? 0)
@@ -580,7 +677,10 @@ final class FirebaseFriendService: FriendService {
     ) -> Date {
         var cal = calendar
         cal.firstWeekday = 2  // Monday
-        let components = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        let components = cal.dateComponents(
+            [.yearForWeekOfYear, .weekOfYear],
+            from: date
+        )
         return cal.date(from: components) ?? date
     }
 
@@ -591,13 +691,17 @@ final class FirebaseFriendService: FriendService {
         let uid = user.uid
 
         // 1. Update the canonical users/{uid} profile document.
-        try await database.collection(Collections.users).document(uid).setData([
-            Fields.displayName: newName,
-            Fields.updatedAt: FieldValue.serverTimestamp(),
-        ], merge: true)
+        try await database.collection(Collections.users).document(uid).setData(
+            [
+                Fields.displayName: newName,
+                Fields.updatedAt: FieldValue.serverTimestamp(),
+            ],
+            merge: true
+        )
 
         // 2. Update all friendship documents where this user is a member.
-        let friendshipSnapshots = try await database
+        let friendshipSnapshots =
+            try await database
             .collection(Collections.friendships)
             .whereField(Fields.members, arrayContains: uid)
             .getDocuments()
@@ -605,15 +709,19 @@ final class FirebaseFriendService: FriendService {
         if !friendshipSnapshots.documents.isEmpty {
             let batch = database.batch()
             for doc in friendshipSnapshots.documents {
-                batch.updateData([
-                    "\(Fields.memberDisplayNames).\(uid)": newName,
-                ], forDocument: doc.reference)
+                batch.updateData(
+                    [
+                        "\(Fields.memberDisplayNames).\(uid)": newName
+                    ],
+                    forDocument: doc.reference
+                )
             }
             try await batch.commit()
         }
 
         // 3. Update all partnership documents where this user is a member.
-        let partnershipSnapshots = try await database
+        let partnershipSnapshots =
+            try await database
             .collection("partnerships")
             .whereField(Fields.members, arrayContains: uid)
             .getDocuments()
@@ -621,14 +729,19 @@ final class FirebaseFriendService: FriendService {
         if !partnershipSnapshots.documents.isEmpty {
             let batch = database.batch()
             for doc in partnershipSnapshots.documents {
-                batch.updateData([
-                    "\(Fields.memberDisplayNames).\(uid)": newName,
-                ], forDocument: doc.reference)
+                batch.updateData(
+                    [
+                        "\(Fields.memberDisplayNames).\(uid)": newName
+                    ],
+                    forDocument: doc.reference
+                )
             }
             try await batch.commit()
         }
 
-        Self.logger.info("Propagated display name for \(uid, privacy: .private)")
+        Self.logger.info(
+            "Propagated display name for \(uid, privacy: .private)"
+        )
     }
 
     // MARK: - Account Deletion
@@ -638,26 +751,31 @@ final class FirebaseFriendService: FriendService {
         let uid = user.uid
 
         // Look up the user's claimed username so we can release it.
-        let userSnapshot = try await database
+        let userSnapshot =
+            try await database
             .collection(Collections.users)
             .document(uid)
             .getDocument()
 
-        let normalizedUsername = userSnapshot.data()?[Fields.usernameNormalized] as? String
+        let normalizedUsername =
+            userSnapshot.data()?[Fields.usernameNormalized] as? String
 
         // Collect all friendship documents that include this user.
-        let friendshipSnapshots = try await database
+        let friendshipSnapshots =
+            try await database
             .collection(Collections.friendships)
             .whereField(Fields.members, arrayContains: uid)
             .getDocuments()
 
         // Collect all friend requests sent by or to this user.
-        let outgoingRequests = try await database
+        let outgoingRequests =
+            try await database
             .collection(Collections.friendRequests)
             .whereField(Fields.fromUID, isEqualTo: uid)
             .getDocuments()
 
-        let incomingRequests = try await database
+        let incomingRequests =
+            try await database
             .collection(Collections.friendRequests)
             .whereField(Fields.toUID, isEqualTo: uid)
             .getDocuments()
@@ -667,7 +785,8 @@ final class FirebaseFriendService: FriendService {
 
         // Release the username so it can be claimed again.
         if let normalizedUsername {
-            let usernameRef = database
+            let usernameRef =
+                database
                 .collection(Collections.usernames)
                 .document(normalizedUsername)
             batch.deleteDocument(usernameRef)
@@ -692,7 +811,9 @@ final class FirebaseFriendService: FriendService {
 
         try await batch.commit()
 
-        Self.logger.info("Deleted all Firestore data for user \(uid, privacy: .private)")
+        Self.logger.info(
+            "Deleted all Firestore data for user \(uid, privacy: .private)"
+        )
     }
 
     // MARK: - Helpers
@@ -739,7 +860,8 @@ final class FirebaseFriendService: FriendService {
 
         let displayNames = data[Fields.memberDisplayNames] as? [String: String]
         let usernames = data[Fields.memberUsernames] as? [String: String]
-        let createdAt = (data[Fields.createdAt] as? Timestamp)?.dateValue() ?? .now
+        let createdAt =
+            (data[Fields.createdAt] as? Timestamp)?.dateValue() ?? .now
 
         return FriendProfile(
             id: friendID,

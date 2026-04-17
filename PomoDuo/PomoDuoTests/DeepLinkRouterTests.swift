@@ -127,4 +127,128 @@ struct DeepLinkRouterTests {
         let url = URL(string: "http://pomoduo-61e38.web.app/add-friend/test")!
         #expect(DeepLinkRouter.route(from: url) == .addFriend("test"))
     }
+
+    // MARK: - Empty / Whitespace Param Hardening
+    //
+    // These tests pin the router's behavior for the malformed link
+    // shapes that produced the original `FIRInvalidArgumentException:
+    // Document path cannot be empty.` crash. The router must reject
+    // every shape that would otherwise propagate an empty/whitespace
+    // username into ``FirebaseFriendService.searchByUsername(_:)``.
+
+    @Test("Custom-scheme add-friend with trailing slash routes to nil")
+    func customSchemeAddFriendTrailingSlashRoutesToNil() {
+        let url = URL(string: "pomoduo://add-friend/")!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    @Test("Universal Link add-friend with trailing slash routes to nil")
+    func universalLinkAddFriendTrailingSlashRoutesToNil() {
+        let url = URL(string: "https://pomoduo-61e38.web.app/add-friend/")!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    @Test("Custom-scheme pair with trailing slash routes to nil")
+    func customSchemePairTrailingSlashRoutesToNil() {
+        let url = URL(string: "pomoduo://pair/")!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    @Test("Universal Link friend-request with trailing slash routes to nil")
+    func universalLinkFriendRequestTrailingSlashRoutesToNil() {
+        let url = URL(string: "https://pomoduo-61e38.web.app/friend-request/")!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    /// Percent-encoded whitespace as the entire username is a real
+    /// shape iMessage / iCloud share-sheet rewrites have been seen to
+    /// produce. The router must trim and reject it.
+    @Test("Whitespace-only add-friend param routes to nil")
+    func universalLinkAddFriendWhitespaceParamRoutesToNil() {
+        let url = URL(
+            string: "https://pomoduo-61e38.web.app/add-friend/%20%20"
+        )!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    @Test("Whitespace-only pair param routes to nil")
+    func universalLinkPairWhitespaceParamRoutesToNil() {
+        let url = URL(string: "https://pomoduo-61e38.web.app/pair/%20")!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    @Test("Whitespace-only friend-request param routes to nil")
+    func universalLinkFriendRequestWhitespaceParamRoutesToNil() {
+        let url = URL(
+            string: "https://pomoduo-61e38.web.app/friend-request/%20"
+        )!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    /// The router must never emit `.addFriend("")` even via direct
+    /// resolveRoute paths — pinning this in case a future refactor
+    /// adds another way to construct the route.
+    @Test("Router never produces .addFriend with empty payload")
+    func addFriendEmptyPayloadIsImpossibleViaRouter() {
+        // Custom scheme without param at all (already covered, kept
+        // here for completeness next to the new hardening tests).
+        let noParamCustom = URL(string: "pomoduo://add-friend")!
+        // Trailing slash without payload.
+        let trailingSlashCustom = URL(string: "pomoduo://add-friend/")!
+        let trailingSlashHTTPS = URL(
+            string: "https://pomoduo-61e38.web.app/add-friend/"
+        )!
+
+        #expect(DeepLinkRouter.route(from: noParamCustom) == nil)
+        #expect(DeepLinkRouter.route(from: trailingSlashCustom) == nil)
+        #expect(DeepLinkRouter.route(from: trailingSlashHTTPS) == nil)
+    }
+}
+
+// MARK: - UsernameNormalizer
+
+/// Coverage for the single source of truth used by every layer
+/// (router, view-layer ingress, Firestore service) to enforce the
+/// "non-empty normalized username" precondition.
+struct UsernameNormalizerTests {
+
+    @Test("Empty string normalizes to nil")
+    func emptyStringIsNil() {
+        #expect(UsernameNormalizer.normalize("") == nil)
+    }
+
+    @Test("Whitespace-only string normalizes to nil")
+    func whitespaceOnlyIsNil() {
+        #expect(UsernameNormalizer.normalize("   ") == nil)
+        #expect(UsernameNormalizer.normalize("\t\n") == nil)
+    }
+
+    @Test("Surrounding whitespace is trimmed")
+    func surroundingWhitespaceIsTrimmed() {
+        #expect(UsernameNormalizer.normalize("  ariel  ") == "ariel")
+    }
+
+    @Test("Mixed-case input is lowercased")
+    func mixedCaseIsLowercased() {
+        #expect(UsernameNormalizer.normalize("ArielTyson") == "arieltyson")
+    }
+
+    @Test("Already-normalized input round-trips unchanged")
+    func canonicalRoundTrips() {
+        #expect(UsernameNormalizer.normalize("mahim") == "mahim")
+    }
+
+    @Test("Optional nil input normalizes to nil")
+    func optionalNilIsNil() {
+        let raw: String? = nil
+        #expect(UsernameNormalizer.normalize(raw) == nil)
+    }
+
+    @Test("isUsable matches normalize's nullity")
+    func isUsableMatchesNormalize() {
+        #expect(UsernameNormalizer.isUsable("ariel"))
+        #expect(UsernameNormalizer.isUsable("") == false)
+        #expect(UsernameNormalizer.isUsable("   ") == false)
+        #expect(UsernameNormalizer.isUsable(nil) == false)
+    }
 }

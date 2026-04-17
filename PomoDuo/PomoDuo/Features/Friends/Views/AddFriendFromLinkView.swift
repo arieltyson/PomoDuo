@@ -38,6 +38,9 @@ struct AddFriendFromLinkView: View {
                 case .isSelf:
                     SelfContent(onDismiss: { dismiss() })
 
+                case .invalidLink:
+                    InvalidLinkContent(onDismiss: { dismiss() })
+
                 case .sending:
                     if let searchResult {
                         FoundContent(
@@ -77,17 +80,50 @@ struct AddFriendFromLinkView: View {
         .presentationDragIndicator(.visible)
     }
 
+    /// Resolves the link's username into a presentable phase.
+    ///
+    /// **Invalid-link short-circuit.** Empty / whitespace-only
+    /// usernames never reach the Firestore service. The router and
+    /// `RootView` already filter most malformed links, but this
+    /// in-view guard means `AddFriendFromLinkView` is correct even
+    /// when invoked directly (e.g. from previews or tests with a
+    /// hand-built `username` string).
+    ///
+    /// **Explicit self path.** The previous implementation inferred
+    /// "is this me?" by calling
+    /// ``FriendService/isUsernameAvailable(_:)`` after a `nil`
+    /// `searchByUsername` result — using *server availability* as a
+    /// proxy for *identity*. That was brittle (a freshly-deleted
+    /// account would also report unavailable) and added a second
+    /// Firestore round-trip whose only purpose was to disambiguate
+    /// self vs not-found. We now resolve identity directly by
+    /// comparing the link's normalized username to the current
+    /// user's normalized username. If the comparison is conclusive
+    /// either way we skip the search round-trip entirely; if the
+    /// current-user lookup fails for transient reasons, we fall back
+    /// to the search and treat `nil` as "not found" (the safer
+    /// label).
     private func lookUpUser() async {
+        guard let normalizedTarget = UsernameNormalizer.normalize(username) else {
+            phase = .invalidLink
+            return
+        }
+
+        if let myUsername = try? await friendService.currentUsername(),
+            let normalizedSelf = UsernameNormalizer.normalize(myUsername),
+            normalizedSelf == normalizedTarget
+        {
+            phase = .isSelf
+            return
+        }
+
         do {
-            let result = try await friendService.searchByUsername(username)
+            let result = try await friendService.searchByUsername(normalizedTarget)
             if let result {
                 searchResult = result
                 phase = .found
             } else {
-                // searchByUsername returns nil for self-lookups and unknown users.
-                // Distinguish the two by checking availability.
-                let isAvailable = try await friendService.isUsernameAvailable(username)
-                phase = isAvailable ? .notFound : .isSelf
+                phase = .notFound
             }
         } catch {
             phase = .notFound
@@ -119,6 +155,11 @@ private extension AddFriendFromLinkView {
         case found
         case notFound
         case isSelf
+        /// The provided username failed normalization (empty or
+        /// whitespace-only). The view never invokes the Firestore
+        /// service in this state — the matching `InvalidLinkContent`
+        /// view explains the situation and offers Close.
+        case invalidLink
         case sending
         case sent
         case error(String)
@@ -226,6 +267,43 @@ private struct NotFoundContent: View {
             Spacer()
 
             Button("OK") { onDismiss() }
+                .buttonStyle(.borderedProminent)
+                .tint(AppColors.lavender)
+                .controlSize(.large)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 16)
+        }
+    }
+}
+
+private struct InvalidLinkContent: View {
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer()
+
+            Image(systemName: "link.badge.plus")
+                .font(.system(size: 56))
+                .foregroundStyle(.secondary)
+                .symbolRenderingMode(.hierarchical)
+                .accessibilityHidden(true)
+
+            Text("Invalid Invite Link")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            Text(
+                "This friend link doesn\u{2019}t include a username. The sender may have shared an unfinished link \u{2014} ask them to share it again."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 32)
+
+            Spacer()
+
+            Button("Close") { onDismiss() }
                 .buttonStyle(.borderedProminent)
                 .tint(AppColors.lavender)
                 .controlSize(.large)

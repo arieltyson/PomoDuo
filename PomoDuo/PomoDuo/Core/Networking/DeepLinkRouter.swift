@@ -84,20 +84,38 @@ nonisolated enum DeepLinkRouter {
         name: String?,
         param: String?
     ) -> DeepLinkRoute? {
+        // Trailing-slash URLs (`pomoduo://add-friend/`,
+        // `https://…/add-friend/`) and certain iMessage/iCloud
+        // rewrites can produce a non-`nil` *empty-or-whitespace*
+        // `param`. `Optional.map` only filters `nil`, so without an
+        // emptiness check the router would emit `.addFriend("")`,
+        // which crashes Firestore when the receiver dereferences it
+        // via `.document(normalized)`. Reject empty params here so
+        // every downstream layer can assume the param is meaningful.
         switch name {
         case "timer":
-            .timer
+            return .timer
         case "partner":
-            .partner
+            return .partner
         case "friend-request":
-            param.map { .friendRequest($0) }
+            return nonEmpty(param).map { .friendRequest($0) }
         case "pair":
-            param.map { .pair($0.uppercased()) }
+            return nonEmpty(param).map { .pair($0.uppercased()) }
         case "add-friend":
-            param.map { .addFriend($0.lowercased()) }
+            return nonEmpty(param).map { .addFriend($0.lowercased()) }
         default:
-            nil
+            return nil
         }
+    }
+
+    /// Returns the trimmed `value` if it has any non-whitespace
+    /// content; `nil` otherwise. Used by ``resolveRoute(name:param:)``
+    /// to refuse routing for malformed deep links before they can
+    /// reach view-layer / service-layer code.
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

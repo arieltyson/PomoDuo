@@ -218,6 +218,14 @@ struct RootView: View {
             selectedTab = .partner
             pendingPairCode = code
         case .addFriend(let username):
+            // Belt-and-braces: ``DeepLinkRouter`` already rejects
+            // empty/whitespace add-friend params, but if a future
+            // refactor (or a test that constructs `DeepLinkRoute`
+            // directly) emitted `.addFriend("")`, opening the sheet
+            // anyway would push an empty string into Firestore
+            // through ``AddFriendFromLinkView``. Re-validate here so
+            // the view never sees an unusable username.
+            guard UsernameNormalizer.isUsable(username) else { return }
             addFriendLinkUsername = username
             isShowingAddFriendFromLink = true
         }
