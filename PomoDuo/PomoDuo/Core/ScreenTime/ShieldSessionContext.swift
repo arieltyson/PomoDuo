@@ -1,5 +1,6 @@
 import FamilyControls
 import Foundation
+import ManagedSettings
 
 /// Shared read/write interface for session context stored in the App Group.
 ///
@@ -26,6 +27,7 @@ enum ShieldSessionContext {
         static let sessionPhase = "shield.session.phase"
         static let targetEndDate = "shield.session.targetEndDate"
         static let activitySelection = "shield.session.activitySelection"
+        static let categoryExceptions = "shield.session.categoryExceptions"
     }
 
     private static var sharedDefaults: UserDefaults? {
@@ -58,7 +60,27 @@ enum ShieldSessionContext {
         defaults.set(data, forKey: Keys.activitySelection)
     }
 
-    /// Clears all session context when the session ends.
+    /// Persists the derived category-exceptions set so the Monitor
+    /// extension can apply the same `.specific(_:except:)` policy when
+    /// it reapplies shields after a force-quit. See
+    /// ``ScreenTimeManager/categoryExceptions`` for the rationale.
+    static func writeCategoryExceptions(_ exceptions: Set<ApplicationToken>) {
+        guard let defaults = sharedDefaults else { return }
+        guard !exceptions.isEmpty else {
+            defaults.removeObject(forKey: Keys.categoryExceptions)
+            return
+        }
+        guard let data = try? JSONEncoder().encode(exceptions) else { return }
+        defaults.set(data, forKey: Keys.categoryExceptions)
+    }
+
+    /// Clears all per-session context when the session ends.
+    ///
+    /// Note: this clears *session lifecycle* keys, not the user's
+    /// stored selection or category-exception preferences — those
+    /// outlive any individual session and are managed by
+    /// ``ScreenTimeManager``'s `clearSelection()` /
+    /// `resetAllScreenTimeState()` paths.
     static func clearSession() {
         guard let defaults = sharedDefaults else { return }
         defaults.set(false, forKey: Keys.isSessionActive)
@@ -109,5 +131,46 @@ enum ShieldSessionContext {
             FamilyActivitySelection.self,
             from: data
         )
+    }
+
+    /// The derived category-exception set, or `nil` if the App Group
+    /// payload is absent. Returns an empty set rather than `nil` when
+    /// the payload exists and decodes to an empty set, so callers can
+    /// distinguish "no exceptions saved" (`nil`, fall back to legacy
+    /// defaults) from "saved as empty" (`[]`, the user has zero
+    /// exceptions on file).
+    static func readCategoryExceptions() -> Set<ApplicationToken>? {
+        guard let defaults = sharedDefaults,
+            let data = defaults.data(forKey: Keys.categoryExceptions)
+        else { return nil }
+        return try? JSONDecoder().decode(
+            Set<ApplicationToken>.self,
+            from: data
+        )
+    }
+
+    // MARK: - Session-End Discrimination
+
+    /// Whether the shared context still points to a session whose
+    /// target end date is in the future as of `now`.
+    ///
+    /// The `DeviceActivityMonitor` extension uses this to distinguish a
+    /// mid-session reschedule from a true session end. iOS fires
+    /// `intervalDidEnd` *also* when the main app calls
+    /// `DeviceActivityCenter.stopMonitoring(_:)` to replace the prior
+    /// registration (which happens on every focus-session apply and
+    /// reconcile, because ``FocusActivityScheduler/scheduleMonitoring(until:)``
+    /// stops-then-starts). Without this check, the Monitor would tear
+    /// down shields + shared context on every reschedule — producing the
+    /// "Session active = No while the focus session is running"
+    /// inconsistency the diagnostics panel used to surface.
+    ///
+    /// `targetEndDate` is the truthiest signal available from inside
+    /// the extension sandbox: if it's still in the future, the session
+    /// is still expected to be running and this `intervalDidEnd` is a
+    /// reschedule, not a genuine end.
+    static func hasUnexpiredTargetEnd(asOf now: Date = .now) -> Bool {
+        guard let targetEndDate else { return false }
+        return targetEndDate > now
     }
 }

@@ -104,13 +104,21 @@ private struct SelectionSection: View {
                 value: "\(selection.webDomainCount)"
             )
             DiagnosticsRow(
+                label: "Category exceptions",
+                value: "\(selection.categoryExceptionCount)"
+            )
+            DiagnosticsRow(
                 label: "Canonical (includeEntireCategory)",
                 value: selection.isCanonical ? "Yes" : "No"
             )
         } header: {
             Text("Selection")
         } footer: {
-            if !selection.isCanonical {
+            if selection.categoryExceptionCount > 0 {
+                Text(
+                    "Category exceptions are apps you deselected from a currently-shielded category. They're enforced via Apple's `.specific(_:except:)` shield policy (limit 50 tokens). If a future edit would exceed 50 exceptions, the category shield is dropped instead so deselected apps stay deselected."
+                )
+            } else if !selection.isCanonical {
                 Text(
                     "A non-canonical selection means the picker will lose exception semantics on the next edit. Reset to rebuild."
                 )
@@ -135,18 +143,18 @@ private struct PolicySection: View {
             DiagnosticsRow(
                 label: "Specific apps channel",
                 value: policy.writesSpecificApplicationsChannel
-                    ? "Will be written" : "Not used"
+                    ? "Will attempt" : "Not used"
             )
             DiagnosticsRow(
                 label: "Specific web channel",
                 value: policy.writesSpecificWebDomainsChannel
-                    ? "Will be written" : "Not used"
+                    ? "Will attempt" : "Not used"
             )
         } header: {
             Text("Policy (computed)")
         } footer: {
             Text(
-                "Computed by ShieldPolicyMapper from the current selection. Describes the policy the app would write at the next focus session."
+                "Computed by ShieldPolicyMapper from the current selection. 'Will attempt' means the app will write that channel at apply time; iOS may coalesce the write with the category shield or decline to persist it if it overlaps an active category block or exceeds internal caps. The app cannot observe which of those iOS chose."
             )
         }
     }
@@ -160,28 +168,30 @@ private struct ShieldChannelsSection: View {
             DiagnosticsRow(
                 label: "Applications channel",
                 value: channels.applicationsConfigured
-                    ? "Set (\(channels.applicationsCount))" : "Not set"
+                    ? "Reported set (\(channels.applicationsCount))"
+                    : "Not reported"
             )
             DiagnosticsRow(
                 label: "App categories channel",
                 value: channels.applicationCategoriesConfigured
-                    ? "Set" : "Not set"
+                    ? "Reported set" : "Not reported"
             )
             DiagnosticsRow(
                 label: "Web domains channel",
                 value: channels.webDomainsConfigured
-                    ? "Set (\(channels.webDomainsCount))" : "Not set"
+                    ? "Reported set (\(channels.webDomainsCount))"
+                    : "Not reported"
             )
             DiagnosticsRow(
                 label: "Web categories channel",
                 value: channels.webDomainCategoriesConfigured
-                    ? "Set" : "Not set"
+                    ? "Reported set" : "Not reported"
             )
         } header: {
-            Text("ManagedSettings (configured by app)")
+            Text("ManagedSettings (iOS read-back)")
         } footer: {
             Text(
-                "These are the values the app last wrote. iOS does not expose whether it is currently enforcing them — that is the system's responsibility."
+                "What `ManagedSettingsStore` reports back when the app reads each shield channel. 'Not reported' does not necessarily mean 'not enforced' — iOS may persist a write internally (especially when a category shield already covers the same apps) without surfacing it through this read-back, and oversized writes can be coalesced silently. Use this as a signal that the write was accepted, not a guarantee of whether it was."
             )
         }
     }
@@ -441,6 +451,7 @@ private extension ShieldPolicyMapper.ApplicationPolicyCase {
         switch self {
         case .none: "None"
         case .specific: "Selected categories"
+        case .specificExcept: "Selected categories, with exceptions"
         }
     }
 }

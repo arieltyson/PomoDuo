@@ -127,6 +127,22 @@ enum ShieldExtensionTelemetry {
     /// rolling observed-context snapshot so the main app can tell whether
     /// the extension saw a healthy session at callback time.
     ///
+    /// **Durability note.** The Shield extension process is extremely
+    /// short-lived (iOS instantiates the data source, asks it for a
+    /// configuration, and tears the process down essentially immediately
+    /// afterward). `UserDefaults.set(_:forKey:)` updates the in-memory
+    /// representation synchronously but flushes to disk asynchronously,
+    /// so a write from the shield extension can be lost if the process
+    /// is suspended before the flush reaches disk. This matters because
+    /// the Monitor extension has longer-lived callbacks and reliably
+    /// persists its writes; without an explicit flush, the Shield's
+    /// counts would under-report (the symptom observed on device:
+    /// Monitor count > 0, Shield count = 0 while apps are demonstrably
+    /// shielded). ``UserDefaults.synchronize()`` is deprecated for
+    /// general use but remains the supported way to force that flush in
+    /// extension contexts where the process may not live long enough
+    /// for the async flush queue to run.
+    ///
     /// - Parameters:
     ///   - event: The extension callback category that fired.
     ///   - at: Timestamp of the invocation. Injectable for tests.
@@ -185,6 +201,11 @@ enum ShieldExtensionTelemetry {
         } else {
             store.removeObject(forKey: Keys.lastObservedActivityRegistered)
         }
+
+        // Force the pending disk flush. See the Durability note above for
+        // why the deprecated API is the right tool in this specific
+        // short-lived-extension context.
+        store.synchronize()
     }
 
     // MARK: - Read (Main App)

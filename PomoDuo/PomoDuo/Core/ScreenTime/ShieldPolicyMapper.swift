@@ -52,27 +52,55 @@ import ManagedSettings
 ///   category) is still shielded.
 /// - Same for `store.shield.webDomains = webDomainTokens`.
 ///
+/// ### Category exceptions (a separate, opt-in input)
+///
+/// `FamilyActivitySelection` cannot encode "user picked a category but
+/// deselected one app inside it" — the struct has no exceptions field
+/// (verified against Apple's public API surface). When the picker
+/// observes that flow on device, it demotes the category: it removes the
+/// category from `categoryTokens` and emits a partial `applicationTokens`
+/// containing only the apps the picker enumerated minus the deselected
+/// one. Under a pure inclusive mapping that loses the entire category
+/// shield and unblocks every category app the picker did not enumerate.
+///
+/// To honor the user's actual intent ("shield this category, but exempt
+/// this one app"), ``ScreenTimeManager`` derives a separate
+/// `categoryExceptions` set at commit time by diffing the new draft
+/// against the previously-committed selection, and threads it into this
+/// mapper as a *distinct* input. When `categoryExceptions` is non-empty
+/// **and** `categoryTokens` is non-empty, the mapper emits Apple's
+/// `ShieldSettings.ActivityCategoryPolicy.specific(_:except:)` — exactly
+/// the shape Apple documents for "shield these categories, with these
+/// specific apps exempted".
+///
+/// This is *not* a reintroduction of the old wrong "applicationTokens
+/// are exceptions" interpretation. `applicationTokens` is still treated
+/// inclusively (apps the user picked to shield); `categoryExceptions` is
+/// a separate input derived at commit time from the user's edit history,
+/// not from raw picker output.
+///
 /// ### What changed from the previous mapper
 ///
-/// The old mapper treated `applicationTokens` as *exceptions* carved out
-/// of `.all(except:)` or `.specific(_:except:)`. That was the inverse of
-/// the product's intent: the 97 apps the user picked to block were being
-/// exempted from the shield, so blocked apps kept launching. The root
-/// cause was a misreading of Apple's docs and was reinforced by tests that
-/// codified the wrong shape. Removing the exception-based cases and the
-/// 12-category threshold heuristic collapses the mapping to a small,
-/// correct, documentation-supported shape.
+/// The previous mapper rewrite collapsed exception cases entirely under
+/// the (correct) reading that `applicationTokens` is inclusive. That
+/// fixed the original "blocking doesn't work" bug but left no path to
+/// express category-with-exception intent. This pass re-adds the
+/// `.specificExcept` case as a separate, opt-in path triggered only when
+/// the explicit `categoryExceptions` input is non-empty.
 enum ShieldPolicyMapper {
 
     /// Application-side category policy derived from a selection.
     ///
-    /// `.specific(_)` is the only inclusive case — `.none` means no
-    /// category-level shield is written. The exception-based shapes from
-    /// the prior implementation (`.allExcept`, `.specificExcept`) were
-    /// deleted because the product never wanted an exception semantic.
+    /// `.specific(_)` is the inclusive case used when the user picked one
+    /// or more categories with no exception list. `.specificExcept(_, _)`
+    /// is used when the caller derived a non-empty `categoryExceptions`
+    /// set (see ``ScreenTimeManager/commitDraft(_:)``); it maps to
+    /// Apple's `ActivityCategoryPolicy.specific(_:except:)` which shields
+    /// the listed categories but exempts the listed app tokens.
     enum ApplicationCategoryPolicy: Equatable {
         case none
         case specific(Set<ActivityCategoryToken>)
+        case specificExcept(Set<ActivityCategoryToken>, Set<ApplicationToken>)
     }
 
     /// Web-domain-side category policy derived from a selection.
@@ -95,38 +123,75 @@ enum ShieldPolicyMapper {
 
     /// Computes the shield-writing plan for a given selection.
     ///
-    /// The mapping is a straight inclusive read of the selection — no
-    /// thresholds, no exception carve-outs, no mode detection. Every token
-    /// in the selection is something the user wants blocked; every token
-    /// outside the selection is something they don't.
+    /// The base mapping is a straight inclusive read of the selection.
+    /// `categoryExceptions` is the only non-inclusive input: when
+    /// non-empty *and* `categoryTokens` is non-empty, those tokens are
+    /// exempted from the category shield via
+    /// `ActivityCategoryPolicy.specific(_:except:)`. Apple caps that
+    /// policy's exception list at 50 tokens; callers should respect the
+    /// limit (``ScreenTimeManager/commitDraft(_:)`` handles the cap by
+    /// dropping exception preservation when it's exceeded).
+    ///
+    /// When `categoryExceptions` is non-empty but `categoryTokens` is
+    /// empty, the exceptions input is silently ignored — there is no
+    /// category shield to except *from*, so the only meaningful write
+    /// is the specific-apps channel and the exceptions concept doesn't
+    /// apply.
     static func decide(
         applicationTokens: Set<ApplicationToken>,
         categoryTokens: Set<ActivityCategoryToken>,
-        webDomainTokens: Set<WebDomainToken>
+        webDomainTokens: Set<WebDomainToken>,
+        categoryExceptions: Set<ApplicationToken> = []
     ) -> Decision {
-        let applicationCategories: ApplicationCategoryPolicy =
-            categoryTokens.isEmpty ? .none : .specific(categoryTokens)
+        let applicationCategories: ApplicationCategoryPolicy
+        if categoryTokens.isEmpty {
+            applicationCategories = .none
+        } else if categoryExceptions.isEmpty {
+            applicationCategories = .specific(categoryTokens)
+        } else {
+            applicationCategories = .specificExcept(
+                categoryTokens,
+                categoryExceptions
+            )
+        }
 
+        // Web-domain categories don't currently support an exceptions
+        // path through this mapper — the picker doesn't emit a
+        // discoverable web-domain partial-deselect signal in the same
+        // shape, and the user's reported failure mode is app-side. Web
+        // category exceptions can be added the same way later if the
+        // pattern surfaces.
         let webDomainCategories: WebDomainCategoryPolicy =
             categoryTokens.isEmpty ? .none : .specific(categoryTokens)
+
+        // When the user's draft has the deselected app removed, the
+        // app token won't be in `applicationTokens` either — but if it
+        // somehow is (e.g., picker keeping the token despite demotion),
+        // strip it from the specific-apps write so the exception
+        // semantic isn't undone by the apps channel re-shielding it.
+        let effectiveApplications = applicationTokens.subtracting(
+            categoryExceptions
+        )
 
         return Decision(
             applicationCategories: applicationCategories,
             webDomainCategories: webDomainCategories,
-            specificApplications: applicationTokens.isEmpty
-                ? nil : applicationTokens,
+            specificApplications: effectiveApplications.isEmpty
+                ? nil : effectiveApplications,
             specificWebDomains: webDomainTokens.isEmpty ? nil : webDomainTokens
         )
     }
 
     /// Convenience for `FamilyActivitySelection` callers.
     static func decide(
-        for selection: FamilyActivitySelection
+        for selection: FamilyActivitySelection,
+        categoryExceptions: Set<ApplicationToken> = []
     ) -> Decision {
         decide(
             applicationTokens: selection.applicationTokens,
             categoryTokens: selection.categoryTokens,
-            webDomainTokens: selection.webDomainTokens
+            webDomainTokens: selection.webDomainTokens,
+            categoryExceptions: categoryExceptions
         )
     }
 
@@ -139,6 +204,7 @@ enum ShieldPolicyMapper {
     enum ApplicationPolicyCase: Equatable {
         case none
         case specific
+        case specificExcept
     }
 
     enum WebDomainPolicyCase: Equatable {
@@ -150,7 +216,7 @@ enum ShieldPolicyMapper {
         let applicationCategories: ApplicationPolicyCase
         let webDomainCategories: WebDomainPolicyCase
         /// Whether `store.shield.applications` gets written with the
-        /// selection's `applicationTokens`.
+        /// selection's `applicationTokens` (minus category exceptions).
         let writesSpecificApplicationsChannel: Bool
         /// Whether `store.shield.webDomains` gets written with the
         /// selection's `webDomainTokens`.
@@ -159,23 +225,42 @@ enum ShieldPolicyMapper {
 
     /// Pure, count-driven mapping that tests can drive with plain `Int`s.
     ///
-    /// Matches ``decide(applicationTokens:categoryTokens:webDomainTokens:)``
+    /// Matches ``decide(applicationTokens:categoryTokens:webDomainTokens:categoryExceptions:)``
     /// step-for-step so the two stay in lockstep.
     static func decideShape(
         applicationTokenCount: Int,
         categoryTokenCount: Int,
-        webDomainTokenCount: Int
+        webDomainTokenCount: Int,
+        categoryExceptionCount: Int = 0
     ) -> DecisionShape {
-        let applicationCategories: ApplicationPolicyCase =
-            categoryTokenCount == 0 ? .none : .specific
+        let applicationCategories: ApplicationPolicyCase
+        if categoryTokenCount == 0 {
+            applicationCategories = .none
+        } else if categoryExceptionCount == 0 {
+            applicationCategories = .specific
+        } else {
+            applicationCategories = .specificExcept
+        }
 
         let webDomainCategories: WebDomainPolicyCase =
             categoryTokenCount == 0 ? .none : .specific
 
+        // Matches the value-aware decide() exception-stripping behavior:
+        // exception tokens are removed from the specific-apps channel so
+        // the channel write doesn't undo the exception. We can't detect
+        // that subtraction from counts alone, so the shape's
+        // `writesSpecificApplicationsChannel` reports whether *any* apps
+        // remain after the assumption that exception tokens were a
+        // subset of `applicationTokenCount`.
+        let effectiveAppsCount = max(
+            0,
+            applicationTokenCount - categoryExceptionCount
+        )
+
         return DecisionShape(
             applicationCategories: applicationCategories,
             webDomainCategories: webDomainCategories,
-            writesSpecificApplicationsChannel: applicationTokenCount > 0,
+            writesSpecificApplicationsChannel: effectiveAppsCount > 0,
             writesSpecificWebDomainsChannel: webDomainTokenCount > 0
         )
     }
@@ -191,6 +276,11 @@ enum ShieldPolicyMapper {
             store.shield.applicationCategories = nil
         case .specific(let categories):
             store.shield.applicationCategories = .specific(categories)
+        case .specificExcept(let categories, let exceptions):
+            store.shield.applicationCategories = .specific(
+                categories,
+                except: exceptions
+            )
         }
 
         switch decision.webDomainCategories {

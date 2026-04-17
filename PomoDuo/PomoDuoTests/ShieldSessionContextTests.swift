@@ -3,7 +3,15 @@ import Testing
 
 @testable import PomoDuo
 
-@Suite("ShieldSessionContext Tests")
+/// `.serialized` because every test in this suite writes to the shared
+/// App-Group `UserDefaults` that backs ``ShieldSessionContext``. Parallel
+/// execution would let one test's `writeSession` land inside another
+/// test's "clear slate" window and falsify an absence assertion (for
+/// example, ``hasUnexpiredTargetEndIsFalseWhenNoContext`` observes a
+/// session written by a concurrent test in the same suite). Serialising
+/// the suite preserves the cross-test isolation the `init()` reset
+/// already assumes.
+@Suite("ShieldSessionContext Tests", .serialized)
 @MainActor
 struct ShieldSessionContextTests {
 
@@ -85,6 +93,82 @@ struct ShieldSessionContextTests {
         #expect(
             ShieldSessionContext.appGroupID == "group.com.arieljtyson.pomoduo"
         )
+    }
+
+    // MARK: - Reconcile-Race Guard (hasUnexpiredTargetEnd)
+    //
+    // These tests pin the ``DeviceActivityMonitorExtension``'s
+    // reconcile-race guard. The Monitor's `intervalDidEnd` fires *also*
+    // when the main app calls `DeviceActivityCenter.stopMonitoring(_:)`
+    // to replace the prior registration — every reschedule during a
+    // live session. Without the guard below, the Monitor would
+    // eagerly tear down shields + shared context on those spurious
+    // ends, producing the "Session active = No while focus is running"
+    // inconsistency the diagnostics panel previously surfaced.
+
+    @Test("No session context yet returns false")
+    func hasUnexpiredTargetEndIsFalseWhenNoContext() {
+        #expect(ShieldSessionContext.hasUnexpiredTargetEnd() == false)
+    }
+
+    @Test("Future target end returns true (session is live, skip teardown)")
+    func hasUnexpiredTargetEndIsTrueWhenTargetInFuture() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let future = now.addingTimeInterval(25 * 60)
+
+        ShieldSessionContext.writeSession(
+            partnerName: nil,
+            phase: "Focus",
+            targetEndDate: future
+        )
+
+        #expect(ShieldSessionContext.hasUnexpiredTargetEnd(asOf: now))
+    }
+
+    @Test("Past target end returns false (session really ended, tear down)")
+    func hasUnexpiredTargetEndIsFalseWhenTargetInPast() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let past = now.addingTimeInterval(-60)
+
+        ShieldSessionContext.writeSession(
+            partnerName: nil,
+            phase: "Focus",
+            targetEndDate: past
+        )
+
+        #expect(ShieldSessionContext.hasUnexpiredTargetEnd(asOf: now) == false)
+    }
+
+    /// Edge: target end exactly equals `now`. By the `>` check, this is
+    /// treated as expired — a callback firing exactly at the scheduled
+    /// end is a genuine end, not a reschedule.
+    @Test("Target end equal to now returns false (treated as expired)")
+    func hasUnexpiredTargetEndIsFalseAtBoundary() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+
+        ShieldSessionContext.writeSession(
+            partnerName: nil,
+            phase: "Focus",
+            targetEndDate: now
+        )
+
+        #expect(ShieldSessionContext.hasUnexpiredTargetEnd(asOf: now) == false)
+    }
+
+    /// After a proper `clearSession()` the helper must read false — the
+    /// Monitor's guard must not false-positive on a cleared context.
+    @Test("clearSession returns the guard to false")
+    func hasUnexpiredTargetEndAfterClear() {
+        ShieldSessionContext.writeSession(
+            partnerName: nil,
+            phase: "Focus",
+            targetEndDate: .now.addingTimeInterval(1500)
+        )
+        #expect(ShieldSessionContext.hasUnexpiredTargetEnd())
+
+        ShieldSessionContext.clearSession()
+
+        #expect(ShieldSessionContext.hasUnexpiredTargetEnd() == false)
     }
 
     // MARK: - All Categories Threshold (removed)

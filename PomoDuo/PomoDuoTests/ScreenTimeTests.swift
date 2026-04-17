@@ -351,6 +351,62 @@ struct ShieldPolicyMapperTests {
 
         #expect(mainAppShape == monitorShape)
     }
+
+    // MARK: - Category Exceptions
+
+    /// When `categoryExceptions` is non-empty alongside non-empty
+    /// categories, the mapper must emit the `.specificExcept` case so
+    /// downstream `apply()` writes
+    /// ``ShieldSettings/ActivityCategoryPolicy/specific(_:except:)``.
+    /// This is the live path for the user's "deselect one app from a
+    /// shielded category" intent — the category stays shielded, the
+    /// deselected app is exempted.
+    @Test
+    func categoryExceptionsRouteThroughSpecificExcept() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: 2,
+            webDomainTokenCount: 0,
+            categoryExceptionCount: 1
+        )
+
+        #expect(shape.applicationCategories == .specificExcept)
+        #expect(shape.webDomainCategories == .specific)
+    }
+
+    /// Category exceptions without a category context have no shield
+    /// policy to attach to — the mapper must ignore them and produce
+    /// the same shape as if no exceptions were declared. Otherwise an
+    /// orphan exception set could mis-route the apps channel.
+    @Test
+    func categoryExceptionsWithoutCategoriesAreIgnored() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 4,
+            categoryTokenCount: 0,
+            webDomainTokenCount: 0,
+            categoryExceptionCount: 2
+        )
+
+        #expect(shape.applicationCategories == .none)
+        #expect(shape.writesSpecificApplicationsChannel == true)
+    }
+
+    /// The exception count is *subtracted* from the specific-apps
+    /// write so the apps channel doesn't re-shield apps the user
+    /// explicitly excepted. With 4 apps in the picker selection and 4
+    /// exceptions, the apps channel should not be written at all.
+    @Test
+    func exceptionsAreStrippedFromSpecificAppsChannel() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 4,
+            categoryTokenCount: 1,
+            webDomainTokenCount: 0,
+            categoryExceptionCount: 4
+        )
+
+        #expect(shape.applicationCategories == .specificExcept)
+        #expect(shape.writesSpecificApplicationsChannel == false)
+    }
 }
 
 // MARK: - FamilyActivitySelection Persistence Semantics
@@ -710,6 +766,7 @@ struct ScreenTimeDiagnosticsTests {
         #expect(snapshot.selection.applicationCount == 0)
         #expect(snapshot.selection.categoryCount == 0)
         #expect(snapshot.selection.webDomainCount == 0)
+        #expect(snapshot.selection.categoryExceptionCount == 0)
         #expect(snapshot.selection.isCanonical == true)
         #expect(snapshot.policy.applicationCategories == .none)
         #expect(snapshot.policy.webDomainCategories == .none)
@@ -1132,7 +1189,8 @@ struct ScreenTimeRuntimeHealthTests {
                 applicationCount: applicationCount,
                 categoryCount: categoryCount,
                 webDomainCount: webDomainCount,
-                isCanonical: isCanonical
+                isCanonical: isCanonical,
+                categoryExceptionCount: 0
             ),
             policy: ShieldPolicyMapper.DecisionShape(
                 applicationCategories: applicationCategoriesPolicy,
@@ -1423,5 +1481,139 @@ struct ShieldExtensionTelemetryTests {
 
         let snapshot = ShieldExtensionTelemetry.snapshot(defaults: defaults)
         #expect(snapshot.mostRecentInvocation == latest)
+    }
+}
+
+// MARK: - Draft / Commit Algorithm
+
+/// Coverage for ``ScreenTimeManager/commitDraft(_:)``.
+///
+/// The commit algorithm is the heart of the user-reported repro fix:
+/// "during a focus session, deselecting one app from a shielded category
+/// must unblock only that one app, not every app in the category". The
+/// algorithm achieves that by diffing the new draft against the prior
+/// committed selection and deriving a `categoryExceptions` set when it
+/// detects the picker's "demoted category" pattern (lost categories +
+/// removed apps in the same commit). Tests exercise the algorithm at
+/// the manager level using opaque-token-free assertions — token *sets*
+/// can't be fabricated in unit tests, but token *counts* and
+/// `FamilyActivitySelection` shape transitions are sufficient to pin
+/// the algorithm's behavior.
+@MainActor
+struct ScreenTimeManagerCommitDraftTests {
+
+    private func makeManager() -> (
+        manager: ScreenTimeManager,
+        defaults: UserDefaults
+    ) {
+        let suiteName = "com.pomoduo.tests.commit.\(UUID().uuidString)"
+        let defaults: UserDefaults
+        if let suiteDefaults = UserDefaults(suiteName: suiteName) {
+            suiteDefaults.removePersistentDomain(forName: suiteName)
+            defaults = suiteDefaults
+        } else {
+            defaults = .standard
+        }
+
+        let manager = ScreenTimeManager(
+            store: ManagedSettingsStore(),
+            persistenceDefaults: defaults
+        )
+        // Reset App Group exceptions to avoid leaking across tests.
+        ShieldSessionContext.writeCategoryExceptions([])
+        manager.resetAllScreenTimeState()
+        return (manager, defaults)
+    }
+
+    @Test("Empty → empty draft is a no-op (no exceptions appear)")
+    func emptyToEmptyCommit() {
+        let (manager, _) = makeManager()
+
+        let empty = FamilyActivitySelection(includeEntireCategory: true)
+        manager.commitDraft(empty)
+
+        #expect(manager.activitySelection.categoryTokens.isEmpty)
+        #expect(manager.activitySelection.applicationTokens.isEmpty)
+        #expect(manager.categoryExceptions.isEmpty)
+    }
+
+    /// Empty → fresh selection (no prior categories to lose) commits
+    /// the draft verbatim and produces no exceptions. Token sets are
+    /// opaque so the draft stays empty here, but the algorithm's
+    /// no-prior-loss branch is still the one being exercised.
+    @Test("Empty → fresh draft commits literally with no exceptions")
+    func emptyToFreshDraftLiteralCommit() {
+        let (manager, _) = makeManager()
+
+        let draft = FamilyActivitySelection(includeEntireCategory: true)
+        manager.commitDraft(draft)
+
+        #expect(manager.categoryExceptions.isEmpty)
+    }
+
+    /// Round-trip: commit a draft, then commit the same draft again.
+    /// The exception set must remain empty because no apps were
+    /// "removed" between commits.
+    @Test("Commit → identical commit keeps exceptions empty")
+    func identicalRecommitKeepsExceptionsEmpty() {
+        let (manager, _) = makeManager()
+
+        let draft = FamilyActivitySelection(includeEntireCategory: true)
+        manager.commitDraft(draft)
+        manager.commitDraft(draft)
+
+        #expect(manager.categoryExceptions.isEmpty)
+    }
+
+    /// `clearSelection()` must drop both the active selection and any
+    /// derived exceptions so the next commit starts from a clean slate.
+    @Test("clearSelection drops both selection and exceptions")
+    func clearSelectionDropsExceptions() {
+        let (manager, _) = makeManager()
+
+        manager.clearSelection()
+
+        #expect(manager.activitySelection.applicationTokens.isEmpty)
+        #expect(manager.activitySelection.categoryTokens.isEmpty)
+        #expect(manager.categoryExceptions.isEmpty)
+    }
+
+    /// `resetAllScreenTimeState()` (the destructive recovery path)
+    /// also drops exceptions — without this, a stale exception set
+    /// could persist across a user-driven reset.
+    @Test("resetAllScreenTimeState drops exceptions")
+    func resetDropsExceptions() {
+        let (manager, _) = makeManager()
+
+        manager.resetAllScreenTimeState()
+
+        #expect(manager.categoryExceptions.isEmpty)
+    }
+
+    /// The exceptions cap must match
+    /// ``ScreenTimeManager/categoryExceptionsLimit``, which equals the
+    /// 50-token limit Apple documents on `.specific(_:except:)` /
+    /// `.all(except:)`. Any future bump to the cap should bump this
+    /// test in lockstep.
+    @Test("categoryExceptionsLimit matches Apple's documented 50-token cap")
+    func exceptionLimitMatchesApple() {
+        #expect(ScreenTimeManager.categoryExceptionsLimit == 50)
+    }
+
+    /// `canonicalizeRestoredSelection` is invoked by `commitDraft` so a
+    /// non-canonical draft (e.g. from a hypothetical caller bypassing
+    /// the picker) still lands as canonical. This is the safety net
+    /// that keeps the rest of the pipeline `includeEntireCategory:
+    /// true`-correct.
+    @Test("commitDraft canonicalizes a non-canonical draft")
+    func commitDraftCanonicalizes() {
+        let (manager, _) = makeManager()
+
+        let nonCanonical = FamilyActivitySelection(
+            includeEntireCategory: false
+        )
+        manager.commitDraft(nonCanonical)
+
+        #expect(manager.activitySelection.includeEntireCategory == true)
     }
 }

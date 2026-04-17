@@ -128,6 +128,20 @@ struct PomoDuoApp: App {
                         focusIsActive: restrictionCoordinator.isRestricting
                     )
                 }
+                .onChange(of: screenTimeManager.categoryExceptions) { _, _ in
+                    // Mirrors the activitySelection observer because
+                    // ``ScreenTimeManager/commitDraft(_:)`` may update
+                    // exceptions independently of the selection (e.g.,
+                    // a draft that re-selects a previously-excepted app
+                    // clears the exception without changing the selection
+                    // shape). The coordinator's `refreshRestrictions` is
+                    // idempotent so the worst case — both observers
+                    // firing for one commit — is a redundant apply.
+                    restrictionCoordinator.refreshRestrictions()
+                    screenTimeManager.refreshRuntimeHealth(
+                        focusIsActive: restrictionCoordinator.isRestricting
+                    )
+                }
                 .onChange(of: scenePhase) { _, newPhase in
                     // Foregrounding is the moment background-induced
                     // Screen Time pipeline drift becomes visible. Refresh

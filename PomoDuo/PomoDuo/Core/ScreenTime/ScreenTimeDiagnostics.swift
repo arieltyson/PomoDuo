@@ -46,6 +46,12 @@ struct ScreenTimeDiagnostics: Equatable, Sendable {
         /// `includeEntireCategory: true` — the canonical form
         /// ``ShieldPolicyMapper`` expects.
         let isCanonical: Bool
+        /// Number of `ApplicationToken`s currently held in
+        /// ``ScreenTimeManager/categoryExceptions``. Non-zero means
+        /// the user has at least one app exempted from a
+        /// currently-shielded category — surfaced so support can tell
+        /// at a glance whether the exception path is active.
+        let categoryExceptionCount: Int
     }
 
     struct ShieldChannels: Equatable, Sendable {

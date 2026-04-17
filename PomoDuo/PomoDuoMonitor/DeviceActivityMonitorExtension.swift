@@ -47,6 +47,19 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
         recordInvocation(.monitorIntervalDidEnd, for: activity)
 
+        // See ``ShieldSessionContext/hasUnexpiredTargetEnd(asOf:)`` for
+        // the full rationale: iOS fires `intervalDidEnd` *also* when
+        // the main app calls `DeviceActivityCenter.stopMonitoring(_:)`
+        // to replace the prior registration during a reconcile /
+        // reschedule. Tearing down shields + shared context on those
+        // spurious ends desyncs the live session. If the session's
+        // target end is still in the future we treat this callback as
+        // a reschedule and leave the shared state alone; the matching
+        // `intervalDidStart` will reapply shields either way.
+        guard !ShieldSessionContext.hasUnexpiredTargetEnd() else {
+            return
+        }
+
         removeShields()
         ShieldSessionContext.clearSession()
     }
@@ -78,19 +91,26 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     // MARK: - Shield Management
 
-    /// Reads the user's app selection from the shared App Group and applies
-    /// shields via the same ``ShieldPolicyMapper`` the main app uses.
+    /// Reads the user's app selection (and any derived category
+    /// exceptions) from the shared App Group and applies shields via the
+    /// same ``ShieldPolicyMapper`` the main app uses.
     ///
-    /// Sharing the mapper guarantees the extension's re-application after a
-    /// force-quit produces byte-identical shield writes — the inclusive
-    /// mapping is a straight read of the selection, so this extension and
-    /// the main app cannot disagree on what to shield.
+    /// Sharing the mapper guarantees the extension's re-application
+    /// after a force-quit produces byte-identical shield writes,
+    /// including the `.specific(_:except:)` policy when the user has a
+    /// category-with-exception intent on file. Without reading the
+    /// exceptions here the Monitor would over-shield (re-blocking apps
+    /// the user explicitly deselected) on every reapply.
     private func applyShields() {
         guard let selection = ShieldSessionContext.readSelection() else {
             return
         }
 
-        let decision = ShieldPolicyMapper.decide(for: selection)
+        let exceptions = ShieldSessionContext.readCategoryExceptions() ?? []
+        let decision = ShieldPolicyMapper.decide(
+            for: selection,
+            categoryExceptions: exceptions
+        )
 
         ShieldPolicyMapper.apply(decision, to: store)
     }
