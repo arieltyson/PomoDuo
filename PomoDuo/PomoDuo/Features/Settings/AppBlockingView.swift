@@ -1,14 +1,32 @@
 import FamilyControls
+import ManagedSettings
 import SwiftUI
 
-/// Screen Time app blocking — routes to setup or inline selection based on
-/// authorization state.
+/// Screen Time app blocking — routes to setup or to the summary-first
+/// authorized experience.
 ///
-/// - **Authorized**: Embeds `FamilyActivityPicker` directly as the page
-///   content. The user reaches the selection interface immediately with
-///   no intermediate management screen.
-/// - **Unauthorized**: Shows a dedicated setup screen focused on getting
-///   Screen Time permission.
+/// - **Authorized**: ``AppBlockingSummaryView`` is the primary surface.
+///   It shows the user a first-class representation of what PomoDuo is
+///   currently enforcing — categories, specific apps, web domains, and
+///   any category exceptions rendered with Apple's
+///   `Label(ApplicationToken)` so each exception shows the real app
+///   icon and name. The ``FamilyActivityPicker`` is reachable as a
+///   pushed **Editor** view via an explicit "Edit App Blocking"
+///   button.
+/// - **Unauthorized**: ``AppBlockingSetupContent`` owns the Screen Time
+///   permission flow (first-time request and denied/restricted state).
+///
+/// ### Why summary-first
+///
+/// `FamilyActivitySelection` has no public exception field. When the
+/// user commits a "shield this category but exempt this app" intent
+/// via ``ScreenTimeManager/commitDraft(_:)``, the derived exceptions
+/// live on ``ScreenTimeManager/categoryExceptions`` and
+/// ``ScreenTimeManager/webDomainCategoryExceptions`` — state the
+/// picker structurally cannot round-trip. Making the picker the front
+/// door would leave that enforced state invisible. The summary view is
+/// the app's own truthful representation of the committed state; the
+/// picker is just its editor.
 struct AppBlockingView: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(\.scenePhase) private var scenePhase
@@ -16,7 +34,7 @@ struct AppBlockingView: View {
     var body: some View {
         Group {
             if screenTimeManager.isAuthorized {
-                AppBlockingSelectionContent()
+                AppBlockingSummaryView()
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else {
                 AppBlockingSetupContent(screenTimeManager: screenTimeManager)
@@ -35,37 +53,355 @@ struct AppBlockingView: View {
     }
 }
 
-// MARK: - Inline Selection (Authorized)
+// MARK: - Summary (Authorized Root)
 
-/// Embeds `FamilyActivityPicker` over a local **draft** selection, with
-/// an explicit Save action that commits the draft atomically into
-/// ``ScreenTimeManager``.
+/// Committed-state summary: shows the user what PomoDuo is currently
+/// enforcing and exposes direct controls for the pieces the picker
+/// can't represent (the per-app and per-web-domain exception sets).
 ///
-/// **Why this is draft-bound rather than directly bound.** Binding the
-/// picker straight to ``ScreenTimeManager/activitySelection`` makes
-/// every picker tap mutate the live, enforced selection — and because
-/// `PomoDuoApp` observes `activitySelection` and re-applies restrictions
-/// on every change, every intermediate picker state is briefly enforced.
-/// During an active focus session that produces transient unblocking as
-/// the picker's internal state churns toward its final shape (especially
-/// when deselecting an app from a category with `includeEntireCategory:
-/// true`, which the picker resolves by demoting the category and
-/// emitting a partial `applicationTokens`). The draft model keeps the
-/// picker's internal mutations local; nothing reaches the live shield
-/// pipeline until the user confirms with Save.
+/// Architecture notes:
 ///
-/// The Save handler routes through ``ScreenTimeManager/commitDraft(_:)``,
-/// which derives any category-with-exception intent by diffing the
-/// draft against the currently-committed selection — see that method's
-/// doc comment for the rationale.
-private struct AppBlockingSelectionContent: View {
+/// - The summary is the only place the raw committed state is rendered
+///   in a way that's truthful about exceptions. Any other view that
+///   needs to describe "what's blocked right now" should ultimately
+///   defer here.
+/// - Exception rows use Apple's `Label(ApplicationToken)` /
+///   `Label(WebDomainToken)` initializer — per `DisplayingActivityLabels`
+///   in FamilyControls — so each row renders the real app icon + name
+///   (or the web-domain string). Reading `Application.localizedDisplayName`
+///   from the main app target is unsupported (Apple returns `nil`
+///   outside Shield Configuration extensions), so `Label(token)` is the
+///   only documented path.
+/// - Swipe-to-reblock on each exception row calls the direct
+///   management API on ``ScreenTimeManager`` so the user never has to
+///   reopen the picker to undo an exception.
+private struct AppBlockingSummaryView: View {
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
+    @State private var isShowingClearExceptionsConfirmation = false
+
+    var body: some View {
+        Form {
+            StatusSection()
+            BlockedItemsSection()
+            AppExceptionsSection(
+                onClearAllRequested: {
+                    isShowingClearExceptionsConfirmation = true
+                }
+            )
+            WebDomainExceptionsSection()
+            EditorPushSection()
+        }
+        .scrollIndicators(.hidden)
+        .alert(
+            "Clear App Exceptions?",
+            isPresented: $isShowingClearExceptionsConfirmation
+        ) {
+            Button("Clear", role: .destructive) {
+                screenTimeManager.clearAllCategoryExceptions()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "Every app currently exempted from a blocked category will be shielded again the next time a focus session runs."
+            )
+        }
+    }
+}
+
+/// Terse counts above the exception lists so the user can see the
+/// committed state's shape at a glance without scrolling.
+private struct StatusSection: View {
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
+
+    var body: some View {
+        Section {
+            LabeledContent("Blocked categories") {
+                Text(
+                    "\(screenTimeManager.activitySelection.categoryTokens.count)"
+                )
+                .monospacedDigit()
+            }
+            LabeledContent("Specific apps") {
+                Text(
+                    "\(screenTimeManager.activitySelection.applicationTokens.count)"
+                )
+                .monospacedDigit()
+            }
+            LabeledContent("Web domains") {
+                Text(
+                    "\(screenTimeManager.activitySelection.webDomainTokens.count)"
+                )
+                .monospacedDigit()
+            }
+            LabeledContent("App exceptions") {
+                Text("\(screenTimeManager.categoryExceptions.count)")
+                    .monospacedDigit()
+            }
+            LabeledContent("Web domain exceptions") {
+                Text(
+                    "\(screenTimeManager.webDomainCategoryExceptions.count)"
+                )
+                .monospacedDigit()
+            }
+        } header: {
+            Text("Currently Enforced")
+        } footer: {
+            if screenTimeManager.hasSelectedApps {
+                Text(
+                    "PomoDuo shields these items during focus sessions. Exceptions listed below are exempted from their blocked categories."
+                )
+            } else {
+                Text(
+                    "Nothing is currently set up to block. Tap Edit App Blocking below to choose apps, categories, or web domains."
+                )
+            }
+        }
+    }
+}
+
+/// When a user has an active selection, this section reiterates the
+/// gist ("N categories blocked; M extra apps shielded") with a style
+/// that visually grounds the picker-less view.
+private struct BlockedItemsSection: View {
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
+
+    var body: some View {
+        if screenTimeManager.hasSelectedApps {
+            Section("Summary") {
+                Text(summarySentence)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(summarySentence)
+            }
+        }
+    }
+
+    private var summarySentence: String {
+        let selection = screenTimeManager.activitySelection
+        let categoryCount = selection.categoryTokens.count
+        let appCount = selection.applicationTokens.count
+        let webCount = selection.webDomainTokens.count
+        let appExceptions = screenTimeManager.categoryExceptions.count
+        let webExceptions =
+            screenTimeManager.webDomainCategoryExceptions.count
+
+        var parts: [String] = []
+        if categoryCount > 0 {
+            parts.append(
+                "\(categoryCount) \(categoryCount == 1 ? "category" : "categories")"
+            )
+        }
+        if appCount > 0 {
+            parts.append(
+                "\(appCount) \(appCount == 1 ? "app" : "apps")"
+            )
+        }
+        if webCount > 0 {
+            parts.append(
+                "\(webCount) web \(webCount == 1 ? "domain" : "domains")"
+            )
+        }
+
+        guard !parts.isEmpty else {
+            return "No items configured yet."
+        }
+
+        let base = "Blocking " + parts.joined(separator: ", ") + "."
+        let exceptionParts = [
+            appExceptions > 0
+                ? "\(appExceptions) app \(appExceptions == 1 ? "exception" : "exceptions")"
+                : nil,
+            webExceptions > 0
+                ? "\(webExceptions) web \(webExceptions == 1 ? "exception" : "exceptions")"
+                : nil,
+        ].compactMap { $0 }
+
+        if exceptionParts.isEmpty {
+            return base
+        }
+        return base + " " + exceptionParts.joined(separator: " · ") + "."
+    }
+}
+
+/// Lists app exceptions with swipe-to-reblock. Uses Apple's
+/// `Label(ApplicationToken)` so each row shows the actual app icon and
+/// name, rendered by the system.
+private struct AppExceptionsSection: View {
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
+    let onClearAllRequested: () -> Void
+
+    var body: some View {
+        if !screenTimeManager.categoryExceptions.isEmpty {
+            Section {
+                ForEach(exceptionTokensForRendering, id: \.self) { token in
+                    Label(token)
+                        .labelStyle(.titleAndIcon)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                screenTimeManager.removeCategoryException(
+                                    token
+                                )
+                            } label: {
+                                Label(
+                                    "Re-block",
+                                    systemImage: "shield.fill"
+                                )
+                            }
+                        }
+                        .accessibilityHint(
+                            "Swipe to re-block this app inside its selected category."
+                        )
+                }
+            } header: {
+                HStack {
+                    Text("App Exceptions")
+                    Spacer()
+                    if screenTimeManager.categoryExceptions.count > 1 {
+                        Button("Clear All") {
+                            onClearAllRequested()
+                        }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
+                        .accessibilityHint(
+                            "Removes every app exception and re-blocks them all."
+                        )
+                    }
+                }
+            } footer: {
+                Text(
+                    "These apps are currently exempted from one of your blocked categories. Swipe a row to re-block the app. Apple caps this list at \(ScreenTimeManager.categoryExceptionsLimit) items (shared with web exceptions)."
+                )
+            }
+        }
+    }
+
+    /// Sorted token sequence used by `ForEach`. `ApplicationToken` is
+    /// `Hashable` and `Sendable`; there is no public ordering key so
+    /// we sort by `hashValue` to get a stable presentation order
+    /// across launches within a process. Set membership is what
+    /// matters for semantic correctness; the visual order is a
+    /// stability concern, not a correctness one.
+    private var exceptionTokensForRendering: [ApplicationToken] {
+        screenTimeManager.categoryExceptions.sorted {
+            $0.hashValue < $1.hashValue
+        }
+    }
+}
+
+/// Web-domain counterpart to ``AppExceptionsSection``. Symmetric in
+/// behavior and semantics — the web-domain category shield has the
+/// same partial-deselect failure mode, and
+/// ``ScreenTimeManager/commitDraft(_:)`` derives web exceptions from
+/// the draft diff the same way.
+private struct WebDomainExceptionsSection: View {
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
+
+    var body: some View {
+        if !screenTimeManager.webDomainCategoryExceptions.isEmpty {
+            Section {
+                ForEach(
+                    exceptionTokensForRendering,
+                    id: \.self
+                ) { token in
+                    Label(token)
+                        .labelStyle(.titleAndIcon)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                screenTimeManager
+                                    .removeWebDomainCategoryException(token)
+                            } label: {
+                                Label(
+                                    "Re-block",
+                                    systemImage: "globe.badge.chevron.backward"
+                                )
+                            }
+                        }
+                        .accessibilityHint(
+                            "Swipe to re-block this domain inside its selected category."
+                        )
+                }
+            } header: {
+                HStack {
+                    Text("Web Domain Exceptions")
+                    Spacer()
+                    if screenTimeManager.webDomainCategoryExceptions.count
+                        > 1
+                    {
+                        Button("Clear All") {
+                            screenTimeManager
+                                .clearAllWebDomainCategoryExceptions()
+                        }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
+                    }
+                }
+            } footer: {
+                Text(
+                    "These web domains are currently exempted from one of your blocked categories. Swipe a row to re-block."
+                )
+            }
+        }
+    }
+
+    private var exceptionTokensForRendering: [WebDomainToken] {
+        screenTimeManager.webDomainCategoryExceptions.sorted {
+            $0.hashValue < $1.hashValue
+        }
+    }
+}
+
+/// CTA for the pushed editor + diagnostics link. The picker lives
+/// behind an explicit button so the user understands that editing is
+/// a distinct action from reading the committed state.
+private struct EditorPushSection: View {
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
+
+    var body: some View {
+        Section {
+            NavigationLink {
+                AppBlockingEditorView()
+            } label: {
+                Label(
+                    screenTimeManager.hasSelectedApps
+                        ? "Edit App Blocking"
+                        : "Set Up App Blocking",
+                    systemImage: "slider.horizontal.3"
+                )
+            }
+            .accessibilityHint(
+                "Opens Apple's activity picker to change which apps, categories, and web domains are blocked."
+            )
+
+            NavigationLink(
+                value: SettingsDestination.appBlockingDiagnostics
+            ) {
+                Label(
+                    "App Blocking Diagnostics",
+                    systemImage: "stethoscope"
+                )
+            }
+            .accessibilityHint(
+                "Inspect the configured Screen Time state and reset it if something looks wrong."
+            )
+        }
+    }
+}
+
+// MARK: - Editor (Pushed From Summary)
+
+/// Hosts `FamilyActivityPicker` over a local draft selection with an
+/// explicit Save action. Pushed from ``AppBlockingSummaryView``.
+///
+/// The draft/commit model stays exactly as it was — every picker
+/// mutation stays local to this view until the user confirms with
+/// Save, at which point ``ScreenTimeManager/commitDraft(_:)`` derives
+/// any exception state and applies atomically.
+private struct AppBlockingEditorView: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(\.dismiss) private var dismiss
 
-    /// Local draft the picker mutates. Seeded from the manager's
-    /// committed selection on first appear so the picker shows the
-    /// current state; thereafter the user's edits stay local until
-    /// Save.
     @State private var draft: FamilyActivitySelection =
         FamilyActivitySelection(includeEntireCategory: true)
     @State private var hasSeededDraft = false
@@ -74,13 +410,15 @@ private struct AppBlockingSelectionContent: View {
 
     /// Forces `FamilyActivityPicker` to recreate after a programmatic
     /// draft clear. The picker is UIKit-backed and does not visually
-    /// refresh when its bound selection changes outside of user
+    /// refresh when its bound selection changes outside user
     /// interaction.
     @State private var pickerID = UUID()
 
     var body: some View {
         FamilyActivityPicker(selection: $draft)
             .id(pickerID)
+            .navigationTitle("Edit App Blocking")
+            .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 seedDraftIfNeeded()
             }
@@ -132,18 +470,6 @@ private struct AppBlockingSelectionContent: View {
             }
         }
 
-        ToolbarItem(placement: .topBarTrailing) {
-            NavigationLink(
-                value: SettingsDestination.appBlockingDiagnostics
-            ) {
-                Image(systemName: "stethoscope")
-            }
-            .accessibilityLabel("App Blocking Diagnostics")
-            .accessibilityHint(
-                "Inspect the configured Screen Time state and reset it if something looks wrong."
-            )
-        }
-
         if hasDraftItems {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Clear All", systemImage: "trash") {
@@ -171,10 +497,6 @@ private struct AppBlockingSelectionContent: View {
         }
     }
 
-    /// Seeds the draft from the manager's current committed selection
-    /// the first time this view appears. Subsequent appearances (e.g.
-    /// returning from the diagnostics push) preserve any in-flight
-    /// edits so the user doesn't lose work navigating away briefly.
     private func seedDraftIfNeeded() {
         guard !hasSeededDraft else { return }
         draft = screenTimeManager.activitySelection
@@ -187,10 +509,6 @@ private struct AppBlockingSelectionContent: View {
             || !draft.webDomainTokens.isEmpty
     }
 
-    /// Whether the draft differs from the manager's last-committed
-    /// selection. `FamilyActivitySelection` conforms to `Equatable`
-    /// over its three token sets and the `includeEntireCategory` flag,
-    /// so this is a true "are there unsaved changes" signal.
     private var hasUncommittedChanges: Bool {
         draft != screenTimeManager.activitySelection
     }
@@ -200,6 +518,10 @@ private struct AppBlockingSelectionContent: View {
         // Re-seed our own knowledge of the committed state so the
         // Save/Cancel/back-button affordances flip back to "clean".
         draft = screenTimeManager.activitySelection
+        // Pop back to the summary so the user immediately sees the
+        // committed result (including any derived exceptions) in its
+        // first-class form rather than continuing to read the picker.
+        dismiss()
     }
 }
 

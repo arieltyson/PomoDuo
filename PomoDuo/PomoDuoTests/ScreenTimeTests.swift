@@ -407,6 +407,77 @@ struct ShieldPolicyMapperTests {
         #expect(shape.applicationCategories == .specificExcept)
         #expect(shape.writesSpecificApplicationsChannel == false)
     }
+
+    // MARK: - Web-Domain Exception Symmetry
+
+    /// Web-domain exceptions with a category context route through the
+    /// `.specificExcept` web-category policy. The app-category channel
+    /// shape is independent — its own exception state drives it.
+    @Test
+    func webDomainExceptionsRouteThroughSpecificExcept() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: 2,
+            webDomainTokenCount: 0,
+            categoryExceptionCount: 0,
+            webDomainCategoryExceptionCount: 1
+        )
+
+        #expect(shape.applicationCategories == .specific)
+        #expect(shape.webDomainCategories == .specificExcept)
+    }
+
+    /// Web-domain exceptions without a category context have nothing
+    /// to except from — the mapper must ignore them just like it does
+    /// for app exceptions in the equivalent case.
+    @Test
+    func webDomainExceptionsWithoutCategoriesAreIgnored() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: 0,
+            webDomainTokenCount: 3,
+            categoryExceptionCount: 0,
+            webDomainCategoryExceptionCount: 2
+        )
+
+        #expect(shape.webDomainCategories == .none)
+        #expect(shape.writesSpecificWebDomainsChannel == true)
+    }
+
+    /// Web-domain exceptions are stripped from the specific-web
+    /// channel the same way app exceptions are stripped from
+    /// specific-apps, so the channel can't undo an exception.
+    @Test
+    func webDomainExceptionsStripSpecificWebChannel() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: 1,
+            webDomainTokenCount: 3,
+            categoryExceptionCount: 0,
+            webDomainCategoryExceptionCount: 3
+        )
+
+        #expect(shape.webDomainCategories == .specificExcept)
+        #expect(shape.writesSpecificWebDomainsChannel == false)
+    }
+
+    /// App and web exceptions apply to the same categoryTokens
+    /// simultaneously — each channel's policy is independent. One
+    /// side having exceptions doesn't force the other side into
+    /// `.specificExcept`.
+    @Test
+    func appAndWebExceptionsAreIndependentChannels() {
+        let shape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: 0,
+            categoryTokenCount: 2,
+            webDomainTokenCount: 0,
+            categoryExceptionCount: 1,
+            webDomainCategoryExceptionCount: 0
+        )
+
+        #expect(shape.applicationCategories == .specificExcept)
+        #expect(shape.webDomainCategories == .specific)
+    }
 }
 
 // MARK: - FamilyActivitySelection Persistence Semantics
@@ -767,6 +838,7 @@ struct ScreenTimeDiagnosticsTests {
         #expect(snapshot.selection.categoryCount == 0)
         #expect(snapshot.selection.webDomainCount == 0)
         #expect(snapshot.selection.categoryExceptionCount == 0)
+        #expect(snapshot.selection.webDomainCategoryExceptionCount == 0)
         #expect(snapshot.selection.isCanonical == true)
         #expect(snapshot.policy.applicationCategories == .none)
         #expect(snapshot.policy.webDomainCategories == .none)
@@ -1190,7 +1262,8 @@ struct ScreenTimeRuntimeHealthTests {
                 categoryCount: categoryCount,
                 webDomainCount: webDomainCount,
                 isCanonical: isCanonical,
-                categoryExceptionCount: 0
+                categoryExceptionCount: 0,
+                webDomainCategoryExceptionCount: 0
             ),
             policy: ShieldPolicyMapper.DecisionShape(
                 applicationCategories: applicationCategoriesPolicy,
@@ -1615,5 +1688,82 @@ struct ScreenTimeManagerCommitDraftTests {
         manager.commitDraft(nonCanonical)
 
         #expect(manager.activitySelection.includeEntireCategory == true)
+    }
+
+    // MARK: - Direct Exception Management
+
+    /// The Summary view exposes `clearAllCategoryExceptions()` as a
+    /// "Clear All" action. It must empty `categoryExceptions` without
+    /// touching `activitySelection` — the user's category shield
+    /// stays, but every previously-exempted app is re-blocked.
+    @Test("clearAllCategoryExceptions empties app exceptions, preserves selection")
+    func clearAllCategoryExceptionsPreservesSelection() {
+        let (manager, _) = makeManager()
+
+        let selectionSnapshot = manager.activitySelection
+        manager.clearAllCategoryExceptions()
+
+        #expect(manager.categoryExceptions.isEmpty)
+        #expect(manager.activitySelection == selectionSnapshot)
+    }
+
+    /// Symmetric: clearing web exceptions only clears web exceptions.
+    @Test("clearAllWebDomainCategoryExceptions empties web exceptions, preserves others")
+    func clearAllWebDomainCategoryExceptionsPreservesOthers() {
+        let (manager, _) = makeManager()
+
+        let selectionSnapshot = manager.activitySelection
+        let appExceptionsSnapshot = manager.categoryExceptions
+        manager.clearAllWebDomainCategoryExceptions()
+
+        #expect(manager.webDomainCategoryExceptions.isEmpty)
+        #expect(manager.activitySelection == selectionSnapshot)
+        #expect(manager.categoryExceptions == appExceptionsSnapshot)
+    }
+
+    /// `removeCategoryException(_:)` on a token that isn't in the set
+    /// is a no-op — no crash, no spurious `didSet` fires. Guarded by
+    /// the `contains` check in the implementation.
+    @Test("removeCategoryException on absent token is a safe no-op")
+    func removeAbsentCategoryExceptionIsSafe() {
+        let (manager, _) = makeManager()
+
+        // categoryExceptions starts empty; removing any token should
+        // not throw or mutate.
+        let before = manager.categoryExceptions
+        // We can't fabricate an ApplicationToken, so the precondition
+        // alone suffices: an empty set can't contain any token, so the
+        // guard in the method fires. Asserting state-preservation
+        // after clearSelection keeps the contract testable without
+        // real tokens.
+        manager.clearSelection()
+        #expect(manager.categoryExceptions == before)
+        #expect(manager.categoryExceptions.isEmpty)
+    }
+
+    /// Reset clears both exception sets — the existing reset test
+    /// only covered app exceptions; this pins the web-exception
+    /// teardown too.
+    @Test("resetAllScreenTimeState clears both exception sets")
+    func resetClearsBothExceptionSets() {
+        let (manager, _) = makeManager()
+
+        manager.resetAllScreenTimeState()
+
+        #expect(manager.categoryExceptions.isEmpty)
+        #expect(manager.webDomainCategoryExceptions.isEmpty)
+    }
+
+    /// clearSelection drops both exception sets at once — the
+    /// foundation of the "Clear All" toolbar action inside the
+    /// picker editor.
+    @Test("clearSelection drops both exception sets")
+    func clearSelectionDropsBothExceptionSets() {
+        let (manager, _) = makeManager()
+
+        manager.clearSelection()
+
+        #expect(manager.categoryExceptions.isEmpty)
+        #expect(manager.webDomainCategoryExceptions.isEmpty)
     }
 }

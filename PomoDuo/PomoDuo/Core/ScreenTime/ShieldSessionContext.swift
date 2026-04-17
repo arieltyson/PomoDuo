@@ -28,6 +28,8 @@ enum ShieldSessionContext {
         static let targetEndDate = "shield.session.targetEndDate"
         static let activitySelection = "shield.session.activitySelection"
         static let categoryExceptions = "shield.session.categoryExceptions"
+        static let webDomainCategoryExceptions =
+            "shield.session.webDomainCategoryExceptions"
     }
 
     private static var sharedDefaults: UserDefaults? {
@@ -72,6 +74,24 @@ enum ShieldSessionContext {
         }
         guard let data = try? JSONEncoder().encode(exceptions) else { return }
         defaults.set(data, forKey: Keys.categoryExceptions)
+    }
+
+    /// Web-domain counterpart to ``writeCategoryExceptions(_:)`` —
+    /// persists the derived web-domain-exception set so the Monitor
+    /// extension mirrors the main app's `.specific(_:except:)` policy
+    /// on the web-category channel.
+    static func writeWebDomainCategoryExceptions(
+        _ exceptions: Set<WebDomainToken>
+    ) {
+        guard let defaults = sharedDefaults else { return }
+        guard !exceptions.isEmpty else {
+            defaults.removeObject(
+                forKey: Keys.webDomainCategoryExceptions
+            )
+            return
+        }
+        guard let data = try? JSONEncoder().encode(exceptions) else { return }
+        defaults.set(data, forKey: Keys.webDomainCategoryExceptions)
     }
 
     /// Clears all per-session context when the session ends.
@@ -145,6 +165,20 @@ enum ShieldSessionContext {
         else { return nil }
         return try? JSONDecoder().decode(
             Set<ApplicationToken>.self,
+            from: data
+        )
+    }
+
+    /// Web-domain counterpart to ``readCategoryExceptions()`` — the
+    /// derived set, or `nil` if no App Group payload exists.
+    static func readWebDomainCategoryExceptions() -> Set<WebDomainToken>? {
+        guard let defaults = sharedDefaults,
+            let data = defaults.data(
+                forKey: Keys.webDomainCategoryExceptions
+            )
+        else { return nil }
+        return try? JSONDecoder().decode(
+            Set<WebDomainToken>.self,
             from: data
         )
     }

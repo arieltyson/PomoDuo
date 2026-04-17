@@ -104,8 +104,12 @@ private struct SelectionSection: View {
                 value: "\(selection.webDomainCount)"
             )
             DiagnosticsRow(
-                label: "Category exceptions",
+                label: "App exceptions",
                 value: "\(selection.categoryExceptionCount)"
+            )
+            DiagnosticsRow(
+                label: "Web domain exceptions",
+                value: "\(selection.webDomainCategoryExceptionCount)"
             )
             DiagnosticsRow(
                 label: "Canonical (includeEntireCategory)",
@@ -114,9 +118,11 @@ private struct SelectionSection: View {
         } header: {
             Text("Selection")
         } footer: {
-            if selection.categoryExceptionCount > 0 {
+            if selection.categoryExceptionCount
+                + selection.webDomainCategoryExceptionCount > 0
+            {
                 Text(
-                    "Category exceptions are apps you deselected from a currently-shielded category. They're enforced via Apple's `.specific(_:except:)` shield policy (limit 50 tokens). If a future edit would exceed 50 exceptions, the category shield is dropped instead so deselected apps stay deselected."
+                    "Exceptions are items you deselected from a currently-shielded category. They're enforced via Apple's `.specific(_:except:)` shield policy (cap: 50 tokens shared across app and web-domain exceptions). Swipe a row in App Blocking to re-block an exception."
                 )
             } else if !selection.isCanonical {
                 Text(
@@ -461,6 +467,7 @@ private extension ShieldPolicyMapper.WebDomainPolicyCase {
         switch self {
         case .none: "None"
         case .specific: "Selected categories"
+        case .specificExcept: "Selected categories, with exceptions"
         }
     }
 }

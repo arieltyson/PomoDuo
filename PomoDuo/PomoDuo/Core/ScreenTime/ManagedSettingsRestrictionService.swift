@@ -35,7 +35,9 @@ final class ManagedSettingsRestrictionService: RestrictionService {
     func applyRestrictions() async throws {
         let decision = ShieldPolicyMapper.decide(
             for: screenTimeManager.activitySelection,
-            categoryExceptions: screenTimeManager.categoryExceptions
+            categoryExceptions: screenTimeManager.categoryExceptions,
+            webDomainCategoryExceptions:
+                screenTimeManager.webDomainCategoryExceptions
         )
 
         ShieldPolicyMapper.apply(decision, to: store)

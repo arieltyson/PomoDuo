@@ -142,6 +142,19 @@ struct PomoDuoApp: App {
                         focusIsActive: restrictionCoordinator.isRestricting
                     )
                 }
+                .onChange(
+                    of: screenTimeManager.webDomainCategoryExceptions
+                ) { _, _ in
+                    // Web-domain symmetry with the app-exceptions
+                    // observer above. Direct removeWebDomainCategoryException
+                    // calls from the summary view mutate this set without
+                    // touching activitySelection — this observer is what
+                    // drives the refresh in that case.
+                    restrictionCoordinator.refreshRestrictions()
+                    screenTimeManager.refreshRuntimeHealth(
+                        focusIsActive: restrictionCoordinator.isRestricting
+                    )
+                }
                 .onChange(of: scenePhase) { _, newPhase in
                     // Foregrounding is the moment background-induced
                     // Screen Time pipeline drift becomes visible. Refresh

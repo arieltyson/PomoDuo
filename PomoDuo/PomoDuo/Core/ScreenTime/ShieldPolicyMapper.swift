@@ -104,9 +104,19 @@ enum ShieldPolicyMapper {
     }
 
     /// Web-domain-side category policy derived from a selection.
+    ///
+    /// Symmetric with ``ApplicationCategoryPolicy``: `.specificExcept`
+    /// is used when the caller derived a non-empty
+    /// `webDomainCategoryExceptions` set (see
+    /// ``ScreenTimeManager/commitDraft(_:)``). Apple's
+    /// `ActivityCategoryPolicy.specific(_:except:)` accepts web-domain
+    /// tokens in its `except:` parameter, so the web channel can
+    /// express the same "shield this category, except this domain"
+    /// shape as the app channel.
     enum WebDomainCategoryPolicy: Equatable {
         case none
         case specific(Set<ActivityCategoryToken>)
+        case specificExcept(Set<ActivityCategoryToken>, Set<WebDomainToken>)
     }
 
     /// The full shield-writing plan.
@@ -141,7 +151,8 @@ enum ShieldPolicyMapper {
         applicationTokens: Set<ApplicationToken>,
         categoryTokens: Set<ActivityCategoryToken>,
         webDomainTokens: Set<WebDomainToken>,
-        categoryExceptions: Set<ApplicationToken> = []
+        categoryExceptions: Set<ApplicationToken> = [],
+        webDomainCategoryExceptions: Set<WebDomainToken> = []
     ) -> Decision {
         let applicationCategories: ApplicationCategoryPolicy
         if categoryTokens.isEmpty {
@@ -155,22 +166,33 @@ enum ShieldPolicyMapper {
             )
         }
 
-        // Web-domain categories don't currently support an exceptions
-        // path through this mapper — the picker doesn't emit a
-        // discoverable web-domain partial-deselect signal in the same
-        // shape, and the user's reported failure mode is app-side. Web
-        // category exceptions can be added the same way later if the
-        // pattern surfaces.
-        let webDomainCategories: WebDomainCategoryPolicy =
-            categoryTokens.isEmpty ? .none : .specific(categoryTokens)
+        // Web-domain categories are handled symmetrically with app
+        // categories: the picker's partial-deselect demotion applies
+        // the same way to web domains under `includeEntireCategory:
+        // true`, and Apple's `.specific(_:except:)` policy accepts
+        // web-domain tokens in the `except:` parameter too.
+        let webDomainCategories: WebDomainCategoryPolicy
+        if categoryTokens.isEmpty {
+            webDomainCategories = .none
+        } else if webDomainCategoryExceptions.isEmpty {
+            webDomainCategories = .specific(categoryTokens)
+        } else {
+            webDomainCategories = .specificExcept(
+                categoryTokens,
+                webDomainCategoryExceptions
+            )
+        }
 
-        // When the user's draft has the deselected app removed, the
-        // app token won't be in `applicationTokens` either — but if it
-        // somehow is (e.g., picker keeping the token despite demotion),
-        // strip it from the specific-apps write so the exception
-        // semantic isn't undone by the apps channel re-shielding it.
+        // When the user's draft has the deselected item removed, the
+        // token won't be in the corresponding tokens set — but if it
+        // somehow is (e.g., picker keeping the token despite
+        // demotion), strip it from the specific-items write so the
+        // exception semantic isn't undone by the same-channel re-shielding.
         let effectiveApplications = applicationTokens.subtracting(
             categoryExceptions
+        )
+        let effectiveWebDomains = webDomainTokens.subtracting(
+            webDomainCategoryExceptions
         )
 
         return Decision(
@@ -178,20 +200,23 @@ enum ShieldPolicyMapper {
             webDomainCategories: webDomainCategories,
             specificApplications: effectiveApplications.isEmpty
                 ? nil : effectiveApplications,
-            specificWebDomains: webDomainTokens.isEmpty ? nil : webDomainTokens
+            specificWebDomains: effectiveWebDomains.isEmpty
+                ? nil : effectiveWebDomains
         )
     }
 
     /// Convenience for `FamilyActivitySelection` callers.
     static func decide(
         for selection: FamilyActivitySelection,
-        categoryExceptions: Set<ApplicationToken> = []
+        categoryExceptions: Set<ApplicationToken> = [],
+        webDomainCategoryExceptions: Set<WebDomainToken> = []
     ) -> Decision {
         decide(
             applicationTokens: selection.applicationTokens,
             categoryTokens: selection.categoryTokens,
             webDomainTokens: selection.webDomainTokens,
-            categoryExceptions: categoryExceptions
+            categoryExceptions: categoryExceptions,
+            webDomainCategoryExceptions: webDomainCategoryExceptions
         )
     }
 
@@ -210,6 +235,7 @@ enum ShieldPolicyMapper {
     enum WebDomainPolicyCase: Equatable {
         case none
         case specific
+        case specificExcept
     }
 
     struct DecisionShape: Equatable {
@@ -225,13 +251,15 @@ enum ShieldPolicyMapper {
 
     /// Pure, count-driven mapping that tests can drive with plain `Int`s.
     ///
-    /// Matches ``decide(applicationTokens:categoryTokens:webDomainTokens:categoryExceptions:)``
+    /// Matches
+    /// ``decide(applicationTokens:categoryTokens:webDomainTokens:categoryExceptions:webDomainCategoryExceptions:)``
     /// step-for-step so the two stay in lockstep.
     static func decideShape(
         applicationTokenCount: Int,
         categoryTokenCount: Int,
         webDomainTokenCount: Int,
-        categoryExceptionCount: Int = 0
+        categoryExceptionCount: Int = 0,
+        webDomainCategoryExceptionCount: Int = 0
     ) -> DecisionShape {
         let applicationCategories: ApplicationPolicyCase
         if categoryTokenCount == 0 {
@@ -242,26 +270,36 @@ enum ShieldPolicyMapper {
             applicationCategories = .specificExcept
         }
 
-        let webDomainCategories: WebDomainPolicyCase =
-            categoryTokenCount == 0 ? .none : .specific
+        let webDomainCategories: WebDomainPolicyCase
+        if categoryTokenCount == 0 {
+            webDomainCategories = .none
+        } else if webDomainCategoryExceptionCount == 0 {
+            webDomainCategories = .specific
+        } else {
+            webDomainCategories = .specificExcept
+        }
 
         // Matches the value-aware decide() exception-stripping behavior:
-        // exception tokens are removed from the specific-apps channel so
-        // the channel write doesn't undo the exception. We can't detect
-        // that subtraction from counts alone, so the shape's
-        // `writesSpecificApplicationsChannel` reports whether *any* apps
-        // remain after the assumption that exception tokens were a
-        // subset of `applicationTokenCount`.
+        // exception tokens are removed from the specific-items channel
+        // so the channel write doesn't undo the exception. We can't
+        // detect that subtraction from counts alone, so the shape's
+        // `writesSpecific*Channel` reports whether *any* tokens remain
+        // under the assumption that exception tokens were a subset of
+        // the corresponding token count.
         let effectiveAppsCount = max(
             0,
             applicationTokenCount - categoryExceptionCount
+        )
+        let effectiveWebDomainsCount = max(
+            0,
+            webDomainTokenCount - webDomainCategoryExceptionCount
         )
 
         return DecisionShape(
             applicationCategories: applicationCategories,
             webDomainCategories: webDomainCategories,
             writesSpecificApplicationsChannel: effectiveAppsCount > 0,
-            writesSpecificWebDomainsChannel: webDomainTokenCount > 0
+            writesSpecificWebDomainsChannel: effectiveWebDomainsCount > 0
         )
     }
 
@@ -288,6 +326,11 @@ enum ShieldPolicyMapper {
             store.shield.webDomainCategories = nil
         case .specific(let categories):
             store.shield.webDomainCategories = .specific(categories)
+        case .specificExcept(let categories, let exceptions):
+            store.shield.webDomainCategories = .specific(
+                categories,
+                except: exceptions
+            )
         }
 
         store.shield.applications = decision.specificApplications

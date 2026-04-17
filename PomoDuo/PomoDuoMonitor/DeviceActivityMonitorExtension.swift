@@ -107,9 +107,12 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         }
 
         let exceptions = ShieldSessionContext.readCategoryExceptions() ?? []
+        let webExceptions =
+            ShieldSessionContext.readWebDomainCategoryExceptions() ?? []
         let decision = ShieldPolicyMapper.decide(
             for: selection,
-            categoryExceptions: exceptions
+            categoryExceptions: exceptions,
+            webDomainCategoryExceptions: webExceptions
         )
 
         ShieldPolicyMapper.apply(decision, to: store)

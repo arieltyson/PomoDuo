@@ -52,6 +52,8 @@ struct ScreenTimeDiagnostics: Equatable, Sendable {
         /// currently-shielded category — surfaced so support can tell
         /// at a glance whether the exception path is active.
         let categoryExceptionCount: Int
+        /// Web-domain counterpart to ``categoryExceptionCount``.
+        let webDomainCategoryExceptionCount: Int
     }
 
     struct ShieldChannels: Equatable, Sendable {
