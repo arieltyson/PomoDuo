@@ -251,4 +251,70 @@ struct UsernameNormalizerTests {
         #expect(UsernameNormalizer.isUsable("   ") == false)
         #expect(UsernameNormalizer.isUsable(nil) == false)
     }
+
+    // MARK: - Format Contract (Parity with Backend)
+
+    /// `isValidLinkFormat(_:)` enforces the same `^[a-zA-Z0-9_]{3,20}$`
+    /// shape that `firestore.rules` validates on writes and that
+    /// `add-friend.html` requires before rendering the invite card.
+    /// Any drift between the three boundaries should surface here
+    /// or in the equivalent backend tests.
+
+    @Test("Canonical username passes format check")
+    func canonicalUsernameIsValidFormat() {
+        #expect(UsernameNormalizer.isValidLinkFormat("ariel"))
+        #expect(UsernameNormalizer.isValidLinkFormat("user_123"))
+    }
+
+    @Test("Mixed-case raw input still passes (lowercased downstream)")
+    func mixedCaseIsValidFormat() {
+        #expect(UsernameNormalizer.isValidLinkFormat("ArielTyson"))
+    }
+
+    @Test("Length boundaries are inclusive on both ends")
+    func lengthBoundariesAreInclusive() {
+        // 3 chars: minimum allowed.
+        #expect(UsernameNormalizer.isValidLinkFormat("abc"))
+        // 20 chars: maximum allowed.
+        #expect(UsernameNormalizer.isValidLinkFormat(
+            String(repeating: "a", count: 20)
+        ))
+        // 2 chars: too short.
+        #expect(UsernameNormalizer.isValidLinkFormat("ab") == false)
+        // 21 chars: too long.
+        #expect(UsernameNormalizer.isValidLinkFormat(
+            String(repeating: "a", count: 21)
+        ) == false)
+    }
+
+    @Test("Whitespace and empty fail the format check")
+    func emptyAndWhitespaceFailFormat() {
+        #expect(UsernameNormalizer.isValidLinkFormat("") == false)
+        #expect(UsernameNormalizer.isValidLinkFormat("   ") == false)
+    }
+
+    @Test("Disallowed characters fail the format check")
+    func disallowedCharactersFailFormat() {
+        // Punctuation.
+        #expect(UsernameNormalizer.isValidLinkFormat("!!!") == false)
+        // Hyphen (intentionally not in the contract — `firestore.rules`
+        // and the web fallback both require [a-zA-Z0-9_] only).
+        #expect(UsernameNormalizer.isValidLinkFormat("a-b-c") == false)
+        // Spaces inside.
+        #expect(UsernameNormalizer.isValidLinkFormat("a b c") == false)
+        // Emoji.
+        #expect(UsernameNormalizer.isValidLinkFormat("hello👋") == false)
+    }
+
+    /// Parity guard: the backend regex is `[a-zA-Z0-9_]` — strictly
+    /// ASCII. `CharacterSet.alphanumerics` would silently accept
+    /// letters like `é` / `ß` that the backend rejects, which would
+    /// let the iOS app present a "valid" link that Firestore would
+    /// then refuse on send. This test pins the ASCII-only contract.
+    @Test("Non-ASCII letters are rejected to match backend regex")
+    func nonASCIILettersAreRejected() {
+        #expect(UsernameNormalizer.isValidLinkFormat("café") == false)
+        #expect(UsernameNormalizer.isValidLinkFormat("straße") == false)
+        #expect(UsernameNormalizer.isValidLinkFormat("名前") == false)
+    }
 }

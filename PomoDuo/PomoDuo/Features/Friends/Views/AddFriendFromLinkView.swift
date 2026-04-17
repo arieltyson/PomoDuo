@@ -104,7 +104,20 @@ struct AddFriendFromLinkView: View {
     /// to the search and treat `nil` as "not found" (the safer
     /// label).
     private func lookUpUser() async {
-        guard let normalizedTarget = UsernameNormalizer.normalize(username) else {
+        // Two-stage validation, in parity with `firestore.rules` and
+        // the `add-friend.html` web fallback:
+        //
+        // 1. Empty/whitespace short-circuit — the original crash class
+        //    (Firestore rejects empty document IDs).
+        // 2. Format short-circuit — the same `^[a-zA-Z0-9_]{3,20}$`
+        //    shape the backend accepts. Catching this here means a
+        //    malformed link like `add-friend/!!!` lands on the
+        //    "Invalid Invite Link" screen instead of being presented
+        //    as "User not found" (which would imply the user existed
+        //    once and was deleted).
+        guard let normalizedTarget = UsernameNormalizer.normalize(username),
+            UsernameNormalizer.isValidLinkFormat(normalizedTarget)
+        else {
             phase = .invalidLink
             return
         }
