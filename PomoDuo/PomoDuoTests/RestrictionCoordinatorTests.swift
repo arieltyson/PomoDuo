@@ -378,4 +378,120 @@ struct RestrictionCoordinatorPipelineTests {
         #expect(spy.clearCount == 1)
         #expect(coordinator.lastError != nil)
     }
+
+    // MARK: - Reconcile Path
+
+    /// Reconcile must rewrite shields + shared context even when the
+    /// coordinator already believes it is restricting. This is the core
+    /// difference from ``enforceFocusRestrictions(until:)``, which
+    /// short-circuits on `!isRestricting`. Without that difference, the
+    /// repair path would silently no-op against a stale runtime pipeline
+    /// — the precise scenario the runtime-health work exists to fix.
+    @Test func reconcileRewritesPipelineEvenWhenAlreadyRestricting() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let spy = SpyFocusSessionContextWriter()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            sessionContextWriter: spy,
+            canRestrictEvaluator: { true }
+        )
+
+        // First, get into the active-restricting state.
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
+        try await waitUntil { coordinator.isRestricting }
+        #expect(await service.applyCallCount == 1)
+        #expect(spy.writeCount == 1)
+
+        // Reconcile against a fresh end date — must reapply both pieces
+        // even though `isRestricting` is already true.
+        let newEnd = Self.sampleEndDate.addingTimeInterval(120)
+        coordinator.reconcileFocusRestrictions(until: newEnd)
+        try await waitUntil { await service.applyCallCount == 2 }
+
+        #expect(await service.applyCallCount == 2)
+        #expect(spy.writeCount == 2)
+        #expect(spy.lastWrittenEndDate == newEnd)
+        #expect(coordinator.isRestricting)
+        #expect(coordinator.lastError == nil)
+    }
+
+    /// Reconcile from a clean (non-restricting) state must still write the
+    /// full pipeline — covers the "restore from persistence on launch" call
+    /// site in the solo timer flow.
+    @Test func reconcileFromCleanStateWritesPipeline() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let spy = SpyFocusSessionContextWriter()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            sessionContextWriter: spy,
+            canRestrictEvaluator: { true }
+        )
+
+        coordinator.reconcileFocusRestrictions(until: Self.sampleEndDate)
+        try await waitUntil { coordinator.isRestricting }
+
+        #expect(await service.applyCallCount == 1)
+        #expect(spy.writeCount == 1)
+        #expect(spy.lastWrittenEndDate == Self.sampleEndDate)
+        #expect(coordinator.isRestricting)
+    }
+
+    /// If the user revokes Screen Time authorization or clears all
+    /// selections mid-session, reconcile must hand off to the lift path
+    /// rather than reapplying — otherwise the call site would have to
+    /// special-case "user changed their mind" before every reconcile.
+    @Test func reconcileLiftsWhenNoLongerEligibleMidSession() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let spy = SpyFocusSessionContextWriter()
+        let eligibility = MutableEligibility()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            sessionContextWriter: spy,
+            canRestrictEvaluator: { eligibility.value }
+        )
+
+        coordinator.enforceFocusRestrictions(until: Self.sampleEndDate)
+        try await waitUntil { coordinator.isRestricting }
+
+        // Revoke eligibility and reconcile — should tear down, not re-apply.
+        eligibility.value = false
+        coordinator.reconcileFocusRestrictions(until: Self.sampleEndDate)
+        try await waitUntil { !coordinator.isRestricting }
+
+        #expect(await service.applyCallCount == 1)
+        #expect(await service.removeCallCount == 1)
+        #expect(spy.clearCount == 1)
+        #expect(coordinator.isRestricting == false)
+    }
+
+    /// Reconcile from a clean, ineligible state is a true no-op — it must
+    /// not touch the service or the context writer. (The lift branch is
+    /// gated on `isRestricting`; if neither flag is set there's nothing
+    /// to repair *or* tear down.)
+    @Test func reconcileFromCleanStateIneligibleIsNoOp() async throws {
+        let manager = ScreenTimeManager(store: ManagedSettingsStore())
+        let service = MockRestrictionService()
+        let spy = SpyFocusSessionContextWriter()
+        let coordinator = RestrictionCoordinator(
+            screenTimeManager: manager,
+            restrictionService: service,
+            sessionContextWriter: spy,
+            canRestrictEvaluator: { false }
+        )
+
+        coordinator.reconcileFocusRestrictions(until: Self.sampleEndDate)
+        try await Task.sleep(for: .milliseconds(60))
+
+        #expect(await service.applyCallCount == 0)
+        #expect(await service.removeCallCount == 0)
+        #expect(spy.writeCount == 0)
+        #expect(spy.clearCount == 0)
+        #expect(coordinator.isRestricting == false)
+    }
 }

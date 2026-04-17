@@ -60,6 +60,16 @@ private struct AppBlockingSelectionContent: View {
         )
         .id(pickerID)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(value: SettingsDestination.appBlockingDiagnostics) {
+                    Image(systemName: "stethoscope")
+                }
+                .accessibilityLabel("App Blocking Diagnostics")
+                .accessibilityHint(
+                    "Inspect the configured Screen Time state and reset it if something looks wrong."
+                )
+            }
+
             if screenTimeManager.hasSelectedApps {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Clear All", systemImage: "trash") {

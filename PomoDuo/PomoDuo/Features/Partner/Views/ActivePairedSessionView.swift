@@ -15,10 +15,12 @@ struct ActivePairedSessionView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(HeartbeatManager.self) private var heartbeatManager
     @Environment(FocusStatsReporter.self) private var focusStatsReporter
     @Environment(ConnectionMonitor.self) private var connectionMonitor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var haptic = HapticTrigger()
     @State private var focusStartedAt: Date?
@@ -60,8 +62,10 @@ struct ActivePairedSessionView: View {
                     isShowingEndConfirmation: $isShowingEndConfirmation
                 )
 
-                if restrictionCoordinator.isRestricting {
-                    PairedBlockingIndicatorView()
+                if shouldShowBlockingIndicator {
+                    PairedBlockingIndicatorView(
+                        health: screenTimeManager.runtimeHealth
+                    )
                 }
             }
             .padding(.bottom)
@@ -119,6 +123,15 @@ struct ActivePairedSessionView: View {
         .onChange(of: session.isPaused) { wasPaused, isPaused in
             handlePauseChange(wasPaused: wasPaused, isPaused: isPaused)
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            // Returning to foreground while a paired focus is active is
+            // the most common moment for the Screen Time pipeline to have
+            // degraded behind the app's back. Reconcile is idempotent
+            // and lifts shields automatically if the session has since
+            // ended or the user revoked authorization.
+            guard newPhase == .active else { return }
+            reconcileScreenTimeForCurrentState()
+        }
         .task {
             ShieldSessionContext.writePartnerName(partner.displayName)
             configureForInitialState()
@@ -159,6 +172,35 @@ struct ActivePairedSessionView: View {
         case .idle, .requesting, .completed:
             false
         }
+    }
+
+    /// Hides the chip entirely when the manager classifies the runtime as
+    /// `.unavailable` — there's nothing honest to claim in that case.
+    /// Otherwise the chip is gated on the coordinator believing it has
+    /// requested shielding (`isRestricting`), and the chip's text varies
+    /// by ``ScreenTimeRuntimeHealth``.
+    private var shouldShowBlockingIndicator: Bool {
+        guard restrictionCoordinator.isRestricting else { return false }
+        return screenTimeManager.runtimeHealth.isRequestable
+    }
+
+    /// Reconciles the Screen Time pipeline based on the live session
+    /// state. Called on scene-phase activation so the view's "I'm
+    /// foregrounded again" moment heals any background-induced drift.
+    private func reconcileScreenTimeForCurrentState() {
+        guard session.state == .focus,
+            !session.isPaused,
+            !currentPhaseHasEnded
+        else {
+            // Outside an active focus phase, nothing to reconcile from
+            // here — the existing onChange(of: session.state) /
+            // configureForInitialState paths handle break/idle correctly.
+            return
+        }
+
+        restrictionCoordinator.reconcileFocusRestrictions(
+            until: session.targetEndDate
+        )
     }
 
     private func observePhaseDeadline() async {
@@ -228,7 +270,11 @@ struct ActivePairedSessionView: View {
 
             startLiveActivityForFocus(isPaused: session.isPaused)
             if !session.isPaused {
-                restrictionCoordinator.enforceFocusRestrictions(
+                // Reconcile (not enforce) so re-entering this view while
+                // the coordinator already believes it's restricting still
+                // reasserts the full pipeline and repairs any degradation
+                // that happened in the background.
+                restrictionCoordinator.reconcileFocusRestrictions(
                     until: session.targetEndDate
                 )
             }

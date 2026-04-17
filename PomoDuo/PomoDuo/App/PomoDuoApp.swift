@@ -105,6 +105,8 @@ struct PomoDuoApp: App {
         )
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             RootView(pairingService: pairingService, friendService: friendService)
@@ -123,6 +125,21 @@ struct PomoDuoApp: App {
                 .environment(powerStateMonitor)
                 .onChange(of: screenTimeManager.activitySelection) { _, _ in
                     restrictionCoordinator.refreshRestrictions()
+                    screenTimeManager.refreshRuntimeHealth(
+                        focusIsActive: restrictionCoordinator.isRestricting
+                    )
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    // Foregrounding is the moment background-induced
+                    // Screen Time pipeline drift becomes visible. Refresh
+                    // the runtime health so any active-session chip
+                    // reflects the current truth; the per-session
+                    // reconcile hooks in TimerView and
+                    // ActivePairedSessionView do the actual repair.
+                    guard newPhase == .active else { return }
+                    screenTimeManager.refreshRuntimeHealth(
+                        focusIsActive: restrictionCoordinator.isRestricting
+                    )
                 }
                 .environment(onboardingManager)
                 .environment(appearanceManager)

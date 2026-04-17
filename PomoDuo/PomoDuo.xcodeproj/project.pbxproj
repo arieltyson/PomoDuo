@@ -154,8 +154,8 @@
 		AF95D2E62F47A0E70080A765 /* Exceptions for "PomoDuo" folder in "PomoDuoMonitorExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Core/ScreenTime/ShieldSessionContext.swift,
 				Core/ScreenTime/ShieldPolicyMapper.swift,
+				Core/ScreenTime/ShieldSessionContext.swift,
 			);
 			target = AF56366D2F4684A00067D4DE /* PomoDuoMonitorExtension */;
 		};

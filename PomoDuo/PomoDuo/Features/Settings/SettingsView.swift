@@ -302,10 +302,16 @@ private struct AppBlockingStatusBadge: View {
 
     var body: some View {
         if screenTimeManager.isAuthorized && screenTimeManager.hasSelectedApps {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.caption)
-                .foregroundStyle(AppColors.success)
-                .accessibilityLabel("App blocking active")
+            // Honest copy: Settings only knows the user has *configured* app
+            // blocking (authorization granted + a non-empty selection). It
+            // does not know whether iOS is currently shielding anything —
+            // shielding only happens during a focus session, surfaced by
+            // the timer's own indicator. "Active" used to be claimed here
+            // and was misleading.
+            Text("Configured")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("App blocking configured for focus sessions")
         } else if screenTimeManager.isAuthorized {
             Text("Set Up")
                 .font(.caption2)

@@ -1,3 +1,4 @@
+import DeviceActivity
 import FamilyControls
 import Foundation
 import ManagedSettings
@@ -10,6 +11,18 @@ final class ScreenTimeManager {
     private(set) var authorizationStatus: AuthorizationStatus
     private(set) var authorizationError: String?
     private(set) var isRequestingAuthorization = false
+
+    /// Latest classification of the Screen Time pipeline's runtime health.
+    ///
+    /// Refreshed by ``RestrictionCoordinator`` after each apply / lift /
+    /// reconcile, by `PomoDuoApp` on scene activation, and explicitly via
+    /// ``refreshRuntimeHealth(focusIsActive:)``. Drives the active-session
+    /// chip copy in ``TimerView`` and ``ActivePairedSessionView`` so the
+    /// UI reflects what the app honestly knows rather than the stronger
+    /// "Apps Blocked" claim the previous code made on bare `isRestricting`.
+    private(set) var runtimeHealth: ScreenTimeRuntimeHealth = .unavailable(
+        reason: .selectionEmpty
+    )
 
     /// The user's current picker selection.
     ///
@@ -51,8 +64,12 @@ final class ScreenTimeManager {
 
     private let store: ManagedSettingsStore
     private let persistenceDefaults: UserDefaults
+    private let activityCenter = DeviceActivityCenter()
 
     private static let selectionDefaultsKey = "com.pomoduo.screentime.selection"
+    private static let focusActivityName = DeviceActivityName(
+        rawValue: ShieldSessionContext.focusActivityID
+    )
 
     init(
         store: ManagedSettingsStore,
@@ -102,6 +119,118 @@ final class ScreenTimeManager {
         ShieldSessionContext.writeSelection(
             FamilyActivitySelection(includeEntireCategory: true)
         )
+    }
+
+    // MARK: - Runtime Health
+
+    /// Recomputes ``runtimeHealth`` from a fresh diagnostics snapshot.
+    ///
+    /// `focusIsActive` is the caller's understanding of whether a focus
+    /// session is currently expected to be running — the coordinator
+    /// passes its own `isRestricting`, the app shell passes whatever it
+    /// can read off the coordinator on scene activation. Outside an active
+    /// focus session, the runtime channels are *expected* to be empty, so
+    /// passing `false` keeps the classifier from incorrectly reporting
+    /// degradation.
+    func refreshRuntimeHealth(focusIsActive: Bool) {
+        runtimeHealth = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: diagnosticsSnapshot(),
+            focusIsActive: focusIsActive
+        )
+    }
+
+    // MARK: - Diagnostics & Recovery
+
+    /// Computes a snapshot of every Screen Time piece the app currently
+    /// configures or knows about.
+    ///
+    /// Used by ``AppBlockingDiagnosticsView`` to show on-device truth and
+    /// by tests to assert reset/canonicalization behavior. The snapshot is
+    /// deliberately scoped to "what the app set / what the system has
+    /// registered" — Apple does not expose whether iOS is currently
+    /// shielding apps, so this snapshot never claims that.
+    func diagnosticsSnapshot() -> ScreenTimeDiagnostics {
+        let selection = activitySelection
+        let policyShape = ShieldPolicyMapper.decideShape(
+            applicationTokenCount: selection.applicationTokens.count,
+            categoryTokenCount: selection.categoryTokens.count,
+            webDomainTokenCount: selection.webDomainTokens.count,
+            allCategoriesThreshold: ShieldSessionContext.allCategoriesThreshold
+        )
+
+        let registered = activityCenter.activities.contains(
+            Self.focusActivityName
+        )
+        let scheduleEnd = activityCenter.schedule(
+            for: Self.focusActivityName
+        )
+        .flatMap { schedule in
+            Calendar.current.date(from: schedule.intervalEnd)
+        }
+
+        return ScreenTimeDiagnostics(
+            authorization: ScreenTimeDiagnostics.Authorization(
+                status: authorizationStatus,
+                isUsable: isAuthorized
+            ),
+            selection: ScreenTimeDiagnostics.Selection(
+                applicationCount: selection.applicationTokens.count,
+                categoryCount: selection.categoryTokens.count,
+                webDomainCount: selection.webDomainTokens.count,
+                isCanonical: selection.includeEntireCategory
+            ),
+            policy: policyShape,
+            shieldChannels: ScreenTimeDiagnostics.ShieldChannels(
+                applicationsConfigured: store.shield.applications != nil,
+                applicationsCount: store.shield.applications?.count ?? 0,
+                applicationCategoriesConfigured: store.shield
+                    .applicationCategories != nil,
+                webDomainsConfigured: store.shield.webDomains != nil,
+                webDomainsCount: store.shield.webDomains?.count ?? 0,
+                webDomainCategoriesConfigured: store.shield
+                    .webDomainCategories != nil
+            ),
+            monitoring: ScreenTimeDiagnostics.Monitoring(
+                focusActivityRegistered: registered,
+                focusScheduleEnd: scheduleEnd
+            ),
+            sessionContext: ScreenTimeDiagnostics.SessionContext(
+                isActive: ShieldSessionContext.isSessionActive,
+                phase: ShieldSessionContext.sessionPhase,
+                targetEndDate: ShieldSessionContext.targetEndDate
+            ),
+            capturedAt: .now
+        )
+    }
+
+    /// Tears down every piece of Screen Time state PomoDuo controls.
+    ///
+    /// Used by the on-device "Reset App Blocking" recovery path so the user
+    /// can recover from a stale state — a crashed session that left a
+    /// `DeviceActivity` registration alive, an inconsistent App Group
+    /// payload, or any combination — without resorting to delete/reinstall.
+    ///
+    /// The teardown is intentionally direct (no enqueue, no listener
+    /// dependency) so it works even when the in-app
+    /// ``RestrictionCoordinator`` is unaware of the stale state.
+    /// ``RestrictionCoordinator`` will still observe the resulting
+    /// `activitySelection` change via the existing `onChange` wiring and
+    /// flip its own `isRestricting` flag back to `false`.
+    func resetAllScreenTimeState() {
+        // 1. Stop any active focus monitoring schedule. The Monitor
+        //    extension reads from the same `DeviceActivityCenter` and will
+        //    stop receiving callbacks once the activity is unregistered.
+        activityCenter.stopMonitoring([Self.focusActivityName])
+
+        // 2. Clear shared App Group session context so the Shield and
+        //    Monitor extensions don't see a stale "focus is active" flag.
+        ShieldSessionContext.clearSession()
+
+        // 3. Clear the existing selection. `clearSelection()` already
+        //    handles the in-memory rebuild (canonical empty selection),
+        //    standard-defaults removal, App Group selection rewrite, and
+        //    `ManagedSettingsStore.shield` channel teardown.
+        clearSelection()
     }
 
     private func persistSelection() {

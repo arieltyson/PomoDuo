@@ -747,3 +747,453 @@ struct FocusScheduleDateComponentTests {
         #expect(endComponents.hour! < startComponents.hour!)
     }
 }
+
+// MARK: - Diagnostics & Recovery
+
+/// Coverage for ``ScreenTimeManager/diagnosticsSnapshot()`` and
+/// ``ScreenTimeManager/resetAllScreenTimeState()`` — the on-device truth
+/// surface and recovery path that round out the Screen Time pipeline.
+///
+/// `DeviceActivityCenter` and `ManagedSettingsStore` portions of the
+/// snapshot can't be exercised in a unit test (they hit live system state
+/// only available on a real device), so the tests below assert what *can*
+/// be verified deterministically: authorization framing, selection counts,
+/// the policy shape derived from the current selection, and the full
+/// teardown semantics of `resetAllScreenTimeState()`.
+@MainActor
+struct ScreenTimeDiagnosticsTests {
+
+    private func makeManager() -> (
+        manager: ScreenTimeManager,
+        defaults: UserDefaults
+    ) {
+        let suiteName = "com.pomoduo.tests.diagnostics.\(UUID().uuidString)"
+        let defaults: UserDefaults
+        if let suiteDefaults = UserDefaults(suiteName: suiteName) {
+            suiteDefaults.removePersistentDomain(forName: suiteName)
+            defaults = suiteDefaults
+        } else {
+            defaults = .standard
+        }
+
+        let manager = ScreenTimeManager(
+            store: ManagedSettingsStore(),
+            persistenceDefaults: defaults
+        )
+        return (manager, defaults)
+    }
+
+    @Test("Empty selection yields a none/none/none policy snapshot")
+    func snapshotForEmptySelectionIsNone() {
+        let (manager, _) = makeManager()
+
+        let snapshot = manager.diagnosticsSnapshot()
+
+        #expect(snapshot.selection.applicationCount == 0)
+        #expect(snapshot.selection.categoryCount == 0)
+        #expect(snapshot.selection.webDomainCount == 0)
+        #expect(snapshot.selection.isCanonical == true)
+        #expect(snapshot.policy.applicationCategories == .none)
+        #expect(snapshot.policy.webDomainCategories == .none)
+        #expect(snapshot.policy.writesSpecificApplicationsChannel == false)
+        #expect(snapshot.policy.writesSpecificWebDomainsChannel == false)
+    }
+
+    @Test("Snapshot's authorization mirrors the manager's reported status")
+    func snapshotAuthorizationIsConsistent() {
+        let (manager, _) = makeManager()
+
+        let snapshot = manager.diagnosticsSnapshot()
+
+        #expect(snapshot.authorization.status == manager.authorizationStatus)
+        #expect(snapshot.authorization.isUsable == manager.isAuthorized)
+    }
+
+    @Test("Snapshot canonical flag tracks the in-memory selection")
+    func snapshotReflectsSelectionCanonicalization() {
+        let (manager, _) = makeManager()
+
+        // Fresh manager already constructs a canonical selection.
+        #expect(manager.diagnosticsSnapshot().selection.isCanonical == true)
+
+        // Simulate a non-canonical replacement (e.g. from a hypothetical
+        // future code path that bypasses ``canonicalizeRestoredSelection``).
+        manager.activitySelection = FamilyActivitySelection(
+            includeEntireCategory: false
+        )
+
+        #expect(manager.diagnosticsSnapshot().selection.isCanonical == false)
+    }
+
+    @Test("Reset clears persisted standard-defaults selection")
+    func resetClearsStandardDefaultsSelection() throws {
+        let (manager, defaults) = makeManager()
+
+        // Pretend the user had a selection persisted previously.
+        let stored = FamilyActivitySelection(includeEntireCategory: true)
+        let data = try JSONEncoder().encode(stored)
+        defaults.set(data, forKey: "com.pomoduo.screentime.selection")
+        #expect(defaults.data(forKey: "com.pomoduo.screentime.selection") != nil)
+
+        manager.resetAllScreenTimeState()
+
+        #expect(defaults.data(forKey: "com.pomoduo.screentime.selection") == nil)
+    }
+
+    @Test("Reset rebuilds activitySelection in canonical form")
+    func resetRebuildsCanonicalSelection() {
+        let (manager, _) = makeManager()
+
+        // Force a non-canonical selection that recovery has to fix.
+        manager.activitySelection = FamilyActivitySelection(
+            includeEntireCategory: false
+        )
+        #expect(manager.activitySelection.includeEntireCategory == false)
+
+        manager.resetAllScreenTimeState()
+
+        #expect(manager.activitySelection.includeEntireCategory == true)
+        #expect(manager.activitySelection.applicationTokens.isEmpty)
+        #expect(manager.activitySelection.categoryTokens.isEmpty)
+        #expect(manager.activitySelection.webDomainTokens.isEmpty)
+    }
+
+    @Test("Reset clears shared App Group session context")
+    func resetClearsSharedSessionContext() {
+        ShieldSessionContext.writeSession(
+            partnerName: "Stale",
+            phase: "Focus",
+            targetEndDate: .now.addingTimeInterval(60)
+        )
+        #expect(ShieldSessionContext.isSessionActive == true)
+
+        let (manager, _) = makeManager()
+        manager.resetAllScreenTimeState()
+
+        #expect(ShieldSessionContext.isSessionActive == false)
+        #expect(ShieldSessionContext.sessionPhase == nil)
+        #expect(ShieldSessionContext.targetEndDate == nil)
+    }
+
+    @Test("Reset is idempotent — repeated calls don't reintroduce state")
+    func resetIsIdempotent() {
+        let (manager, defaults) = makeManager()
+
+        manager.resetAllScreenTimeState()
+        manager.resetAllScreenTimeState()
+        manager.resetAllScreenTimeState()
+
+        #expect(manager.activitySelection.includeEntireCategory == true)
+        #expect(manager.activitySelection.applicationTokens.isEmpty)
+        #expect(defaults.data(forKey: "com.pomoduo.screentime.selection") == nil)
+        #expect(ShieldSessionContext.isSessionActive == false)
+    }
+}
+
+// MARK: - Runtime Health Evaluator
+
+/// Coverage for ``ScreenTimeRuntimeHealth/evaluate(snapshot:focusIsActive:)``.
+///
+/// The evaluator is a pure function over a `ScreenTimeDiagnostics` snapshot
+/// — testable without touching `DeviceActivityCenter` or `ManagedSettingsStore`,
+/// which makes the active-session classification logic verifiable in
+/// isolation from the system APIs the snapshot otherwise queries.
+@MainActor
+struct ScreenTimeRuntimeHealthTests {
+
+    @Test("Empty snapshot is unavailable: selection empty")
+    func emptyIsUnavailableSelectionEmpty() {
+        let snapshot = makeSnapshot(isUsable: true)
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: false
+        )
+
+        #expect(health == .unavailable(reason: .selectionEmpty))
+        #expect(health.isRequestable == false)
+    }
+
+    @Test("Authorization off short-circuits before everything else")
+    func authorizationOffShortCircuits() {
+        let snapshot = makeSnapshot(
+            isUsable: false,
+            applicationCount: 5,
+            applicationCategoriesPolicy: .specific,
+            writesSpecificApplicationsChannel: false
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: true
+        )
+
+        #expect(health == .unavailable(reason: .authorizationNotUsable))
+    }
+
+    @Test("Selection present but policy shields nothing is unavailable")
+    func policyShieldingNothingIsUnavailable() {
+        // Selection has non-zero counts (e.g. only web domains exist but
+        // the policy translation wouldn't produce any shielding channel)
+        // — synthetic edge to cover the third unavailable branch.
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 0,
+            categoryCount: 0,
+            webDomainCount: 1,
+            applicationCategoriesPolicy: .none,
+            webDomainCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: false,
+            writesSpecificWebDomainsChannel: false
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: true
+        )
+
+        #expect(health == .unavailable(reason: .computedPolicyShieldsNothing))
+    }
+
+    @Test("Healthy when focus inactive and only the selection is configured")
+    func healthyOutsideFocusWithSelectionOnly() {
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 3,
+            applicationCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: true
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: false
+        )
+
+        #expect(health == .healthy)
+        #expect(health.isRequestable)
+        #expect(health.canBeRepaired == false)
+    }
+
+    /// Regression: outside an active focus session the runtime channels
+    /// are *expected* to be empty, so the evaluator must not flag them as
+    /// degradation.
+    @Test("Empty runtime channels outside focus are not degradation")
+    func emptyChannelsOutsideFocusNotDegradation() {
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 3,
+            applicationCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: true,
+            applicationsChannelConfigured: false,
+            focusActivityRegistered: false,
+            sessionContextActive: false
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: false
+        )
+
+        #expect(health == .healthy)
+    }
+
+    @Test("Healthy when focus active and every expected channel is configured")
+    func healthyDuringFocusWithFullPipeline() {
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 3,
+            applicationCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: true,
+            applicationsChannelConfigured: true,
+            focusActivityRegistered: true,
+            sessionContextActive: true
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: true
+        )
+
+        #expect(health == .healthy)
+    }
+
+    @Test("Missing DeviceActivity registration during focus is degradation")
+    func missingDeviceActivityIsDegradation() {
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 3,
+            applicationCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: true,
+            applicationsChannelConfigured: true,
+            focusActivityRegistered: false,
+            sessionContextActive: true
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: true
+        )
+
+        #expect(
+            health == .degraded(reasons: [.missingDeviceActivityRegistration])
+        )
+        #expect(health.canBeRepaired)
+        #expect(health.isRequestable)
+    }
+
+    @Test("Missing shared session context during focus is degradation")
+    func missingSessionContextIsDegradation() {
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 3,
+            applicationCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: true,
+            applicationsChannelConfigured: true,
+            focusActivityRegistered: true,
+            sessionContextActive: false
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: true
+        )
+
+        #expect(
+            health == .degraded(reasons: [.missingSharedSessionContext])
+        )
+    }
+
+    @Test("Missing shield channel during focus is degradation")
+    func missingShieldChannelIsDegradation() {
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 3,
+            applicationCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: true,
+            applicationsChannelConfigured: false,
+            focusActivityRegistered: true,
+            sessionContextActive: true
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: true
+        )
+
+        #expect(
+            health == .degraded(reasons: [.shieldChannelsNotConfigured])
+        )
+    }
+
+    @Test("Non-canonical selection is degradation regardless of focus")
+    func nonCanonicalSelectionIsDegradation() {
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 3,
+            isCanonical: false,
+            applicationCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: true
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: false
+        )
+
+        #expect(health == .degraded(reasons: [.selectionNotCanonical]))
+    }
+
+    @Test("Multiple degradation reasons accumulate into one degraded case")
+    func multipleReasonsAccumulate() {
+        let snapshot = makeSnapshot(
+            isUsable: true,
+            applicationCount: 3,
+            applicationCategoriesPolicy: .none,
+            writesSpecificApplicationsChannel: true,
+            applicationsChannelConfigured: false,
+            focusActivityRegistered: false,
+            sessionContextActive: false
+        )
+
+        let health = ScreenTimeRuntimeHealth.evaluate(
+            snapshot: snapshot,
+            focusIsActive: true
+        )
+
+        #expect(
+            health
+                == .degraded(reasons: [
+                    .shieldChannelsNotConfigured,
+                    .missingDeviceActivityRegistration,
+                    .missingSharedSessionContext,
+                ])
+        )
+    }
+
+    // MARK: - Snapshot Builder
+
+    /// Builds a synthetic ``ScreenTimeDiagnostics`` value with every knob
+    /// the evaluator cares about exposed as a parameter. Lets each test
+    /// override only the bit under test without dragging the others in.
+    private func makeSnapshot(
+        isUsable: Bool,
+        applicationCount: Int = 0,
+        categoryCount: Int = 0,
+        webDomainCount: Int = 0,
+        isCanonical: Bool = true,
+        applicationCategoriesPolicy: ShieldPolicyMapper
+            .ApplicationPolicyCase = .none,
+        webDomainCategoriesPolicy: ShieldPolicyMapper
+            .WebDomainPolicyCase = .none,
+        writesSpecificApplicationsChannel: Bool = false,
+        writesSpecificWebDomainsChannel: Bool = false,
+        applicationsChannelConfigured: Bool = false,
+        applicationCategoriesChannelConfigured: Bool = false,
+        webDomainsChannelConfigured: Bool = false,
+        webDomainCategoriesChannelConfigured: Bool = false,
+        focusActivityRegistered: Bool = false,
+        sessionContextActive: Bool = false
+    ) -> ScreenTimeDiagnostics {
+        ScreenTimeDiagnostics(
+            authorization: ScreenTimeDiagnostics.Authorization(
+                status: isUsable ? .approved : .denied,
+                isUsable: isUsable
+            ),
+            selection: ScreenTimeDiagnostics.Selection(
+                applicationCount: applicationCount,
+                categoryCount: categoryCount,
+                webDomainCount: webDomainCount,
+                isCanonical: isCanonical
+            ),
+            policy: ShieldPolicyMapper.DecisionShape(
+                applicationCategories: applicationCategoriesPolicy,
+                webDomainCategories: webDomainCategoriesPolicy,
+                writesSpecificApplicationsChannel:
+                    writesSpecificApplicationsChannel,
+                writesSpecificWebDomainsChannel:
+                    writesSpecificWebDomainsChannel
+            ),
+            shieldChannels: ScreenTimeDiagnostics.ShieldChannels(
+                applicationsConfigured: applicationsChannelConfigured,
+                applicationsCount: applicationsChannelConfigured ? 1 : 0,
+                applicationCategoriesConfigured:
+                    applicationCategoriesChannelConfigured,
+                webDomainsConfigured: webDomainsChannelConfigured,
+                webDomainsCount: webDomainsChannelConfigured ? 1 : 0,
+                webDomainCategoriesConfigured:
+                    webDomainCategoriesChannelConfigured
+            ),
+            monitoring: ScreenTimeDiagnostics.Monitoring(
+                focusActivityRegistered: focusActivityRegistered,
+                focusScheduleEnd: nil
+            ),
+            sessionContext: ScreenTimeDiagnostics.SessionContext(
+                isActive: sessionContextActive,
+                phase: sessionContextActive ? "Focus" : nil,
+                targetEndDate: sessionContextActive
+                    ? .now.addingTimeInterval(60) : nil
+            ),
+            capturedAt: .now
+        )
+    }
+}

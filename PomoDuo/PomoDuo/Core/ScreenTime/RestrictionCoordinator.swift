@@ -55,6 +55,11 @@ final class RestrictionCoordinator {
     private let focusScheduler: FocusActivityScheduler?
     private let sessionContextWriter: any FocusSessionContextWriting
     private let canRestrictEvaluator: @MainActor () -> Bool
+    /// Held weakly so the coordinator can ask the manager to recompute
+    /// ``ScreenTimeManager/runtimeHealth`` after every operation. Not part
+    /// of the coordinator's correctness contract — `nil` is safe and just
+    /// means no automatic health refresh (used in tests with mock services).
+    private weak var screenTimeManager: ScreenTimeManager?
 
     /// Serializes apply/remove calls so a late-arriving apply
     /// can never overwrite an earlier remove.
@@ -87,6 +92,7 @@ final class RestrictionCoordinator {
                 return screenTimeManager.isAuthorized
                     && screenTimeManager.hasSelectedApps
             }
+        self.screenTimeManager = screenTimeManager
     }
 
     /// Whether restrictions can currently be enforced.
@@ -106,10 +112,11 @@ final class RestrictionCoordinator {
 
         let scheduler = focusScheduler
         let contextWriter = sessionContextWriter
-        enqueue { [restrictionService] in
+        enqueue { [restrictionService, weak self] in
             try await restrictionService.applyRestrictions()
             contextWriter.writeFocus(targetEndDate: endDate)
             scheduler?.scheduleMonitoring(until: endDate)
+            self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: true)
             return true
         }
     }
@@ -125,10 +132,11 @@ final class RestrictionCoordinator {
 
         let scheduler = focusScheduler
         let contextWriter = sessionContextWriter
-        enqueue { [restrictionService] in
+        enqueue { [restrictionService, weak self] in
             try await restrictionService.removeRestrictions()
             scheduler?.stopMonitoring()
             contextWriter.clearFocus()
+            self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: false)
             return false
         }
     }
@@ -141,13 +149,56 @@ final class RestrictionCoordinator {
     func forceRemoveRestrictions() {
         let scheduler = focusScheduler
         let contextWriter = sessionContextWriter
-        enqueue { [restrictionService] in
+        enqueue { [restrictionService, weak self] in
             defer {
                 scheduler?.stopMonitoring()
                 contextWriter.clearFocus()
+                self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: false)
             }
             try await restrictionService.removeRestrictions()
             return false
+        }
+    }
+
+    /// Re-asserts every piece of the focus pipeline — shields, shared
+    /// session context, and DeviceActivity monitoring — for an active
+    /// focus session, *without* the `!isRestricting` short-circuit that
+    /// ``enforceFocusRestrictions(until:)`` uses.
+    ///
+    /// This is the repair path. If the app already believes it's
+    /// restricting but one or more channels has degraded (the system
+    /// dropped the activity registration after a force-quit, the App-Group
+    /// session context got cleared by an extension cleanup pass, the
+    /// shield writes haven't been replayed since a foreground transition),
+    /// `reconcileFocusRestrictions` rewrites all three so the pipeline
+    /// converges back to the canonical "active focus" state.
+    ///
+    /// Safe to call repeatedly — every call is idempotent at the system
+    /// layer (`scheduleMonitoring(until:)` first stops any existing
+    /// schedule for the focus activity name; `writeFocus(targetEndDate:)`
+    /// overwrites the App-Group payload; the shield writes overwrite
+    /// whatever was there).
+    ///
+    /// If `canRestrict` is `false` (selection cleared mid-session, or
+    /// authorization revoked) this hands off to the same teardown path as
+    /// ``liftRestrictions()`` so the caller doesn't have to special-case
+    /// "the user changed their mind" in their reconcile call site.
+    func reconcileFocusRestrictions(until endDate: Date) {
+        guard canRestrict else {
+            if isRestricting {
+                liftRestrictions()
+            }
+            return
+        }
+
+        let scheduler = focusScheduler
+        let contextWriter = sessionContextWriter
+        enqueue { [restrictionService, weak self] in
+            try await restrictionService.applyRestrictions()
+            contextWriter.writeFocus(targetEndDate: endDate)
+            scheduler?.scheduleMonitoring(until: endDate)
+            self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: true)
+            return true
         }
     }
 
@@ -161,17 +212,19 @@ final class RestrictionCoordinator {
         guard isRestricting else { return }
 
         if canRestrict {
-            enqueue { [restrictionService] in
+            enqueue { [restrictionService, weak self] in
                 try await restrictionService.applyRestrictions()
+                self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: true)
                 return true
             }
         } else {
             let scheduler = focusScheduler
             let contextWriter = sessionContextWriter
-            enqueue { [restrictionService] in
+            enqueue { [restrictionService, weak self] in
                 try await restrictionService.removeRestrictions()
                 scheduler?.stopMonitoring()
                 contextWriter.clearFocus()
+                self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: false)
                 return false
             }
         }
