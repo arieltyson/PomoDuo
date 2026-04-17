@@ -22,6 +22,12 @@ struct ScreenTimeDiagnostics: Equatable, Sendable {
     let shieldChannels: ShieldChannels
     let monitoring: Monitoring
     let sessionContext: SessionContext
+    /// Extension-invocation telemetry captured in the App Group by the
+    /// Monitor and Shield extensions. This is the closest app-visible
+    /// proxy for real OS enforcement — iOS does not expose whether it is
+    /// currently shielding a specific app, but it will invoke these
+    /// extensions when real shielding occurs.
+    let extensionTelemetry: ShieldExtensionTelemetry.Snapshot
     let capturedAt: Date
 
     struct Authorization: Equatable, Sendable {

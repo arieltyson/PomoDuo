@@ -17,6 +17,7 @@ import ManagedSettings
 class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     private let store = ManagedSettingsStore()
+    private let activityCenter = DeviceActivityCenter()
 
     // MARK: - Interval Callbacks
 
@@ -26,6 +27,13 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         guard activity.rawValue == ShieldSessionContext.focusActivityID else {
             return
         }
+
+        // Record invocation telemetry *before* touching shields so the main
+        // app can distinguish "extension never ran" from "extension ran but
+        // shield apply failed" after the fact. Capture the shared-context
+        // state the extension saw at this moment so the diagnostics view
+        // can tell whether the context was healthy at callback time.
+        recordInvocation(.monitorIntervalDidStart, for: activity)
 
         applyShields()
     }
@@ -37,8 +45,35 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             return
         }
 
+        recordInvocation(.monitorIntervalDidEnd, for: activity)
+
         removeShields()
         ShieldSessionContext.clearSession()
+    }
+
+    // MARK: - Telemetry
+
+    /// Captures the shared-context state the monitor extension observed
+    /// at callback time. Writes only if the fired activity matches the
+    /// focus activity name (the outer guards already ensure this).
+    ///
+    /// The DeviceActivity monitor sandbox allows both App Group
+    /// `UserDefaults` writes and `DeviceActivityCenter` queries, so we
+    /// additionally capture whether the focus activity is still
+    /// registered from the extension's perspective — useful when
+    /// diagnosing "the activity was removed before `intervalDidEnd`".
+    private func recordInvocation(
+        _ event: ShieldExtensionTelemetry.Event,
+        for activity: DeviceActivityName
+    ) {
+        let registered = activityCenter.activities.contains(activity)
+        ShieldExtensionTelemetry.record(
+            event,
+            isSessionActive: ShieldSessionContext.isSessionActive,
+            phase: ShieldSessionContext.sessionPhase,
+            targetEndDate: ShieldSessionContext.targetEndDate,
+            focusActivityRegistered: registered
+        )
     }
 
     // MARK: - Shield Management

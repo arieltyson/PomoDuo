@@ -24,6 +24,9 @@ struct AppBlockingDiagnosticsView: View {
                 ShieldChannelsSection(channels: snapshot.shieldChannels)
                 MonitoringSection(monitoring: snapshot.monitoring)
                 SessionContextSection(context: snapshot.sessionContext)
+                ExtensionTelemetrySection(
+                    telemetry: snapshot.extensionTelemetry
+                )
                 CapturedAtFooter(capturedAt: snapshot.capturedAt)
                 ResetSection(
                     onResetRequested: { isShowingResetConfirmation = true }
@@ -239,6 +242,96 @@ private struct SessionContextSection: View {
                 "Read by the Shield and Monitor extensions. Should be cleared when no focus session is running."
             )
         }
+    }
+}
+
+/// Surfaces invocation counts and last-observed-context from the Shield
+/// and Monitor extensions so the user (and on-call debugging) can tell
+/// whether iOS actually invoked them. Worded honestly: this section is
+/// the closest *proxy* to real enforcement the app can produce. It is
+/// not a guarantee that every blocked app will present the shield —
+/// Apple's docs do not document whether
+/// ``ShieldConfigurationDataSource/configuration(shielding:)`` is cached,
+/// so the shield counts are a lower bound.
+private struct ExtensionTelemetrySection: View {
+    let telemetry: ShieldExtensionTelemetry.Snapshot
+
+    var body: some View {
+        Section {
+            DiagnosticsRow(
+                label: "Monitor · intervalDidStart",
+                value: Self.eventValue(telemetry.monitorIntervalDidStart)
+            )
+            DiagnosticsRow(
+                label: "Monitor · intervalDidEnd",
+                value: Self.eventValue(telemetry.monitorIntervalDidEnd)
+            )
+            DiagnosticsRow(
+                label: "Shield · for application",
+                value: Self.eventValue(telemetry.shieldForApplication)
+            )
+            DiagnosticsRow(
+                label: "Shield · for web domain",
+                value: Self.eventValue(telemetry.shieldForWebDomain)
+            )
+            if let context = telemetry.lastObservedContext {
+                DiagnosticsRow(
+                    label: "Last-observed by",
+                    value: context.byEvent.rawValue
+                )
+                DiagnosticsRow(
+                    label: "Last-observed at",
+                    value: context.observedAt.formatted(
+                        date: .omitted,
+                        time: .standard
+                    )
+                )
+                DiagnosticsRow(
+                    label: "Last-observed context active",
+                    value: context.isSessionActive ? "Yes" : "No"
+                )
+                DiagnosticsRow(
+                    label: "Last-observed phase",
+                    value: context.phase ?? "—"
+                )
+                DiagnosticsRow(
+                    label: "Last-observed target end",
+                    value: Self.formatOptionalDate(context.targetEndDate)
+                )
+                if context.byEvent == .monitorIntervalDidStart
+                    || context.byEvent == .monitorIntervalDidEnd
+                {
+                    DiagnosticsRow(
+                        label: "Focus activity registered at callback",
+                        value: context.focusActivityRegistered ? "Yes" : "No"
+                    )
+                }
+            }
+        } header: {
+            Text("Extension Telemetry")
+        } footer: {
+            Text(
+                "Counts of system callbacks to PomoDuo's Shield and Monitor extensions. This is the closest app-visible proxy to real Screen Time enforcement — iOS does not expose whether a specific app is currently shielded, but it does invoke these extensions when shielding happens. Shield counts are a lower bound because Apple doesn't document whether the shield configuration is cached per presentation."
+            )
+        }
+    }
+
+    private static func eventValue(
+        _ snapshot: ShieldExtensionTelemetry.EventSnapshot
+    ) -> String {
+        guard let lastFiredAt = snapshot.lastFiredAt else {
+            return "\(snapshot.count) · never fired"
+        }
+        let formattedDate = lastFiredAt.formatted(
+            date: .omitted,
+            time: .standard
+        )
+        return "\(snapshot.count) · last \(formattedDate)"
+    }
+
+    private static func formatOptionalDate(_ date: Date?) -> String {
+        guard let date else { return "—" }
+        return date.formatted(date: .omitted, time: .shortened)
     }
 }
 

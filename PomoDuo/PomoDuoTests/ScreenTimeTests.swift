@@ -806,6 +806,57 @@ struct ScreenTimeDiagnosticsTests {
         #expect(defaults.data(forKey: "com.pomoduo.screentime.selection") == nil)
         #expect(ShieldSessionContext.isSessionActive == false)
     }
+
+    /// Snapshots populate the new extension-telemetry field. This proves
+    /// the snapshot wiring lands the telemetry read through to the UI,
+    /// so a user staring at the diagnostics view will see the same state
+    /// the Monitor/Shield extensions most recently wrote.
+    @Test("Diagnostics snapshot includes extension telemetry")
+    func snapshotIncludesExtensionTelemetry() {
+        let (manager, _) = makeManager()
+
+        // Fresh manager: telemetry is empty and not optional.
+        let snapshot = manager.diagnosticsSnapshot()
+
+        for event in snapshot.extensionTelemetry.allEvents {
+            #expect(event.count == 0)
+            #expect(event.lastFiredAt == nil)
+        }
+    }
+
+    /// Reset must clear extension telemetry so a fresh diagnosis run
+    /// starts from zero. Without this, stale counts from a prior session
+    /// would make "did the extensions run this time?" ambiguous — the
+    /// exact failure mode the telemetry is there to disambiguate.
+    @Test("resetAllScreenTimeState clears extension telemetry")
+    func resetClearsExtensionTelemetry() {
+        let (manager, _) = makeManager()
+
+        // Simulate an extension callback having fired into the shared
+        // suite before reset. Using the real shared suite is acceptable
+        // here because ``resetAllScreenTimeState`` is what we're testing
+        // and it reaches into that same suite.
+        ShieldExtensionTelemetry.record(
+            .monitorIntervalDidStart,
+            at: .now,
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: .now.addingTimeInterval(1500),
+            focusActivityRegistered: true
+        )
+        #expect(
+            ShieldExtensionTelemetry.snapshot()
+                .monitorIntervalDidStart.count > 0
+        )
+
+        manager.resetAllScreenTimeState()
+
+        let post = manager.diagnosticsSnapshot().extensionTelemetry
+        for event in post.allEvents {
+            #expect(event.count == 0)
+        }
+        #expect(post.lastObservedContext == nil)
+    }
 }
 
 // MARK: - Runtime Health Evaluator
@@ -1111,7 +1162,266 @@ struct ScreenTimeRuntimeHealthTests {
                 targetEndDate: sessionContextActive
                     ? .now.addingTimeInterval(60) : nil
             ),
+            extensionTelemetry: emptyTelemetrySnapshot,
             capturedAt: .now
         )
+    }
+
+    /// Empty telemetry stand-in used by evaluator tests that don't care
+    /// about extension-invocation state. The evaluator reads only the
+    /// pipeline-truth fields; the telemetry field is surfaced to the UI
+    /// but isn't part of the classifier's decision surface.
+    private var emptyTelemetrySnapshot: ShieldExtensionTelemetry.Snapshot {
+        ShieldExtensionTelemetry.Snapshot(
+            monitorIntervalDidStart: ShieldExtensionTelemetry.EventSnapshot(
+                event: .monitorIntervalDidStart,
+                count: 0,
+                lastFiredAt: nil
+            ),
+            monitorIntervalDidEnd: ShieldExtensionTelemetry.EventSnapshot(
+                event: .monitorIntervalDidEnd,
+                count: 0,
+                lastFiredAt: nil
+            ),
+            shieldForApplication: ShieldExtensionTelemetry.EventSnapshot(
+                event: .shieldForApplication,
+                count: 0,
+                lastFiredAt: nil
+            ),
+            shieldForWebDomain: ShieldExtensionTelemetry.EventSnapshot(
+                event: .shieldForWebDomain,
+                count: 0,
+                lastFiredAt: nil
+            ),
+            lastObservedContext: nil
+        )
+    }
+}
+
+// MARK: - Extension Telemetry Store
+
+/// Coverage for ``ShieldExtensionTelemetry``.
+///
+/// The store is the App Group write channel both extensions use, so these
+/// tests run against an isolated ``UserDefaults`` suite (never the shared
+/// App Group) via the `defaults:` parameter on each public method.
+@MainActor
+struct ShieldExtensionTelemetryTests {
+
+    private func makeDefaults() -> UserDefaults {
+        let suiteName = "com.pomoduo.tests.telemetry.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        defaults.removePersistentDomain(forName: suiteName)
+        ShieldExtensionTelemetry.reset(defaults: defaults)
+        return defaults
+    }
+
+    @Test("Fresh store produces a zero snapshot with no observed context")
+    func freshStoreIsEmpty() {
+        let defaults = makeDefaults()
+
+        let snapshot = ShieldExtensionTelemetry.snapshot(defaults: defaults)
+
+        for event in snapshot.allEvents {
+            #expect(event.count == 0)
+            #expect(event.lastFiredAt == nil)
+        }
+        #expect(snapshot.lastObservedContext == nil)
+        #expect(snapshot.mostRecentInvocation == nil)
+    }
+
+    @Test("record increments the count and timestamps the matching event")
+    func recordIncrementsCountAndTimestamp() {
+        let defaults = makeDefaults()
+        let fireDate = Date(timeIntervalSince1970: 2_100_000_000)
+
+        ShieldExtensionTelemetry.record(
+            .monitorIntervalDidStart,
+            at: fireDate,
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: fireDate.addingTimeInterval(25 * 60),
+            focusActivityRegistered: true,
+            defaults: defaults
+        )
+
+        let snapshot = ShieldExtensionTelemetry.snapshot(defaults: defaults)
+        #expect(snapshot.monitorIntervalDidStart.count == 1)
+        #expect(snapshot.monitorIntervalDidStart.lastFiredAt == fireDate)
+        // Other events untouched.
+        #expect(snapshot.monitorIntervalDidEnd.count == 0)
+        #expect(snapshot.shieldForApplication.count == 0)
+        #expect(snapshot.shieldForWebDomain.count == 0)
+    }
+
+    @Test("record captures observed session context at callback time")
+    func recordCapturesObservedContext() {
+        let defaults = makeDefaults()
+        let fireDate = Date(timeIntervalSince1970: 2_100_000_500)
+        let targetEnd = fireDate.addingTimeInterval(25 * 60)
+
+        ShieldExtensionTelemetry.record(
+            .monitorIntervalDidStart,
+            at: fireDate,
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: targetEnd,
+            focusActivityRegistered: true,
+            defaults: defaults
+        )
+
+        let snapshot = ShieldExtensionTelemetry.snapshot(defaults: defaults)
+        let context = snapshot.lastObservedContext
+        #expect(context?.byEvent == .monitorIntervalDidStart)
+        #expect(context?.observedAt == fireDate)
+        #expect(context?.isSessionActive == true)
+        #expect(context?.phase == "Focus")
+        #expect(context?.targetEndDate == targetEnd)
+        #expect(context?.focusActivityRegistered == true)
+    }
+
+    /// Multiple records must accumulate per event; the last-observed
+    /// context must reflect the *last* record across all events. This is
+    /// the critical diagnostic: if the shield fires after the monitor,
+    /// the last-observed row should say "shield saw context X".
+    @Test("Multiple records accumulate per event; last-observed reflects most recent")
+    func multipleRecordsAccumulate() {
+        let defaults = makeDefaults()
+        let firstDate = Date(timeIntervalSince1970: 2_100_000_000)
+        let laterDate = firstDate.addingTimeInterval(10)
+
+        ShieldExtensionTelemetry.record(
+            .monitorIntervalDidStart,
+            at: firstDate,
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: firstDate.addingTimeInterval(1500),
+            focusActivityRegistered: true,
+            defaults: defaults
+        )
+        ShieldExtensionTelemetry.record(
+            .monitorIntervalDidStart,
+            at: laterDate,
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: laterDate.addingTimeInterval(1500),
+            focusActivityRegistered: true,
+            defaults: defaults
+        )
+        ShieldExtensionTelemetry.record(
+            .shieldForApplication,
+            at: laterDate.addingTimeInterval(1),
+            isSessionActive: false,
+            phase: nil,
+            targetEndDate: nil,
+            focusActivityRegistered: nil,
+            defaults: defaults
+        )
+
+        let snapshot = ShieldExtensionTelemetry.snapshot(defaults: defaults)
+        #expect(snapshot.monitorIntervalDidStart.count == 2)
+        #expect(snapshot.shieldForApplication.count == 1)
+        #expect(snapshot.lastObservedContext?.byEvent == .shieldForApplication)
+        #expect(snapshot.lastObservedContext?.isSessionActive == false)
+        #expect(snapshot.lastObservedContext?.phase == nil)
+        // Shield records pass nil for focusActivityRegistered; the stored
+        // default surfaces as `false` rather than remaining at the prior
+        // monitor-sample value of `true` — the telemetry is an overwrite,
+        // not a merge, so stale fields don't leak across events.
+        #expect(snapshot.lastObservedContext?.focusActivityRegistered == false)
+    }
+
+    @Test("reset clears every event count, timestamp, and observed-context key")
+    func resetClearsEverything() {
+        let defaults = makeDefaults()
+        let fireDate = Date(timeIntervalSince1970: 2_100_000_000)
+
+        ShieldExtensionTelemetry.record(
+            .monitorIntervalDidStart,
+            at: fireDate,
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: fireDate.addingTimeInterval(1500),
+            focusActivityRegistered: true,
+            defaults: defaults
+        )
+        ShieldExtensionTelemetry.record(
+            .shieldForApplication,
+            at: fireDate.addingTimeInterval(30),
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: fireDate.addingTimeInterval(1500),
+            focusActivityRegistered: nil,
+            defaults: defaults
+        )
+
+        ShieldExtensionTelemetry.reset(defaults: defaults)
+
+        let snapshot = ShieldExtensionTelemetry.snapshot(defaults: defaults)
+        for event in snapshot.allEvents {
+            #expect(event.count == 0)
+            #expect(event.lastFiredAt == nil)
+        }
+        #expect(snapshot.lastObservedContext == nil)
+    }
+
+    /// Distinct event categories must not collide on the same
+    /// `UserDefaults` key — a monitor-end record should not bump the
+    /// shield-for-application count. This pins the per-event key
+    /// separation (`Keys.count(for:)`).
+    @Test("Event categories use distinct storage keys")
+    func eventsDoNotCollideOnKeys() {
+        let defaults = makeDefaults()
+        let base = Date(timeIntervalSince1970: 2_100_000_100)
+
+        for (index, event) in ShieldExtensionTelemetry.Event.allCases
+            .enumerated()
+        {
+            ShieldExtensionTelemetry.record(
+                event,
+                at: base.addingTimeInterval(TimeInterval(index)),
+                isSessionActive: true,
+                phase: "Focus",
+                targetEndDate: base.addingTimeInterval(1500),
+                focusActivityRegistered: event == .monitorIntervalDidStart
+                    ? true : nil,
+                defaults: defaults
+            )
+        }
+
+        let snapshot = ShieldExtensionTelemetry.snapshot(defaults: defaults)
+        for event in snapshot.allEvents {
+            #expect(event.count == 1)
+            #expect(event.lastFiredAt != nil)
+        }
+    }
+
+    @Test("mostRecentInvocation selects the latest timestamp across events")
+    func mostRecentInvocationSpansAllEvents() {
+        let defaults = makeDefaults()
+        let earlier = Date(timeIntervalSince1970: 2_100_000_000)
+        let latest = earlier.addingTimeInterval(60)
+
+        ShieldExtensionTelemetry.record(
+            .monitorIntervalDidStart,
+            at: earlier,
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: latest,
+            focusActivityRegistered: true,
+            defaults: defaults
+        )
+        ShieldExtensionTelemetry.record(
+            .shieldForWebDomain,
+            at: latest,
+            isSessionActive: true,
+            phase: "Focus",
+            targetEndDate: latest,
+            focusActivityRegistered: nil,
+            defaults: defaults
+        )
+
+        let snapshot = ShieldExtensionTelemetry.snapshot(defaults: defaults)
+        #expect(snapshot.mostRecentInvocation == latest)
     }
 }

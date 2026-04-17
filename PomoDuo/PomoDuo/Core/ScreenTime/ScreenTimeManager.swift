@@ -199,6 +199,7 @@ final class ScreenTimeManager {
                 phase: ShieldSessionContext.sessionPhase,
                 targetEndDate: ShieldSessionContext.targetEndDate
             ),
+            extensionTelemetry: ShieldExtensionTelemetry.snapshot(),
             capturedAt: .now
         )
     }
@@ -226,7 +227,13 @@ final class ScreenTimeManager {
         //    Monitor extensions don't see a stale "focus is active" flag.
         ShieldSessionContext.clearSession()
 
-        // 3. Clear the existing selection. `clearSelection()` already
+        // 3. Clear extension-invocation telemetry so a fresh diagnosis
+        //    run starts from zero. Without this, stale counts from a
+        //    previous session would make "did the extensions run this
+        //    time?" ambiguous.
+        ShieldExtensionTelemetry.reset()
+
+        // 4. Clear the existing selection. `clearSelection()` already
         //    handles the in-memory rebuild (canonical empty selection),
         //    standard-defaults removal, App Group selection rewrite, and
         //    `ManagedSettingsStore.shield` channel teardown.
