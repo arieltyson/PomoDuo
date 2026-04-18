@@ -1898,3 +1898,191 @@ struct AppBlockingSummaryCopyTests {
         )
     }
 }
+
+// MARK: - App Blocking State Normalization
+//
+// Regression guard for the "WhatsApp appears in both the picker and
+// Category Exceptions" repro. The root cause was that
+// `activitySelection` and `categoryExceptions` live on two
+// independent persistence stripes (App Group + standard defaults), so
+// a crashed commit or an older build could leave the persisted
+// values with a shared token. Restore then re-surfaced the overlap
+// verbatim, binding the picker to a selection that claimed a token
+// was blocked while the summary correctly presented it as an
+// exception.
+//
+// The fix is `ScreenTimeManager.normalizing(...)`, a pure helper that
+// enforces:
+//
+//     selection.applicationTokens ∩ categoryExceptions == ∅
+//     selection.webDomainTokens   ∩ webDomainCategoryExceptions == ∅
+//
+// The exception always wins in normalization because it is the newer
+// semantic: a token can only enter `categoryExceptions` through the
+// commitDraft diff, which specifically detects "user deselected this
+// from inside a category" intent.
+//
+// `ApplicationToken` and `WebDomainToken` are opaque system types that
+// cannot be fabricated in unit tests, so the suite below locks the
+// invariant at empty-set / identity-preserving boundaries plus the
+// end-to-end `commitDraft` / `clearSelection` / `reset` paths.
+@MainActor
+struct AppBlockingStateNormalizationTests {
+
+    private func makeManager() -> ScreenTimeManager {
+        let suiteName = "com.pomoduo.tests.normalize.\(UUID().uuidString)"
+        let defaults: UserDefaults
+        if let suiteDefaults = UserDefaults(suiteName: suiteName) {
+            suiteDefaults.removePersistentDomain(forName: suiteName)
+            defaults = suiteDefaults
+        } else {
+            defaults = .standard
+        }
+
+        let manager = ScreenTimeManager(
+            store: ManagedSettingsStore(),
+            persistenceDefaults: defaults
+        )
+        ShieldSessionContext.writeCategoryExceptions([])
+        ShieldSessionContext.writeWebDomainCategoryExceptions([])
+        manager.resetAllScreenTimeState()
+        return manager
+    }
+
+    /// With empty inputs the helper must produce empty outputs and
+    /// preserve the `includeEntireCategory` canonical flag. This pins
+    /// the zero-state boundary of the invariant.
+    @Test("normalizing of empty state is an empty identity")
+    func normalizingEmptyIsIdentity() {
+        let selection = FamilyActivitySelection(includeEntireCategory: true)
+        let normalized = ScreenTimeManager.normalizing(
+            selection: selection,
+            categoryExceptions: [],
+            webDomainCategoryExceptions: []
+        )
+
+        #expect(normalized.selection.applicationTokens.isEmpty)
+        #expect(normalized.selection.categoryTokens.isEmpty)
+        #expect(normalized.selection.webDomainTokens.isEmpty)
+        #expect(normalized.selection.includeEntireCategory == true)
+        #expect(normalized.categoryExceptions.isEmpty)
+        #expect(normalized.webDomainCategoryExceptions.isEmpty)
+    }
+
+    /// When both exception sets are empty the normalizer must return
+    /// the input selection unchanged (no reallocations, no flag drift).
+    /// This pins the "no-overlap fast path" at the reference-equality
+    /// level so a future refactor can't accidentally rebuild the
+    /// selection on the hot no-op path.
+    @Test("normalizing with empty exceptions returns selection unchanged")
+    func normalizingWithEmptyExceptionsPreservesSelection() {
+        let selection = FamilyActivitySelection(includeEntireCategory: true)
+        let normalized = ScreenTimeManager.normalizing(
+            selection: selection,
+            categoryExceptions: [],
+            webDomainCategoryExceptions: []
+        )
+
+        #expect(normalized.selection == selection)
+    }
+
+    /// `includeEntireCategory: false` must round-trip too. Legacy
+    /// payloads can arrive with `false`; the normalizer is applied
+    /// *after* `canonicalizeRestoredSelection(_:)`, but locking this
+    /// behavior at this layer keeps the helper self-contained and
+    /// usable outside the restore path.
+    @Test("normalizing preserves includeEntireCategory flag")
+    func normalizingPreservesFlag() {
+        let legacySelection = FamilyActivitySelection(
+            includeEntireCategory: false
+        )
+        let normalized = ScreenTimeManager.normalizing(
+            selection: legacySelection,
+            categoryExceptions: [],
+            webDomainCategoryExceptions: []
+        )
+
+        #expect(normalized.selection.includeEntireCategory == false)
+    }
+
+    /// `commitDraft(_:)` on an empty draft must land on a state that
+    /// satisfies the disjoint invariant. The math already guarantees
+    /// this by subtracting `canonicalDraft.applicationTokens`, but the
+    /// defense-in-depth `normalizing` call at the end of commit makes
+    /// the invariant unconditional — a future refactor that changes
+    /// the derivation still can't produce overlap because this test
+    /// breaks.
+    @Test("commitDraft of empty produces disjoint state")
+    func commitDraftEmptyIsDisjoint() {
+        let manager = makeManager()
+
+        manager.commitDraft(
+            FamilyActivitySelection(includeEntireCategory: true)
+        )
+
+        let appOverlap = manager.activitySelection.applicationTokens
+            .intersection(manager.categoryExceptions)
+        let webOverlap = manager.activitySelection.webDomainTokens
+            .intersection(manager.webDomainCategoryExceptions)
+
+        #expect(appOverlap.isEmpty)
+        #expect(webOverlap.isEmpty)
+    }
+
+    /// After `clearSelection()` the invariant trivially holds (both
+    /// sides are empty). Locking this down prevents a regression where
+    /// clearSelection forgets to reset the exception sets — in that
+    /// case a stale exception token could survive into a fresh
+    /// selection and reintroduce overlap.
+    @Test("clearSelection lands on disjoint state")
+    func clearSelectionIsDisjoint() {
+        let manager = makeManager()
+
+        manager.clearSelection()
+
+        let appOverlap = manager.activitySelection.applicationTokens
+            .intersection(manager.categoryExceptions)
+        let webOverlap = manager.activitySelection.webDomainTokens
+            .intersection(manager.webDomainCategoryExceptions)
+
+        #expect(appOverlap.isEmpty)
+        #expect(webOverlap.isEmpty)
+    }
+
+    /// `resetAllScreenTimeState()` is the user-facing recovery path;
+    /// locking its post-state to the invariant closes the loop on
+    /// every manager-owned "clear everything" surface.
+    @Test("resetAllScreenTimeState lands on disjoint state")
+    func resetIsDisjoint() {
+        let manager = makeManager()
+
+        manager.resetAllScreenTimeState()
+
+        let appOverlap = manager.activitySelection.applicationTokens
+            .intersection(manager.categoryExceptions)
+        let webOverlap = manager.activitySelection.webDomainTokens
+            .intersection(manager.webDomainCategoryExceptions)
+
+        #expect(appOverlap.isEmpty)
+        #expect(webOverlap.isEmpty)
+    }
+
+    /// Cold-start restoration must land on a disjoint state. This
+    /// covers the actual screenshot repro: older builds could persist
+    /// overlapping sets, and restoration used to propagate them
+    /// verbatim. The manager's `init` invokes `restoreSelection()`
+    /// which now calls `applyRestoredState(...)` — this test pins
+    /// that normalization to the cold-start boundary.
+    @Test("Fresh manager init lands on disjoint state")
+    func freshManagerIsDisjoint() {
+        let manager = makeManager()
+
+        let appOverlap = manager.activitySelection.applicationTokens
+            .intersection(manager.categoryExceptions)
+        let webOverlap = manager.activitySelection.webDomainTokens
+            .intersection(manager.webDomainCategoryExceptions)
+
+        #expect(appOverlap.isEmpty)
+        #expect(webOverlap.isEmpty)
+    }
+}

@@ -478,6 +478,19 @@ private struct AppBlockingEditorView: View {
             .id(pickerID)
             .navigationTitle("Edit App Blocking")
             .navigationBarTitleDisplayMode(.inline)
+            // Apple's `FamilyActivityPicker` binds a
+            // `FamilyActivitySelection`, which structurally cannot
+            // encode category carve-outs (the struct has no exception
+            // field — verified against
+            // `FamilyControls.swiftinterface`). That means an app the
+            // user has exempted from a blocked category on the summary
+            // screen can still appear checked in this picker. A thin
+            // banner at the top names that limitation so the user's
+            // mental model stays aligned with the summary, which is
+            // the authoritative source of truth for carve-outs.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                CategoryExceptionsBanner()
+            }
             .onAppear {
                 seedDraftIfNeeded()
             }
@@ -593,6 +606,65 @@ private struct AppBlockingEditorView: View {
         // committed result (including any derived exceptions) in its
         // first-class form rather than continuing to read the picker.
         dismiss()
+    }
+}
+
+/// Non-blocking banner pinned above ``FamilyActivityPicker`` that names
+/// a structural limitation of Apple's picker: `FamilyActivitySelection`
+/// has no exception field (verified against the public Swift
+/// interface), so an app the user has carved out of a blocked category
+/// can still render as checked inside the picker even when the summary
+/// screen is correctly tracking it as a Category Exception.
+///
+/// The banner only appears when the manager is holding one or more
+/// carve-outs — `hasSelectedApps` without carve-outs means the picker
+/// is truthful about the full state and no disclaimer is needed. When
+/// the user clears every carve-out, the banner disappears on its own.
+///
+/// Kept deliberately thin: one `info.circle.fill` glyph + two short
+/// sentences. `.regularMaterial` in a `Rectangle` matches the iOS 26
+/// banner pattern in Mail / Safari Reader; the Divider at the bottom
+/// separates it from the UIKit-backed picker below.
+private struct CategoryExceptionsBanner: View {
+    @Environment(ScreenTimeManager.self) private var screenTimeManager
+
+    var body: some View {
+        if hasTrackedCarveOuts {
+            bannerBody
+        }
+    }
+
+    private var hasTrackedCarveOuts: Bool {
+        !screenTimeManager.categoryExceptions.isEmpty
+            || !screenTimeManager.webDomainCategoryExceptions.isEmpty
+    }
+
+    private var bannerBody: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(AppColors.lavender)
+                .accessibilityHidden(true)
+
+            Text(
+                "Apps you've carved out of a blocked category may still appear selected here — Apple's picker doesn't expose Category Exceptions. Manage carve-outs on App Blocking."
+            )
+            .font(.caption)
+            .foregroundStyle(.primary)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.regularMaterial, in: Rectangle())
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Apps you have carved out of a blocked category may still appear selected in this picker. Apple's picker can't display Category Exceptions. Manage carve-outs on the App Blocking screen."
+        )
     }
 }
 

@@ -103,6 +103,79 @@ final class ScreenTimeManager {
     /// algorithm reference one source of truth.
     static let categoryExceptionsLimit = 50
 
+    /// Result of enforcing the no-overlap invariant between
+    /// ``activitySelection`` and the category-exception sets.
+    ///
+    /// ### Invariant
+    ///
+    /// ```
+    /// selection.applicationTokens ∩ categoryExceptions == ∅
+    /// selection.webDomainTokens   ∩ webDomainCategoryExceptions == ∅
+    /// ```
+    ///
+    /// An app token that is in `categoryExceptions` means "the user
+    /// carved this out of a blocked category." An app token that is in
+    /// `selection.applicationTokens` means "the user explicitly wants
+    /// this app shielded as a standalone app." Those are contradictory
+    /// intents for the same token. The carve-out is always the newer
+    /// semantic (it can only appear when the user deselected the token
+    /// *from inside a shielded category*), so in normalization the
+    /// exception wins and the token is stripped from the selection.
+    struct NormalizedAppBlockingState: Equatable, Sendable {
+        let selection: FamilyActivitySelection
+        let categoryExceptions: Set<ApplicationToken>
+        let webDomainCategoryExceptions: Set<WebDomainToken>
+    }
+
+    /// Enforces the no-overlap invariant across `(selection,
+    /// categoryExceptions, webDomainCategoryExceptions)`.
+    ///
+    /// `commitDraft(_:)` produces disjoint sets by construction — the
+    /// derivation subtracts `canonicalDraft.applicationTokens` from the
+    /// derived exceptions. But the on-disk state is split across two
+    /// independent storage stripes (App Group for extensions, standard
+    /// defaults for the main app), so a crashed commit or an old build
+    /// can leave them out of sync. `restoreSelection()` calls this
+    /// helper after reading both stripes so the cold-start state is
+    /// self-healing without needing a one-shot migration.
+    ///
+    /// This is a pure function so the invariant is locked in by tests
+    /// even though `ApplicationToken` / `WebDomainToken` are opaque
+    /// system types that unit tests can't fabricate.
+    static func normalizing(
+        selection: FamilyActivitySelection,
+        categoryExceptions: Set<ApplicationToken>,
+        webDomainCategoryExceptions: Set<WebDomainToken>
+    ) -> NormalizedAppBlockingState {
+        let appOverlap = selection.applicationTokens
+            .intersection(categoryExceptions)
+        let webOverlap = selection.webDomainTokens
+            .intersection(webDomainCategoryExceptions)
+
+        guard !appOverlap.isEmpty || !webOverlap.isEmpty else {
+            return NormalizedAppBlockingState(
+                selection: selection,
+                categoryExceptions: categoryExceptions,
+                webDomainCategoryExceptions: webDomainCategoryExceptions
+            )
+        }
+
+        var normalized = FamilyActivitySelection(
+            includeEntireCategory: selection.includeEntireCategory
+        )
+        normalized.applicationTokens = selection.applicationTokens
+            .subtracting(categoryExceptions)
+        normalized.categoryTokens = selection.categoryTokens
+        normalized.webDomainTokens = selection.webDomainTokens
+            .subtracting(webDomainCategoryExceptions)
+
+        return NormalizedAppBlockingState(
+            selection: normalized,
+            categoryExceptions: categoryExceptions,
+            webDomainCategoryExceptions: webDomainCategoryExceptions
+        )
+    }
+
     var isAuthorized: Bool {
         if authorizationStatus == .approved { return true }
         if #available(iOS 26.4, *),
@@ -357,13 +430,25 @@ final class ScreenTimeManager {
         committed.categoryTokens = finalCategories
         committed.webDomainTokens = canonicalDraft.webDomainTokens
 
+        // Final normalization pass — defense in depth. The derivation
+        // above produces disjoint sets by construction (derivedApp/Web
+        // Exceptions subtract canonicalDraft tokens), but running the
+        // committed state through ``normalizing(...)`` makes the
+        // invariant unconditional at this write boundary regardless of
+        // any future refactor to the derivation.
+        let normalized = Self.normalizing(
+            selection: committed,
+            categoryExceptions: cappedAppExceptions,
+            webDomainCategoryExceptions: cappedWebExceptions
+        )
+
         // Apply atomically: assign exceptions first so both observers
         // in `PomoDuoApp` (on activitySelection, categoryExceptions,
         // webDomainCategoryExceptions) see the coherent state when
         // they coalesce into `restrictionCoordinator.refreshRestrictions`.
-        categoryExceptions = cappedAppExceptions
-        webDomainCategoryExceptions = cappedWebExceptions
-        activitySelection = committed
+        categoryExceptions = normalized.categoryExceptions
+        webDomainCategoryExceptions = normalized.webDomainCategoryExceptions
+        activitySelection = normalized.selection
     }
 
     // MARK: - Runtime Health
@@ -534,10 +619,9 @@ final class ScreenTimeManager {
             !shared.applicationTokens.isEmpty || !shared.categoryTokens.isEmpty
                 || !shared.webDomainTokens.isEmpty
         {
-            activitySelection = Self.canonicalizeRestoredSelection(shared)
-            categoryExceptions = restoreCategoryExceptions()
-            webDomainCategoryExceptions =
-                restoreWebDomainCategoryExceptions()
+            applyRestoredState(
+                selection: Self.canonicalizeRestoredSelection(shared)
+            )
             return
         }
 
@@ -554,16 +638,44 @@ final class ScreenTimeManager {
         }
 
         let canonical = Self.canonicalizeRestoredSelection(selection)
-        activitySelection = canonical
-        categoryExceptions = restoreCategoryExceptions()
-        webDomainCategoryExceptions = restoreWebDomainCategoryExceptions()
+        applyRestoredState(selection: canonical)
 
-        // Migrate legacy data to App Group for extension access. Writing the
-        // canonical form here (rather than the raw legacy `selection`) means
-        // subsequent reads — including by the DeviceActivity Monitor
-        // extension — land on the exception-aware flag, not the downgraded
-        // one that the legacy payload was saved with.
-        ShieldSessionContext.writeSelection(canonical)
+        // Migrate legacy data to App Group for extension access. Writing
+        // the in-memory `activitySelection` (set by `applyRestoredState`
+        // and possibly normalized below) — rather than the raw decoded
+        // payload — means subsequent reads by the DeviceActivity Monitor
+        // extension land on the exception-aware flag *and* the healed
+        // no-overlap shape, not the raw legacy payload.
+        ShieldSessionContext.writeSelection(activitySelection)
+    }
+
+    /// Applies a restored selection together with its persisted
+    /// category-exception sets, enforcing the no-overlap invariant.
+    ///
+    /// The two storage stripes (App Group + standard defaults) are
+    /// written independently, so a crashed commit from a prior build
+    /// can leave the persisted `activitySelection.applicationTokens`
+    /// and `categoryExceptions` with a shared token — the exact
+    /// "WhatsApp appears in both the picker and the Category
+    /// Exceptions list" repro. Running the restored tuple through
+    /// ``normalizing(...)`` at the cold-start boundary strips the
+    /// overlap (exception wins) before any observer sees the state, so
+    /// the UI can never bind the same token as both blocked and
+    /// excepted. The didSet on each property re-persists the healed
+    /// form automatically.
+    private func applyRestoredState(selection: FamilyActivitySelection) {
+        let restoredAppExceptions = restoreCategoryExceptions()
+        let restoredWebExceptions = restoreWebDomainCategoryExceptions()
+
+        let normalized = Self.normalizing(
+            selection: selection,
+            categoryExceptions: restoredAppExceptions,
+            webDomainCategoryExceptions: restoredWebExceptions
+        )
+
+        activitySelection = normalized.selection
+        categoryExceptions = normalized.categoryExceptions
+        webDomainCategoryExceptions = normalized.webDomainCategoryExceptions
     }
 
     /// Restores ``categoryExceptions`` from persistence, preferring the
