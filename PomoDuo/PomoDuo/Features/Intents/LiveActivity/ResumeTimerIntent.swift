@@ -13,10 +13,10 @@ struct ResumeTimerIntent: LiveActivityIntent {
         .alwaysAllowed
     }
 
-    @available(iOS 18.0, *)
-    static var supportedModes: IntentModes {
-        [.background, .foreground(.dynamic)]
-    }
+    // See ``PauseTimerIntent`` for the full rationale behind
+    // dropping the (incorrect) `@available(iOS 18.0, *)` wrapper
+    // and narrowing to `.background`.
+    static var supportedModes: IntentModes { .background }
 
     @MainActor
     func perform() async throws -> some IntentResult {

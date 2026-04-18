@@ -1,22 +1,44 @@
 # iOS unit-test workflow.
 #
-# Runs the full `PomoDuoTests` suite on a macOS runner against the
-# same iPhone 17 / iOS 26.4 simulator the local workflow targets.
-# A single-runner job (no matrix, no UI-test target) keeps macOS
-# minute consumption low while still catching:
+# Runs the full `PomoDuoTests` suite against the iPhone 17 / iOS 26
+# simulator the local workflow targets. Single-runner job, no matrix,
+# no UI tests — keeps macOS minute consumption low while still
+# catching:
 #
 #   - Swift compile regressions
-#   - Contract-parity drift between `UsernameNormalizer` / `PairCode`
-#     and the backend regex (which is verified independently in the
-#     backend contract-test workflow — the two together form the
-#     cross-repo parity net).
+#   - Contract-parity drift between iOS (`UsernameNormalizer`,
+#     `PairCode`) and the backend regex (which is verified
+#     independently in the backend contract-test workflow — the two
+#     together form the cross-repo parity net)
 #   - Any other PomoDuoTests regression (runtime-health, Screen Time
-#     mapper, session/paired flows, deep-link router, etc.).
+#     mapper, session/paired flows, deep-link router, etc.)
 #
-# To disable this workflow temporarily without deleting it (e.g.,
-# if macOS minutes become a concern), set the repo's Actions
-# `workflow_dispatch: on` and comment out the `push`/`pull_request`
-# triggers. The file stays checked in for easy re-enable.
+# Runner selection notes
+# ----------------------
+# We deliberately pin to `runs-on: macos-26`, NOT `macos-latest`.
+# GitHub's runner-images README currently documents:
+#
+#   - `macos-latest` → aliases `macos-15` (arm64) with Xcode 16.4 as
+#     the default toolchain. Xcode 16.4's simulator SDK caps at
+#     iOS 18.5, which is below this project's `IPHONEOS_DEPLOYMENT_TARGET`
+#     of 26.2. It also fails to parse iOS 26 SDK symbols like
+#     `AppIntents.IntentModes`, so the build fails before a single
+#     test runs.
+#   - `macos-26` is a GA image (arm64) whose default Xcode is 26.2,
+#     matching this repo's deployment-target minor exactly.
+#
+# The previous revision of this workflow relied on `macos-latest`
+# and a comment that assumed "latest = newest." That assumption is
+# outdated: `macos-latest` will keep pointing at macOS 15 until
+# GitHub explicitly cuts the alias over, which per their published
+# deprecation cadence happens months after a new macOS image ships.
+# Pinning to `macos-26` is therefore the durable fix — same level of
+# maintenance as any other GitHub-managed runner label, and it drops
+# the whole class of "Xcode 16 can't see iOS 26 symbols" failures.
+#
+# To disable this workflow temporarily without deleting it, comment
+# out the `push` / `pull_request` triggers; the file stays checked
+# in for easy re-enable.
 
 name: iOS Tests
 
@@ -33,12 +55,9 @@ concurrency:
 jobs:
   test:
     name: xcodebuild test (PomoDuoTests)
-    # `macos-latest` currently pins to the newest macOS runner image
-    # GitHub ships with Xcode pre-installed. Upgrade to a
-    # version-pinned `macos-15`/`macos-14` label only if Apple
-    # changes the default Xcode on `macos-latest` to one that no
-    # longer supports this project's iOS 26 deployment target.
-    runs-on: macos-latest
+    # macos-26 is GA per the runner-images README; default Xcode
+    # 26.2 matches this project's IPHONEOS_DEPLOYMENT_TARGET.
+    runs-on: macos-26
     timeout-minutes: 30
 
     defaults:
@@ -61,8 +80,10 @@ jobs:
           restore-keys: spm-${{ runner.os }}-
 
       - name: Show Xcode version
-        # Logged for diagnostic clarity when a future macOS runner
-        # upgrade changes the default Xcode toolchain.
+        # Logged for diagnostic clarity. If the macos-26 image's
+        # default Xcode ever drifts away from the 26.x line this
+        # project's deployment target expects, it surfaces in the
+        # log before any compile step runs.
         run: xcodebuild -version
 
       - name: Run PomoDuoTests
@@ -71,6 +92,11 @@ jobs:
         # image. The output is verbose but searchable; failures
         # surface at the top via GitHub's built-in log-error
         # detection.
+        #
+        # `OS=latest` resolves to whichever iOS 26.x simulator
+        # runtime the macos-26 image ships with (currently
+        # 26.2-equivalent); not pinning the minor keeps this
+        # workflow stable across runner-image updates.
         run: |
           xcodebuild test \
             -scheme PomoDuoTests \

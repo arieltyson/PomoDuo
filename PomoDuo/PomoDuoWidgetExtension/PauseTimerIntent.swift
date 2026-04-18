@@ -12,10 +12,19 @@ struct PauseTimerIntent: LiveActivityIntent {
         .alwaysAllowed
     }
 
-    @available(iOS 18.0, *)
-    static var supportedModes: IntentModes {
-        [.background, .foreground(.dynamic)]
-    }
+    // `supportedModes` is iOS 26.0+ (per the AppIntents SDK in
+    // Xcode 26). The project's deployment target is iOS 26.2, so no
+    // `@available` wrapper is needed. The previous wrapper claimed
+    // `iOS 18.0`, which was wrong in both directions — it didn't
+    // actually gate anything on iOS 26-only runtimes, and it made
+    // CI toolchains that *didn't* know the iOS 26 SDK (Xcode 16.4
+    // on `macos-latest`) fail to parse the property's type.
+    //
+    // `.background` alone is correct here: this Live Activity
+    // pause button has no UI surface and `openAppWhenRun` is
+    // already `false`, so the prior `[.background, .foreground(.dynamic)]`
+    // set was internally contradictory.
+    static var supportedModes: IntentModes { .background }
 
     func perform() async throws -> some IntentResult {
         guard

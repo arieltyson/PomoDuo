@@ -20,10 +20,8 @@ struct StopTimerIntent: LiveActivityIntent {
         .alwaysAllowed
     }
 
-    @available(iOS 18.0, *)
-    static var supportedModes: IntentModes {
-        [.background, .foreground(.dynamic)]
-    }
+    // See ``PauseTimerIntent`` for the rationale.
+    static var supportedModes: IntentModes { .background }
 
     @MainActor
     func perform() async throws -> some IntentResult {

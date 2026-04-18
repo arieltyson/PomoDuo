@@ -13,10 +13,15 @@ struct PauseTimerIntent: LiveActivityIntent {
         .alwaysAllowed
     }
 
-    @available(iOS 18.0, *)
-    static var supportedModes: IntentModes {
-        [.background, .foreground(.dynamic)]
-    }
+    // `supportedModes` is iOS 26.0+ (AppIntents SDK). Deployment
+    // target is 26.2, so no `@available` wrapper is needed. The
+    // previous `@available(iOS 18.0, *)` was wrong on both axes —
+    // didn't gate anything for runtime, and made Xcode 16.4 (the
+    // toolchain `macos-latest` still defaulted to on CI at the
+    // time) fail to parse `IntentModes`. `.background` alone is
+    // correct: `openAppWhenRun = false` above means foreground
+    // continuation is explicitly undesired.
+    static var supportedModes: IntentModes { .background }
 
     @MainActor
     func perform() async throws -> some IntentResult {

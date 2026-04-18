@@ -17,10 +17,10 @@ struct StopTimerIntent: LiveActivityIntent {
     static var authenticationPolicy: IntentAuthenticationPolicy {
         .alwaysAllowed
     }
-    @available(iOS 18.0, *)
-    static var supportedModes: IntentModes {
-        [.background, .foreground(.dynamic)]
-    }
+    // See ``PauseTimerIntent`` for the rationale. Same deployment
+    // target, same `openAppWhenRun = false`, same `.background`
+    // correctness argument.
+    static var supportedModes: IntentModes { .background }
 
     @MainActor
     func perform() async throws -> some IntentResult {

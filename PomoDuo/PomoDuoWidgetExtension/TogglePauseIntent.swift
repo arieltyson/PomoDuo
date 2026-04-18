@@ -15,10 +15,9 @@ struct TogglePauseIntent: LiveActivityIntent {
     static var authenticationPolicy: IntentAuthenticationPolicy {
         .alwaysAllowed
     }
-    @available(iOS 18.0, *)
-    static var supportedModes: IntentModes {
-        [.background, .foreground(.dynamic)]
-    }
+    // See ``PauseTimerIntent`` for the rationale behind
+    // `.background` + no `@available` wrapper.
+    static var supportedModes: IntentModes { .background }
 
     /// Desired paused state. `true` pauses, `false` resumes.
     var shouldPause: Bool
