@@ -118,44 +118,6 @@ private struct PulsingRing: View {
     }
 }
 
-/// Honest active-session blocking chip for paired focus.
-///
-/// Mirrors the solo timer's chip semantics: copy reflects what the app
-/// honestly knows ("blocking requested" / "repairing"), never the
-/// stronger "Apps Blocked" claim about OS-level enforcement that Apple
-/// does not expose.
-struct PairedBlockingIndicatorView: View {
-    let health: ScreenTimeRuntimeHealth
-
-    var body: some View {
-        Group {
-            switch health {
-            case .healthy:
-                Label("Blocking Active", systemImage: "shield.fill")
-                    .accessibilityLabel(
-                        "App blocking active for this focus session."
-                    )
-            case .degraded:
-                Label(
-                    "Blocking · Repairing",
-                    systemImage: "exclamationmark.shield.fill"
-                )
-                .accessibilityLabel(
-                    "App blocking is being repaired for this focus session."
-                )
-            case .unavailable:
-                EmptyView()
-            }
-        }
-        .font(.caption2)
-        .foregroundStyle(AppColors.lavender)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
-        .background(AppColors.lavender.opacity(0.14), in: .capsule)
-        .transition(.opacity)
-    }
-}
-
 private struct PartnerInitialAvatar: View {
     let name: String
 

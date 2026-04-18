@@ -50,7 +50,7 @@ struct TimerView: View {
                     isBreak: phase.isBreak,
                     isRunning: viewModel.isRunning,
                     isComplete: viewModel.isComplete,
-                    blockingChip: blockingChipState,
+                    blockingHealth: blockingHealthForCurrentSession,
                     onStart: { startFocus(using: activeConfiguration) },
                     onPause: pauseTimer,
                     onResume: resumeTimer,
@@ -110,23 +110,18 @@ struct TimerView: View {
         UIApplication.shared.isIdleTimerDisabled = isDisabled
     }
 
-    /// Returns the chip payload for the current focus session, or `nil` to
-    /// hide the chip entirely.
+    /// Runtime health to feed into ``BlockingStatusChip``, or `nil` to hide
+    /// the chip entirely.
     ///
     /// `nil` is the truthful state when the coordinator isn't requesting
-    /// shielding, when the manager classifies the runtime as
-    /// `.unavailable`, or when the policy would shield nothing — claiming
-    /// "Blocking Active" in any of those cases would be a lie.
-    private var blockingChipState: BlockingChipState? {
+    /// shielding for the current session — claiming "Blocking Active" in
+    /// that case would be a lie. When the coordinator *is* requesting
+    /// shielding, the chip itself decides visibility from the health
+    /// value: ``.healthy`` and ``.degraded`` both render the same calm
+    /// "Blocking Active" copy, and ``.unavailable`` renders nothing.
+    private var blockingHealthForCurrentSession: ScreenTimeRuntimeHealth? {
         guard restrictionCoordinator.isRestricting else { return nil }
-        switch screenTimeManager.runtimeHealth {
-        case .healthy:
-            return .requested
-        case .degraded:
-            return .repairing
-        case .unavailable:
-            return nil
-        }
+        return screenTimeManager.runtimeHealth
     }
 
     private func consumePendingFocusRequest() {
@@ -852,10 +847,11 @@ private struct TimerCanvasView: View {
 
     let isRunning: Bool
     let isComplete: Bool
-    /// Combined "should the chip render and what should it say" payload.
-    /// `nil` means hide the chip entirely (the truthful state when the
-    /// runtime classifies as `.unavailable` or no shielding is requested).
-    let blockingChip: BlockingChipState?
+    /// Runtime health for the active focus session, or `nil` if the chip
+    /// should not appear at all (no shielding requested). When non-nil,
+    /// ``BlockingStatusChip`` itself maps ``.unavailable`` to a hidden
+    /// chip, so the caller only owns the "is shielding requested?" gate.
+    let blockingHealth: ScreenTimeRuntimeHealth?
 
     let onStart: () -> Void
     let onPause: () -> Void
@@ -908,8 +904,8 @@ private struct TimerCanvasView: View {
                     onSkip: onSkip
                 )
 
-                if let blockingChip {
-                    BlockingIndicatorView(state: blockingChip)
+                if let blockingHealth {
+                    BlockingStatusChip(health: blockingHealth)
                 }
             }
             .padding(.bottom)
@@ -920,47 +916,6 @@ private struct TimerCanvasView: View {
                 .fill(.background)
                 .ignoresSafeArea(edges: [.top, .horizontal])
         }
-    }
-}
-
-/// Honest copy + iconography for the active-session blocking chip.
-///
-/// "Apps Blocked" was the previous string — that overclaimed effective
-/// OS-level shielding, which Apple does not expose. The new states
-/// describe what the *app* honestly knows: it has requested shielding for
-/// this session (`.requested`), or its app-side runtime channels appear
-/// to be drifting and are being repaired (`.repairing`).
-struct BlockingChipState: Equatable, Sendable {
-    let title: String
-    let symbol: String
-    let accessibilityLabel: String
-
-    static let requested = BlockingChipState(
-        title: "Blocking Active",
-        symbol: "shield.fill",
-        accessibilityLabel: "App blocking active for this focus session."
-    )
-
-    static let repairing = BlockingChipState(
-        title: "Blocking · Repairing",
-        symbol: "exclamationmark.shield.fill",
-        accessibilityLabel:
-            "App blocking is being repaired for this focus session."
-    )
-}
-
-private struct BlockingIndicatorView: View {
-    let state: BlockingChipState
-
-    var body: some View {
-        Label(state.title, systemImage: state.symbol)
-            .font(.caption2)
-            .foregroundStyle(AppColors.lavender)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(AppColors.lavender.opacity(0.14), in: .capsule)
-            .accessibilityLabel(state.accessibilityLabel)
-            .transition(.opacity)
     }
 }
 

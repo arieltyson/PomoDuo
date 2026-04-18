@@ -62,8 +62,8 @@ struct ActivePairedSessionView: View {
                     isShowingEndConfirmation: $isShowingEndConfirmation
                 )
 
-                if shouldShowBlockingIndicator {
-                    PairedBlockingIndicatorView(
+                if restrictionCoordinator.isRestricting {
+                    BlockingStatusChip(
                         health: screenTimeManager.runtimeHealth
                     )
                 }
@@ -172,16 +172,6 @@ struct ActivePairedSessionView: View {
         case .idle, .requesting, .completed:
             false
         }
-    }
-
-    /// Hides the chip entirely when the manager classifies the runtime as
-    /// `.unavailable` — there's nothing honest to claim in that case.
-    /// Otherwise the chip is gated on the coordinator believing it has
-    /// requested shielding (`isRestricting`), and the chip's text varies
-    /// by ``ScreenTimeRuntimeHealth``.
-    private var shouldShowBlockingIndicator: Bool {
-        guard restrictionCoordinator.isRestricting else { return false }
-        return screenTimeManager.runtimeHealth.isRequestable
     }
 
     /// Reconciles the Screen Time pipeline based on the live session
