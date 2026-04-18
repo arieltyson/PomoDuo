@@ -6,27 +6,39 @@ import SwiftUI
 /// authorized experience.
 ///
 /// - **Authorized**: ``AppBlockingSummaryView`` is the primary surface.
-///   It shows the user a first-class representation of what PomoDuo is
-///   currently enforcing — categories, specific apps, web domains, and
-///   any category exceptions rendered with Apple's
-///   `Label(ApplicationToken)` so each exception shows the real app
-///   icon and name. The ``FamilyActivityPicker`` is reachable as a
-///   pushed **Editor** view via an explicit "Edit App Blocking"
-///   button.
+///   It shows the user **what PomoDuo is configured to block** — the
+///   categories, specific apps, and web domains they picked in the
+///   editor. Category carve-outs (apps or domains the user deselected
+///   from inside a blocked category) are surfaced in their own
+///   "Category Exceptions" section so the user has a direct swipe-to-
+///   re-block affordance the picker structurally can't provide. The
+///   ``FamilyActivityPicker`` is reachable as a pushed **Editor** view
+///   via an explicit "Edit App Blocking" button.
 /// - **Unauthorized**: ``AppBlockingSetupContent`` owns the Screen Time
 ///   permission flow (first-time request and denied/restricted state).
 ///
 /// ### Why summary-first
 ///
-/// `FamilyActivitySelection` has no public exception field. When the
-/// user commits a "shield this category but exempt this app" intent
-/// via ``ScreenTimeManager/commitDraft(_:)``, the derived exceptions
-/// live on ``ScreenTimeManager/categoryExceptions`` and
+/// `FamilyActivitySelection` has no public exception field (verified
+/// against Apple's docs — the struct only exposes `applicationTokens`,
+/// `categoryTokens`, `webDomainTokens`, and `includeEntireCategory`).
+/// When the user commits a "shield this category but exempt this app"
+/// intent via ``ScreenTimeManager/commitDraft(_:)``, the derived
+/// carve-outs live on ``ScreenTimeManager/categoryExceptions`` and
 /// ``ScreenTimeManager/webDomainCategoryExceptions`` — state the
 /// picker structurally cannot round-trip. Making the picker the front
-/// door would leave that enforced state invisible. The summary view is
-/// the app's own truthful representation of the committed state; the
+/// door would leave those carve-outs invisible. The summary view is the
+/// app's first-class representation of **configured** state; the
 /// picker is just its editor.
+///
+/// ### What the summary does *not* claim
+///
+/// PomoDuo cannot enumerate every app installed on the device. The
+/// summary intentionally avoids any "unblocked apps" framing — an app
+/// the user never added to a blocked category simply doesn't appear
+/// anywhere in this screen. Only carve-outs from currently-shielded
+/// categories are trackable, and that is the narrow claim the
+/// "Category Exceptions" section makes.
 struct AppBlockingView: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(\.scenePhase) private var scenePhase
@@ -55,26 +67,37 @@ struct AppBlockingView: View {
 
 // MARK: - Summary (Authorized Root)
 
-/// Committed-state summary: shows the user what PomoDuo is currently
-/// enforcing and exposes direct controls for the pieces the picker
-/// can't represent (the per-app and per-web-domain exception sets).
+/// Configured-state summary: shows the user what PomoDuo is set up to
+/// block and exposes direct controls for category carve-outs — the one
+/// thing the picker structurally can't represent.
 ///
-/// Architecture notes:
+/// ### What this screen covers
 ///
-/// - The summary is the only place the raw committed state is rendered
-///   in a way that's truthful about exceptions. Any other view that
-///   needs to describe "what's blocked right now" should ultimately
-///   defer here.
-/// - Exception rows use Apple's `Label(ApplicationToken)` /
+/// - "Currently Enforced" counts only the things the user **picked to
+///   block**: categories, specific apps, web domains. Carve-outs are
+///   intentionally excluded from the count ledger. Mixing inputs
+///   (picked-to-block) with derived carve-outs (exempted-from-a-block)
+///   invites the false inference "blocked − exceptions = the apps that
+///   are actually unblocked", which PomoDuo cannot accurately answer.
+///   Apple does not expose the universe of installed apps.
+/// - "Category Exceptions" (and its web counterpart) lists only
+///   carve-outs tracked in ``ScreenTimeManager/categoryExceptions`` /
+///   ``ScreenTimeManager/webDomainCategoryExceptions``. An app the
+///   user never added to a blocked category won't appear here, because
+///   there is no carve-out to surface.
+///
+/// ### Implementation notes
+///
+/// - Carve-out rows use Apple's `Label(ApplicationToken)` /
 ///   `Label(WebDomainToken)` initializer — per `DisplayingActivityLabels`
 ///   in FamilyControls — so each row renders the real app icon + name
 ///   (or the web-domain string). Reading `Application.localizedDisplayName`
 ///   from the main app target is unsupported (Apple returns `nil`
 ///   outside Shield Configuration extensions), so `Label(token)` is the
 ///   only documented path.
-/// - Swipe-to-reblock on each exception row calls the direct
+/// - Swipe-to-reblock on each carve-out row calls the direct
 ///   management API on ``ScreenTimeManager`` so the user never has to
-///   reopen the picker to undo an exception.
+///   reopen the picker to undo a carve-out.
 private struct AppBlockingSummaryView: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     @State private var isShowingClearExceptionsConfirmation = false
@@ -93,7 +116,7 @@ private struct AppBlockingSummaryView: View {
         }
         .scrollIndicators(.hidden)
         .alert(
-            "Clear App Exceptions?",
+            "Clear Category Exceptions?",
             isPresented: $isShowingClearExceptionsConfirmation
         ) {
             Button("Clear", role: .destructive) {
@@ -102,14 +125,17 @@ private struct AppBlockingSummaryView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(
-                "Every app currently exempted from a blocked category will be shielded again the next time a focus session runs."
+                "Every app you've carved out of a blocked category will be shielded again the next time a focus session runs."
             )
         }
     }
 }
 
-/// Terse counts above the exception lists so the user can see the
-/// committed state's shape at a glance without scrolling.
+/// Terse counts of what the user has picked to block. Carve-outs are
+/// intentionally omitted from this section — they are a separate axis
+/// (derived, not picked) and listing them here alongside inputs would
+/// imply a false "blocked minus exceptions = unblocked" arithmetic
+/// that PomoDuo cannot truthfully compute.
 private struct StatusSection: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
 
@@ -133,22 +159,12 @@ private struct StatusSection: View {
                 )
                 .monospacedDigit()
             }
-            LabeledContent("App exceptions") {
-                Text("\(screenTimeManager.categoryExceptions.count)")
-                    .monospacedDigit()
-            }
-            LabeledContent("Web domain exceptions") {
-                Text(
-                    "\(screenTimeManager.webDomainCategoryExceptions.count)"
-                )
-                .monospacedDigit()
-            }
         } header: {
             Text("Currently Enforced")
         } footer: {
             if screenTimeManager.hasSelectedApps {
                 Text(
-                    "PomoDuo shields these items during focus sessions. Exceptions listed below are exempted from their blocked categories."
+                    "PomoDuo shields these items during focus sessions."
                 )
             } else {
                 Text(
@@ -162,6 +178,11 @@ private struct StatusSection: View {
 /// When a user has an active selection, this section reiterates the
 /// gist ("N categories blocked; M extra apps shielded") with a style
 /// that visually grounds the picker-less view.
+///
+/// The sentence describes **only inputs** (what the user picked to
+/// block). Category carve-outs are deliberately *not* folded in here —
+/// see ``AppBlockingSummaryView`` and ``AppBlockingSummaryCopy`` for
+/// the reasoning.
 private struct BlockedItemsSection: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
 
@@ -180,13 +201,28 @@ private struct BlockedItemsSection: View {
 
     private var summarySentence: String {
         let selection = screenTimeManager.activitySelection
-        let categoryCount = selection.categoryTokens.count
-        let appCount = selection.applicationTokens.count
-        let webCount = selection.webDomainTokens.count
-        let appExceptions = screenTimeManager.categoryExceptions.count
-        let webExceptions =
-            screenTimeManager.webDomainCategoryExceptions.count
+        return AppBlockingSummaryCopy.summarySentence(
+            categoryCount: selection.categoryTokens.count,
+            appCount: selection.applicationTokens.count,
+            webCount: selection.webDomainTokens.count
+        )
+    }
+}
 
+/// Pure, testable string builder for the summary sentence.
+///
+/// Extracted so tests can lock the product decision in place — namely:
+/// the sentence enumerates **only** picked-to-block inputs (categories,
+/// apps, web domains). Exceptions/carve-outs are a separate axis and
+/// must never be folded into this sentence. Regressing that would
+/// reintroduce the "App Exceptions looks like a comprehensive unblocked
+/// list" mental-model bug the rename was designed to fix.
+enum AppBlockingSummaryCopy {
+    static func summarySentence(
+        categoryCount: Int,
+        appCount: Int,
+        webCount: Int
+    ) -> String {
         var parts: [String] = []
         if categoryCount > 0 {
             parts.append(
@@ -208,26 +244,28 @@ private struct BlockedItemsSection: View {
             return "No items configured yet."
         }
 
-        let base = "Blocking " + parts.joined(separator: ", ") + "."
-        let exceptionParts = [
-            appExceptions > 0
-                ? "\(appExceptions) app \(appExceptions == 1 ? "exception" : "exceptions")"
-                : nil,
-            webExceptions > 0
-                ? "\(webExceptions) web \(webExceptions == 1 ? "exception" : "exceptions")"
-                : nil,
-        ].compactMap { $0 }
-
-        if exceptionParts.isEmpty {
-            return base
-        }
-        return base + " " + exceptionParts.joined(separator: " · ") + "."
+        return "Blocking " + parts.joined(separator: ", ") + "."
     }
 }
 
-/// Lists app exceptions with swipe-to-reblock. Uses Apple's
-/// `Label(ApplicationToken)` so each row shows the actual app icon and
-/// name, rendered by the system.
+/// Lists the per-app carve-outs PomoDuo is tracking — apps the user
+/// deselected from inside a currently-shielded category while keeping
+/// the category itself blocked. Surfaces a swipe-to-re-block action
+/// because the picker structurally cannot represent or round-trip
+/// these carve-outs.
+///
+/// ### Scope — read this before changing copy
+///
+/// This section is **not** a list of "all apps that aren't blocked."
+/// PomoDuo has no access to the device's installed-app inventory; an
+/// app the user never added to a blocked category will never appear
+/// here. The only state this section represents is the carve-out set
+/// derived at commit time by
+/// ``ScreenTimeManager/commitDraft(_:)`` and stored on
+/// ``ScreenTimeManager/categoryExceptions``.
+///
+/// Row rendering uses Apple's `Label(ApplicationToken)` so each row
+/// shows the system-rendered app icon + name.
 private struct AppExceptionsSection: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
     let onClearAllRequested: () -> Void
@@ -256,7 +294,7 @@ private struct AppExceptionsSection: View {
                 }
             } header: {
                 HStack {
-                    Text("App Exceptions")
+                    Text("Category Exceptions")
                     Spacer()
                     if screenTimeManager.categoryExceptions.count > 1 {
                         Button("Clear All") {
@@ -265,13 +303,13 @@ private struct AppExceptionsSection: View {
                         .font(.caption)
                         .buttonStyle(.borderless)
                         .accessibilityHint(
-                            "Removes every app exception and re-blocks them all."
+                            "Removes every category carve-out and re-blocks the apps inside their categories."
                         )
                     }
                 }
             } footer: {
                 Text(
-                    "These apps are currently exempted from one of your blocked categories. Swipe a row to re-block the app. Apple caps this list at \(ScreenTimeManager.categoryExceptionsLimit) items (shared with web exceptions)."
+                    "Apps you've deselected from inside a blocked category during editing — their category stays shielded, these specific apps don't. Swipe a row to re-block. Only carve-outs you made in the editor appear here; apps you never added to a blocked category aren't tracked. iOS observationally caps this list at \(ScreenTimeManager.categoryExceptionsLimit) items, shared with web carve-outs."
                 )
             }
         }
@@ -293,8 +331,10 @@ private struct AppExceptionsSection: View {
 /// Web-domain counterpart to ``AppExceptionsSection``. Symmetric in
 /// behavior and semantics — the web-domain category shield has the
 /// same partial-deselect failure mode, and
-/// ``ScreenTimeManager/commitDraft(_:)`` derives web exceptions from
-/// the draft diff the same way.
+/// ``ScreenTimeManager/commitDraft(_:)`` derives web carve-outs from
+/// the draft diff the same way. Like its app counterpart, this section
+/// represents **only** the carve-outs PomoDuo tracked at commit time;
+/// it is not an "unblocked domains" list.
 private struct WebDomainExceptionsSection: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
 
@@ -324,7 +364,7 @@ private struct WebDomainExceptionsSection: View {
                 }
             } header: {
                 HStack {
-                    Text("Web Domain Exceptions")
+                    Text("Web Category Exceptions")
                     Spacer()
                     if screenTimeManager.webDomainCategoryExceptions.count
                         > 1
@@ -335,11 +375,14 @@ private struct WebDomainExceptionsSection: View {
                         }
                         .font(.caption)
                         .buttonStyle(.borderless)
+                        .accessibilityHint(
+                            "Removes every web carve-out and re-blocks these domains inside their categories."
+                        )
                     }
                 }
             } footer: {
                 Text(
-                    "These web domains are currently exempted from one of your blocked categories. Swipe a row to re-block."
+                    "Web domains you've deselected from inside a blocked category — their category stays shielded, these specific domains don't. Swipe a row to re-block. Only carve-outs you made in the editor appear here."
                 )
             }
         }
