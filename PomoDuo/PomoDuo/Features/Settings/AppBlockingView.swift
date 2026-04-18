@@ -456,10 +456,22 @@ private struct AppBlockingEditorView: View {
                     "This will clear every app and category in this draft. Tap Save to apply, or Cancel to keep your previous selection."
                 )
             }
-            .confirmationDialog(
-                "Discard changes?",
-                isPresented: $isShowingDiscardConfirmation,
-                titleVisibility: .visible
+            // Apple's docs and HIG steer destructive state-change
+            // confirmations (discard-unsaved-work, delete-draft,
+            // revert) to the centered `.alert` modal rather than
+            // `.confirmationDialog`. The confirmation dialog API
+            // renders as a popover anchored to the source control in
+            // regular size classes — and in our case, attached to
+            // the UIKit-backed `FamilyActivityPicker`, even in
+            // compact widths it was surfacing as a pointer-style
+            // popover against the Cancel button. `.alert` presents
+            // as a centered modal on every size class independent
+            // of anchor position, matching the behavior the rest of
+            // iOS uses for discard-changes confirmations (Pages,
+            // Safari Reader, Mail drafts, Notes, Shortcuts).
+            .alert(
+                "Discard Changes?",
+                isPresented: $isShowingDiscardConfirmation
             ) {
                 Button("Discard Changes", role: .destructive) {
                     dismiss()
