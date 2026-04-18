@@ -100,7 +100,19 @@ nonisolated enum DeepLinkRouter {
         case "friend-request":
             return nonEmpty(param).map { .friendRequest($0) }
         case "pair":
-            return nonEmpty(param).map { .pair($0.uppercased()) }
+            // Validate against the full ``PairCode`` contract — not
+            // just non-emptiness — so malformed pair links like
+            // `pomoduo://pair/abc` or `pomoduo://pair/hello-world`
+            // fail at the parse boundary instead of pre-filling a
+            // ``CodeEntrySheet`` with garbage that `PairCode(_:)`
+            // will silently refuse to accept. The uppercased shape
+            // must match `^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$`,
+            // which is identical to the regex enforced in
+            // `firestore.rules` and `public/pair.html` on the
+            // backend side.
+            return nonEmpty(param)
+                .map { $0.uppercased() }
+                .flatMap { PairCode.isCanonicalForm($0) ? .pair($0) : nil }
         case "add-friend":
             return nonEmpty(param).map { .addFriend($0.lowercased()) }
         default:

@@ -215,6 +215,13 @@ struct RootView: View {
             selectedTab = .partner
             pendingFriendRequestID = requestID
         case .pair(let code):
+            // Belt-and-braces: the router already validates the
+            // code against ``PairCode.isCanonicalForm(_:)``, but
+            // re-check here so that a future refactor (or a test
+            // that constructs `DeepLinkRoute.pair(_:)` directly)
+            // can't push a malformed code into the Partner tab's
+            // ``CodeEntrySheet`` pre-fill.
+            guard PairCode.isCanonicalForm(code) else { return }
             selectedTab = .partner
             pendingPairCode = code
         case .addFriend(let username):

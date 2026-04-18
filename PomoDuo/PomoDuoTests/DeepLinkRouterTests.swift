@@ -35,8 +35,11 @@ struct DeepLinkRouterTests {
     }
 
     @Test func customSchemePairCode() {
-        let url = URL(string: "pomoduo://pair/abc123")!
-        #expect(DeepLinkRouter.route(from: url) == .pair("ABC123"))
+        // `ABC234` is canonical — the alphabet excludes `0`/`1`/`I`/`O`
+        // for visual unambiguity, so the old `abc123` fixture would
+        // now (correctly) fail the router's canonical-form check.
+        let url = URL(string: "pomoduo://pair/abc234")!
+        #expect(DeepLinkRouter.route(from: url) == .pair("ABC234"))
     }
 
     @Test func customSchemeUnknownRoute() {
@@ -175,6 +178,71 @@ struct DeepLinkRouterTests {
     func universalLinkPairWhitespaceParamRoutesToNil() {
         let url = URL(string: "https://pomoduo-61e38.web.app/pair/%20")!
         #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    // MARK: - Pair-Code Canonical-Form Hardening
+    //
+    // The router now validates pair-code params against the full
+    // `PairCode.isCanonicalForm(_:)` contract, not just
+    // non-emptiness. A malformed link like `pomoduo://pair/abc` no
+    // longer pre-fills the Partner tab's code-entry sheet with
+    // garbage that `PairCode(_:)` would then silently refuse.
+
+    @Test("Uppercased canonical 6-char code routes to .pair")
+    func canonicalPairCodeIsAccepted() {
+        let url = URL(string: "pomoduo://pair/ABC234")!
+        #expect(DeepLinkRouter.route(from: url) == .pair("ABC234"))
+    }
+
+    @Test("Lowercased canonical code is uppercased and accepted")
+    func lowercasedCanonicalPairCodeIsUppercased() {
+        let url = URL(string: "pomoduo://pair/abc234")!
+        #expect(DeepLinkRouter.route(from: url) == .pair("ABC234"))
+    }
+
+    @Test("Pair code shorter than 6 chars routes to nil")
+    func tooShortPairCodeRoutesToNil() {
+        let url = URL(string: "pomoduo://pair/ABC23")!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    @Test("Pair code longer than 6 chars routes to nil")
+    func tooLongPairCodeRoutesToNil() {
+        let url = URL(string: "pomoduo://pair/ABC2345")!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    @Test("Pair code with ambiguous glyphs 0/1/I/O routes to nil")
+    func ambiguousGlyphsRejected() {
+        // All four glyphs are excluded from the canonical alphabet
+        // to keep codes unambiguous when read aloud or from screen.
+        #expect(
+            DeepLinkRouter.route(from: URL(string: "pomoduo://pair/ABC0IO")!)
+                == nil
+        )
+        #expect(
+            DeepLinkRouter.route(from: URL(string: "pomoduo://pair/AB10IO")!)
+                == nil
+        )
+    }
+
+    @Test("Pair code with dash is rejected at the router boundary")
+    func dashedPairCodeRejected() {
+        // `PairCode(_:)` on iOS strips dashes for user-typed input,
+        // but the deep-link wire format is the canonical 6-char
+        // uppercased string — same as the rules and the web
+        // fallback. Keeping the router strict prevents any
+        // cross-boundary ambiguity about what a "valid link" means.
+        let url = URL(string: "pomoduo://pair/ABC-23")!
+        #expect(DeepLinkRouter.route(from: url) == nil)
+    }
+
+    @Test("Universal Link with canonical code accepted")
+    func universalLinkCanonicalPairCodeAccepted() {
+        let url = URL(
+            string: "https://pomoduo-61e38.web.app/pair/XYZ789"
+        )!
+        #expect(DeepLinkRouter.route(from: url) == .pair("XYZ789"))
     }
 
     @Test("Whitespace-only friend-request param routes to nil")

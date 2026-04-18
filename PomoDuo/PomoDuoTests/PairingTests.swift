@@ -44,6 +44,56 @@ struct PairCodeTests {
         let code = PairCode("ABC234")
         #expect(code?.displayValue == "ABC-234")
     }
+
+    // MARK: - Canonical-Form Parity (Deep-Link Ingress Contract)
+
+    /// `isCanonicalForm(_:)` is the strict "already canonical" check
+    /// used by ``DeepLinkRouter`` to reject malformed pair-code
+    /// deep links at the parse boundary. It must match
+    /// `firestore.rules` `isValidPairCode` and `pair.html`'s
+    /// `/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/` byte-for-byte.
+
+    @Test func isCanonicalFormAcceptsValidCode() {
+        #expect(PairCode.isCanonicalForm("ABC234"))
+        #expect(PairCode.isCanonicalForm("XYZ789"))
+        #expect(PairCode.isCanonicalForm("234567"))
+    }
+
+    @Test func isCanonicalFormRejectsLowercase() {
+        // `init?(_:)` would uppercase and accept; `isCanonicalForm`
+        // is strict — its caller (the router) uppercases first.
+        #expect(PairCode.isCanonicalForm("abc234") == false)
+    }
+
+    @Test func isCanonicalFormRejectsSeparators() {
+        // `init?(_:)` strips dashes/spaces; `isCanonicalForm` does
+        // not — deep-link wire format is 6 chars with no
+        // punctuation.
+        #expect(PairCode.isCanonicalForm("ABC-234") == false)
+        #expect(PairCode.isCanonicalForm("ABC 234") == false)
+    }
+
+    @Test func isCanonicalFormRejectsAmbiguousGlyphs() {
+        // 0 / 1 / I / O are deliberately excluded from the alphabet.
+        #expect(PairCode.isCanonicalForm("ABC0IO") == false)
+        #expect(PairCode.isCanonicalForm("AB10IO") == false)
+    }
+
+    @Test func isCanonicalFormRejectsWrongLength() {
+        #expect(PairCode.isCanonicalForm("ABC23") == false)
+        #expect(PairCode.isCanonicalForm("ABC2345") == false)
+        #expect(PairCode.isCanonicalForm("") == false)
+    }
+
+    @Test func canonicalAlphabetMatchesContract() {
+        // Byte-for-byte parity guard. If this ever drifts, the
+        // equivalent backend regex in `firestore.rules` and
+        // `pair.html` will also need to change in lockstep.
+        #expect(
+            PairCode.canonicalAlphabet
+                == "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        )
+    }
 }
 
 @MainActor
