@@ -23,35 +23,6 @@ struct SettingsView: View {
         @Bindable var bindableAppearanceManager = appearanceManager
 
         Form {
-            AccountSection(
-                authManager: authManager,
-                friendService: friendService
-            )
-
-            Section("Focus") {
-                NavigationLink {
-                    TimerSettingsView()
-                } label: {
-                    Label("Timer Durations", systemImage: "timer")
-                }
-            }
-
-            Section("Integrations") {
-                NavigationLink(value: SettingsDestination.appBlocking) {
-                    Label {
-                        HStack {
-                            Text("App Blocking")
-                            Spacer()
-                            AppBlockingStatusBadge(
-                                screenTimeManager: screenTimeManager
-                            )
-                        }
-                    } icon: {
-                        Image(systemName: "hourglass")
-                    }
-                }
-            }
-
             Section("Appearance") {
                 Picker(
                     "Appearance",
@@ -72,21 +43,32 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Preferences") {
-                NavigationLink {
-                    NotificationPreferencesView()
-                } label: {
+            AccountSection(
+                authManager: authManager,
+                friendService: friendService
+            )
+
+            Section("Integrations") {
+                NavigationLink(value: SettingsDestination.appBlocking) {
                     Label {
                         HStack {
-                            Text("Notifications")
+                            Text("App Blocking")
                             Spacer()
-                            NotificationStatusBadge(
-                                notificationManager: notificationManager
+                            AppBlockingStatusBadge(
+                                screenTimeManager: screenTimeManager
                             )
                         }
                     } icon: {
-                        Image(systemName: "bell.fill")
+                        Image(systemName: "hourglass")
                     }
+                }
+            }
+
+            Section("Focus") {
+                NavigationLink {
+                    TimerSettingsView()
+                } label: {
+                    Label("Timer Durations", systemImage: "timer")
                 }
             }
 
@@ -105,6 +87,25 @@ struct SettingsView: View {
 
                 Button("Suggest a Feature", systemImage: "lightbulb") {
                     feedbackCategory = .feature
+                }
+            }
+
+            Section("Notifications") {
+                NavigationLink {
+                    NotificationPreferencesView()
+                } label: {
+                    Label {
+                        HStack {
+                            Text("Alerts")
+                            Spacer()
+                            NotificationStatusBadge(
+                                notificationManager: notificationManager
+                            )
+                        }
+                    } icon: {
+                        Image(systemName: "bell.fill")
+                    }
+                    .accessibilityLabel("Notification alerts")
                 }
             }
         }
@@ -310,7 +311,7 @@ private struct AppBlockingStatusBadge: View {
             // and was misleading.
             Text("Configured")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.lavender)
                 .accessibilityLabel("App blocking configured for focus sessions")
         } else if screenTimeManager.isAuthorized {
             Text("Set Up")
