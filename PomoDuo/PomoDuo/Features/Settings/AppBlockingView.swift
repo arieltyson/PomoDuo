@@ -73,13 +73,14 @@ struct AppBlockingView: View {
 ///
 /// ### What this screen covers
 ///
-/// - "Currently Enforced" counts only the things the user **picked to
-///   block**: categories, specific apps, web domains. Carve-outs are
-///   intentionally excluded from the count ledger. Mixing inputs
-///   (picked-to-block) with derived carve-outs (exempted-from-a-block)
-///   invites the false inference "blocked − exceptions = the apps that
-///   are actually unblocked", which PomoDuo cannot accurately answer.
-///   Apple does not expose the universe of installed apps.
+/// - The "Summary" section at the bottom counts only the things the
+///   user **picked to block**: categories, specific apps, web domains.
+///   Carve-outs are intentionally excluded from the count ledger.
+///   Mixing inputs (picked-to-block) with derived carve-outs
+///   (exempted-from-a-block) invites the false inference "blocked −
+///   exceptions = the apps that are actually unblocked", which PomoDuo
+///   cannot accurately answer. Apple does not expose the universe of
+///   installed apps.
 /// - "Category Exceptions" (and its web counterpart) lists only
 ///   carve-outs tracked in ``ScreenTimeManager/categoryExceptions`` /
 ///   ``ScreenTimeManager/webDomainCategoryExceptions``. An app the
@@ -104,15 +105,14 @@ private struct AppBlockingSummaryView: View {
 
     var body: some View {
         Form {
-            StatusSection()
-            BlockedItemsSection()
+            EditorPushSection()
             AppExceptionsSection(
                 onClearAllRequested: {
                     isShowingClearExceptionsConfirmation = true
                 }
             )
             WebDomainExceptionsSection()
-            EditorPushSection()
+            SummarySection()
         }
         .scrollIndicators(.hidden)
         .alert(
@@ -136,7 +136,11 @@ private struct AppBlockingSummaryView: View {
 /// (derived, not picked) and listing them here alongside inputs would
 /// imply a false "blocked minus exceptions = unblocked" arithmetic
 /// that PomoDuo cannot truthfully compute.
-private struct StatusSection: View {
+///
+/// Rendered last on the page so the primary edit action and the
+/// exception carve-out controls stay above the fold; counts are a
+/// read-only ledger and belong at the bottom.
+private struct SummarySection: View {
     @Environment(ScreenTimeManager.self) private var screenTimeManager
 
     var body: some View {
@@ -160,7 +164,7 @@ private struct StatusSection: View {
                 .monospacedDigit()
             }
         } header: {
-            Text("Currently Enforced")
+            Text("Summary")
         } footer: {
             if screenTimeManager.hasSelectedApps {
                 Text(
@@ -168,83 +172,10 @@ private struct StatusSection: View {
                 )
             } else {
                 Text(
-                    "Nothing is currently set up to block. Tap Edit App Blocking below to choose apps, categories, or web domains."
+                    "Nothing is currently set up to block. Tap Edit App Blocking above to choose apps, categories, or web domains."
                 )
             }
         }
-    }
-}
-
-/// When a user has an active selection, this section reiterates the
-/// gist ("N categories blocked; M extra apps shielded") with a style
-/// that visually grounds the picker-less view.
-///
-/// The sentence describes **only inputs** (what the user picked to
-/// block). Category carve-outs are deliberately *not* folded in here —
-/// see ``AppBlockingSummaryView`` and ``AppBlockingSummaryCopy`` for
-/// the reasoning.
-private struct BlockedItemsSection: View {
-    @Environment(ScreenTimeManager.self) private var screenTimeManager
-
-    var body: some View {
-        if screenTimeManager.hasSelectedApps {
-            Section("Summary") {
-                Text(summarySentence)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(summarySentence)
-            }
-        }
-    }
-
-    private var summarySentence: String {
-        let selection = screenTimeManager.activitySelection
-        return AppBlockingSummaryCopy.summarySentence(
-            categoryCount: selection.categoryTokens.count,
-            appCount: selection.applicationTokens.count,
-            webCount: selection.webDomainTokens.count
-        )
-    }
-}
-
-/// Pure, testable string builder for the summary sentence.
-///
-/// Extracted so tests can lock the product decision in place — namely:
-/// the sentence enumerates **only** picked-to-block inputs (categories,
-/// apps, web domains). Exceptions/carve-outs are a separate axis and
-/// must never be folded into this sentence. Regressing that would
-/// reintroduce the "App Exceptions looks like a comprehensive unblocked
-/// list" mental-model bug the rename was designed to fix.
-enum AppBlockingSummaryCopy {
-    static func summarySentence(
-        categoryCount: Int,
-        appCount: Int,
-        webCount: Int
-    ) -> String {
-        var parts: [String] = []
-        if categoryCount > 0 {
-            parts.append(
-                "\(categoryCount) \(categoryCount == 1 ? "category" : "categories")"
-            )
-        }
-        if appCount > 0 {
-            parts.append(
-                "\(appCount) \(appCount == 1 ? "app" : "apps")"
-            )
-        }
-        if webCount > 0 {
-            parts.append(
-                "\(webCount) web \(webCount == 1 ? "domain" : "domains")"
-            )
-        }
-
-        guard !parts.isEmpty else {
-            return "No items configured yet."
-        }
-
-        return "Blocking " + parts.joined(separator: ", ") + "."
     }
 }
 
