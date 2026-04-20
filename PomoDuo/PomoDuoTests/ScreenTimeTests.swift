@@ -400,6 +400,7 @@ struct ShieldPolicyMapperTests {
 
 // MARK: - Category Exception Resolver
 
+@MainActor
 struct CategoryExceptionResolverTests {
     @Test func partialDeselectRestoresLostCategoryAndStoresRemovedItem() {
         let resolution = CategoryExceptionResolver.resolve(

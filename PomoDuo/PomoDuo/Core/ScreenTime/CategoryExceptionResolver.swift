@@ -2,14 +2,21 @@ import Foundation
 
 /// Pure helper that preserves category intent when a picker draft removes
 /// individual items from a previously selected category.
-struct CategoryExceptionResolution<Category: Hashable, Item: Hashable>:
+///
+/// Explicitly `nonisolated` because this type holds only value-type state
+/// and has no ties to UI, `ManagedSettings`, `FamilyControls`, or
+/// persistence. The app target sets `SWIFT_DEFAULT_ACTOR_ISOLATION =
+/// MainActor`, which would otherwise infer `@MainActor` here and prevent
+/// pure computations from running in synchronous, nonisolated contexts
+/// (e.g. the test target and any future off-main caller).
+nonisolated struct CategoryExceptionResolution<Category: Hashable, Item: Hashable>:
     Equatable
 {
     let categories: Set<Category>
     let exceptions: Set<Item>
 }
 
-enum CategoryExceptionResolver {
+nonisolated enum CategoryExceptionResolver {
     static func resolve<Category: Hashable, Item: Hashable>(
         previousCategories: Set<Category>,
         previousItems: Set<Item>,
