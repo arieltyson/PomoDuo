@@ -255,12 +255,9 @@ struct SessionManagerRemoteSyncTests {
 /// Before this work, ``SessionManager`` held a `RestrictionService`,
 /// `FocusActivityScheduler`, and called `ShieldSessionContext.writeSession`
 /// directly — three independent writers for the same Screen Time pipeline
-/// that never updated `RestrictionCoordinator.isRestricting` or
-/// `ScreenTimeManager.runtimeHealth`. The tests below assert that every
-/// paired entry point now reaches the coordinator (and only the coordinator)
-/// for Screen Time work, so the chip's source of truth and the runtime
-/// health classification stay coherent on remote and local transitions
-/// alike.
+/// that never updated `RestrictionCoordinator.isRestricting`. The tests
+/// below assert that every paired entry point now reaches the coordinator
+/// (and only the coordinator) for Screen Time work.
 @Suite("Paired Screen Time Single-Owner Consolidation")
 @MainActor
 struct PairedScreenTimeConsolidationTests {
@@ -268,8 +265,7 @@ struct PairedScreenTimeConsolidationTests {
     private func makeFixture() -> (
         manager: SessionManager,
         restrictions: MockRestrictionService,
-        coordinator: RestrictionCoordinator,
-        screenTime: ScreenTimeManager
+        coordinator: RestrictionCoordinator
     ) {
         let restrictions = MockRestrictionService()
         let screenTime = ScreenTimeManager(store: ManagedSettingsStore())
@@ -284,7 +280,7 @@ struct PairedScreenTimeConsolidationTests {
             restrictionCoordinator: coordinator
         )
         manager.setCurrentUserID("user-b")
-        return (manager, restrictions, coordinator, screenTime)
+        return (manager, restrictions, coordinator)
     }
 
     private func waitUntil(
@@ -320,7 +316,7 @@ struct PairedScreenTimeConsolidationTests {
     /// Now there is exactly one apply, and the coordinator's flag flips.
     @Test("local acceptSession() drives the coordinator's apply path")
     func localAcceptDrivesCoordinator() async throws {
-        let (manager, restrictions, coordinator, _) = makeFixture()
+        let (manager, restrictions, coordinator) = makeFixture()
         await manager.handleRemoteUpdate(makeIncomingFocusRequest())
 
         await manager.acceptSession()
@@ -332,12 +328,10 @@ struct PairedScreenTimeConsolidationTests {
 
     /// Remote focus update — the most important regression. Before
     /// consolidation this bypassed the coordinator entirely. After:
-    /// `coordinator.isRestricting` flips and ``ScreenTimeManager`` gets a
-    /// `refreshRuntimeHealth(focusIsActive: true)` call from the
-    /// coordinator's tail.
-    @Test("remote focus update flips coordinator and refreshes runtime health")
-    func remoteFocusUpdatesCoordinatorAndHealth() async throws {
-        let (manager, _, coordinator, screenTime) = makeFixture()
+    /// `coordinator.isRestricting` flips through the coordinator's path.
+    @Test("remote focus update flips coordinator")
+    func remoteFocusUpdatesCoordinator() async throws {
+        let (manager, _, coordinator) = makeFixture()
 
         await manager.handleRemoteUpdate(
             StudySession(
@@ -356,24 +350,7 @@ struct PairedScreenTimeConsolidationTests {
         )
         try await waitUntil { coordinator.isRestricting }
 
-        // The coordinator's apply tail calls
-        // `screenTimeManager.refreshRuntimeHealth(focusIsActive: true)`.
-        // On a simulator-backed fixture we can't assert the exact reason
-        // (auth is ``.notDetermined`` by default, which short-circuits to
-        // `.authorizationNotUsable`; a real device with an authorized user
-        // and a non-empty selection would classify differently). What we
-        // *can* assert is that the classification is an ``.unavailable``
-        // case — meaning the refresh ran and the classifier reported a
-        // value consistent with the fixture's system state — proving the
-        // health-refresh path was exercised by the remote update.
         #expect(coordinator.isRestricting)
-        if case .unavailable = screenTime.runtimeHealth {
-            // Classification completed with a truthful unavailable reason.
-        } else {
-            Issue.record(
-                "Expected runtimeHealth to be .unavailable on the simulator fixture; got \(screenTime.runtimeHealth)."
-            )
-        }
     }
 
     /// `clearSession()` must drive the coordinator's `forceRemove` path so
@@ -383,7 +360,7 @@ struct PairedScreenTimeConsolidationTests {
     /// stuck at `true`.
     @Test("clearSession() drives coordinator.forceRemoveRestrictions")
     func clearSessionForcesCoordinatorTeardown() async throws {
-        let (manager, restrictions, coordinator, _) = makeFixture()
+        let (manager, restrictions, coordinator) = makeFixture()
 
         await manager.handleRemoteUpdate(
             StudySession(
@@ -417,11 +394,10 @@ struct PairedScreenTimeConsolidationTests {
     /// A subsequent break update lifts the coordinator. This is the path
     /// exercised by remote `(.focus, .shortBreak)` transitions that arrive
     /// while the Partner view is offscreen — without consolidation the
-    /// coordinator would have stayed at `isRestricting = true` and the
-    /// chip would have shown stale state on next view appear.
+    /// coordinator would have stayed at `isRestricting = true`.
     @Test("remote break after remote focus converges the coordinator flag")
     func remoteBreakConvergesCoordinator() async throws {
-        let (manager, _, coordinator, _) = makeFixture()
+        let (manager, _, coordinator) = makeFixture()
 
         await manager.handleRemoteUpdate(
             StudySession(

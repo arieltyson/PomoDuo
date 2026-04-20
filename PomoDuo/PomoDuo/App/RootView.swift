@@ -329,8 +329,6 @@ private struct ContentTabView: View {
                             switch destination {
                             case .appBlocking:
                                 AppBlockingView()
-                            case .appBlockingDiagnostics:
-                                AppBlockingDiagnosticsView()
                             }
                         }
                 }

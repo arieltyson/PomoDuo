@@ -39,7 +39,7 @@ struct TimerControlsView: View {
                     reduceMotion
                         ? .opacity
                         : .asymmetric(
-                            insertion: .move(edge: .bottom)
+                            insertion: .scale(scale: 0.94, anchor: .bottom)
                                 .combined(with: .opacity),
                             removal: .opacity
                         )

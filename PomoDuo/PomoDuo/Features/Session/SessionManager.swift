@@ -56,8 +56,7 @@ final class SessionManager {
     /// (the ones that arrive through ``handleRemoteUpdate(_:)`` even when
     /// no Partner view is mounted) wrote shields, scheduled monitoring, and
     /// updated App-Group context without ever touching the coordinator —
-    /// leaving `coordinator.isRestricting` stale, `runtimeHealth` un-refreshed,
-    /// and the active-session chip pointed at the wrong source of truth.
+    /// leaving `coordinator.isRestricting` stale.
     private weak var restrictionCoordinator: RestrictionCoordinator?
 
     // MARK: - Initialization

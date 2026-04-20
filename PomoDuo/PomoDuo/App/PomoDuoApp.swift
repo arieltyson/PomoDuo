@@ -104,8 +104,6 @@ struct PomoDuoApp: App {
         )
     }
 
-    @Environment(\.scenePhase) private var scenePhase
-
     var body: some Scene {
         WindowGroup {
             RootView(pairingService: pairingService, friendService: friendService)
@@ -124,48 +122,17 @@ struct PomoDuoApp: App {
                 .environment(powerStateMonitor)
                 .onChange(of: screenTimeManager.activitySelection) { _, _ in
                     restrictionCoordinator.refreshRestrictions()
-                    screenTimeManager.refreshRuntimeHealth(
-                        focusIsActive: restrictionCoordinator.isRestricting
-                    )
+                }
+                .onChange(of: screenTimeManager.shieldedCategoryTokens) { _, _ in
+                    restrictionCoordinator.refreshRestrictions()
                 }
                 .onChange(of: screenTimeManager.categoryExceptions) { _, _ in
-                    // Mirrors the activitySelection observer because
-                    // ``ScreenTimeManager/commitDraft(_:)`` may update
-                    // exceptions independently of the selection (e.g.,
-                    // a draft that re-selects a previously-excepted app
-                    // clears the exception without changing the selection
-                    // shape). The coordinator's `refreshRestrictions` is
-                    // idempotent so the worst case — both observers
-                    // firing for one commit — is a redundant apply.
                     restrictionCoordinator.refreshRestrictions()
-                    screenTimeManager.refreshRuntimeHealth(
-                        focusIsActive: restrictionCoordinator.isRestricting
-                    )
                 }
                 .onChange(
                     of: screenTimeManager.webDomainCategoryExceptions
                 ) { _, _ in
-                    // Web-domain symmetry with the app-exceptions
-                    // observer above. Direct removeWebDomainCategoryException
-                    // calls from the summary view mutate this set without
-                    // touching activitySelection — this observer is what
-                    // drives the refresh in that case.
                     restrictionCoordinator.refreshRestrictions()
-                    screenTimeManager.refreshRuntimeHealth(
-                        focusIsActive: restrictionCoordinator.isRestricting
-                    )
-                }
-                .onChange(of: scenePhase) { _, newPhase in
-                    // Foregrounding is the moment background-induced
-                    // Screen Time pipeline drift becomes visible. Refresh
-                    // the runtime health so any active-session chip
-                    // reflects the current truth; the per-session
-                    // reconcile hooks in TimerView and
-                    // ActivePairedSessionView do the actual repair.
-                    guard newPhase == .active else { return }
-                    screenTimeManager.refreshRuntimeHealth(
-                        focusIsActive: restrictionCoordinator.isRestricting
-                    )
                 }
                 .environment(onboardingManager)
                 .environment(appearanceManager)

@@ -27,6 +27,8 @@ enum ShieldSessionContext {
         static let sessionPhase = "shield.session.phase"
         static let targetEndDate = "shield.session.targetEndDate"
         static let activitySelection = "shield.session.activitySelection"
+        static let shieldedCategoryTokens =
+            "shield.session.shieldedCategoryTokens"
         static let categoryExceptions = "shield.session.categoryExceptions"
         static let webDomainCategoryExceptions =
             "shield.session.webDomainCategoryExceptions"
@@ -62,10 +64,21 @@ enum ShieldSessionContext {
         defaults.set(data, forKey: Keys.activitySelection)
     }
 
-    /// Persists the derived category-exceptions set so the Monitor
-    /// extension can apply the same `.specific(_:except:)` policy when
-    /// it reapplies shields after a force-quit. See
-    /// ``ScreenTimeManager/categoryExceptions`` for the rationale.
+    /// Persists effective category shield tokens for the monitor extension.
+    static func writeShieldedCategoryTokens(
+        _ tokens: Set<ActivityCategoryToken>
+    ) {
+        guard let defaults = sharedDefaults else { return }
+        guard !tokens.isEmpty else {
+            defaults.removeObject(forKey: Keys.shieldedCategoryTokens)
+            return
+        }
+        guard let data = try? JSONEncoder().encode(tokens) else { return }
+        defaults.set(data, forKey: Keys.shieldedCategoryTokens)
+    }
+
+    /// Persists category exception tokens so the monitor extension can
+    /// reapply the same shield policy as the main app.
     static func writeCategoryExceptions(_ exceptions: Set<ApplicationToken>) {
         guard let defaults = sharedDefaults else { return }
         guard !exceptions.isEmpty else {
@@ -76,10 +89,7 @@ enum ShieldSessionContext {
         defaults.set(data, forKey: Keys.categoryExceptions)
     }
 
-    /// Web-domain counterpart to ``writeCategoryExceptions(_:)`` —
-    /// persists the derived web-domain-exception set so the Monitor
-    /// extension mirrors the main app's `.specific(_:except:)` policy
-    /// on the web-category channel.
+    /// Persists web-domain category exception tokens for monitor reapplication.
     static func writeWebDomainCategoryExceptions(
         _ exceptions: Set<WebDomainToken>
     ) {
@@ -97,10 +107,8 @@ enum ShieldSessionContext {
     /// Clears all per-session context when the session ends.
     ///
     /// Note: this clears *session lifecycle* keys, not the user's
-    /// stored selection or category-exception preferences — those
-    /// outlive any individual session and are managed by
-    /// ``ScreenTimeManager``'s `clearSelection()` /
-    /// `resetAllScreenTimeState()` paths.
+    /// stored selection. That outlives any individual session and is managed
+    /// by ``ScreenTimeManager``'s `clearSelection()` path.
     static func clearSession() {
         guard let defaults = sharedDefaults else { return }
         defaults.set(false, forKey: Keys.isSessionActive)
@@ -153,12 +161,20 @@ enum ShieldSessionContext {
         )
     }
 
-    /// The derived category-exception set, or `nil` if the App Group
-    /// payload is absent. Returns an empty set rather than `nil` when
-    /// the payload exists and decodes to an empty set, so callers can
-    /// distinguish "no exceptions saved" (`nil`, fall back to legacy
-    /// defaults) from "saved as empty" (`[]`, the user has zero
-    /// exceptions on file).
+    /// Reads effective category shield tokens for monitor reapplication.
+    static func readShieldedCategoryTokens()
+        -> Set<ActivityCategoryToken>?
+    {
+        guard let defaults = sharedDefaults,
+            let data = defaults.data(forKey: Keys.shieldedCategoryTokens)
+        else { return nil }
+        return try? JSONDecoder().decode(
+            Set<ActivityCategoryToken>.self,
+            from: data
+        )
+    }
+
+    /// Reads derived app exceptions for category shield reapplication.
     static func readCategoryExceptions() -> Set<ApplicationToken>? {
         guard let defaults = sharedDefaults,
             let data = defaults.data(forKey: Keys.categoryExceptions)
@@ -169,8 +185,7 @@ enum ShieldSessionContext {
         )
     }
 
-    /// Web-domain counterpart to ``readCategoryExceptions()`` — the
-    /// derived set, or `nil` if no App Group payload exists.
+    /// Reads derived web-domain exceptions for category shield reapplication.
     static func readWebDomainCategoryExceptions() -> Set<WebDomainToken>? {
         guard let defaults = sharedDefaults,
             let data = defaults.data(
@@ -195,9 +210,7 @@ enum ShieldSessionContext {
     /// registration (which happens on every focus-session apply and
     /// reconcile, because ``FocusActivityScheduler/scheduleMonitoring(until:)``
     /// stops-then-starts). Without this check, the Monitor would tear
-    /// down shields + shared context on every reschedule — producing the
-    /// "Session active = No while the focus session is running"
-    /// inconsistency the diagnostics panel used to surface.
+    /// down shields + shared context on every reschedule.
     ///
     /// `targetEndDate` is the truthiest signal available from inside
     /// the extension sandbox: if it's still in the future, the session

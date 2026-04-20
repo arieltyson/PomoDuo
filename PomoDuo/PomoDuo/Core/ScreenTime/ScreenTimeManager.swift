@@ -1,4 +1,3 @@
-import DeviceActivity
 import FamilyControls
 import Foundation
 import ManagedSettings
@@ -12,169 +11,46 @@ final class ScreenTimeManager {
     private(set) var authorizationError: String?
     private(set) var isRequestingAuthorization = false
 
-    /// Latest classification of the Screen Time pipeline's runtime health.
-    ///
-    /// Refreshed by ``RestrictionCoordinator`` after each apply / lift /
-    /// reconcile, by `PomoDuoApp` on scene activation, and explicitly via
-    /// ``refreshRuntimeHealth(focusIsActive:)``. Drives the active-session
-    /// chip copy in ``TimerView`` and ``ActivePairedSessionView`` so the
-    /// UI reflects what the app honestly knows rather than the stronger
-    /// "Apps Blocked" claim the previous code made on bare `isRestricting`.
-    private(set) var runtimeHealth: ScreenTimeRuntimeHealth = .unavailable(
-        reason: .selectionEmpty
-    )
-
     /// The user's current picker selection.
     ///
-    /// Constructed with `includeEntireCategory: true` so the picker
-    /// enumerates applications and web domains from any selected category
-    /// into ``FamilyActivitySelection/applicationTokens`` and
-    /// ``FamilyActivitySelection/webDomainTokens``. Apple's docs describe
-    /// `includeEntireCategory` as "whether the selection should include
-    /// applications and web domains from the selected categories" — this
-    /// gives ``ShieldPolicyMapper`` a complete inclusive token set to
-    /// shield, covering every app and domain the user picked directly
-    /// *and* every app/domain that belongs to a picked category.
-    ///
-    /// - Note: Legacy payloads saved by earlier builds carry
-    ///   `includeEntireCategory: false`. ``canonicalizeRestoredSelection(_:)``
-    ///   normalizes every restored value back to `true` so the picker's
-    ///   next edit includes the full expansion of any chosen category,
-    ///   without needing any migration step on the user's side.
+    /// `includeEntireCategory: true` keeps category selections expanded so a
+    /// later partial deselect can be translated into category exceptions.
     var activitySelection = FamilyActivitySelection(includeEntireCategory: true) {
         didSet {
             persistSelection()
         }
     }
 
-    /// Apps the user has opted out of within a currently-shielded
-    /// category, derived at commit time by ``commitDraft(_:)`` and used
-    /// by ``ShieldPolicyMapper`` to emit
-    /// ``ShieldSettings/ActivityCategoryPolicy/specific(_:except:)``.
+    /// Category tokens the shield policy should enforce.
     ///
-    /// ### Why this exists separately from `activitySelection`
-    ///
-    /// Apple's `FamilyActivitySelection` cannot encode "shield this
-    /// category but exempt this one app" — the struct has no exceptions
-    /// field. When the user deselects a single app from a category that
-    /// was shielded with `includeEntireCategory: true`, the picker
-    /// demotes the category (drops it from `categoryTokens`, leaves the
-    /// remaining picker-enumerated apps in `applicationTokens`). The
-    /// pure inclusive mapper would then lose the entire category shield
-    /// — every app in the category that the picker did not enumerate
-    /// would silently unblock. That's the user-reported "unblock one
-    /// app, many other apps unblock too" failure mode.
-    ///
-    /// ``commitDraft(_:)`` recovers the user's intent by diffing the
-    /// new draft against the previously-committed selection: if a
-    /// category was lost and one or more apps were removed at the same
-    /// time, the lost category is restored and the removed apps become
-    /// `categoryExceptions`. Apple's `.specific(_:except:)` policy
-    /// accepts up to 50 exception tokens; commitDraft enforces the cap
-    /// and falls back to the literal draft (no preservation) if the
-    /// derived exceptions would exceed it.
+    /// This can intentionally differ from ``activitySelection.categoryTokens``.
+    /// The picker has no native way to express "block this category except
+    /// these apps", so partial category edits are preserved here for
+    /// Managed Settings while ``activitySelection`` stays faithful to what the
+    /// picker shows.
+    private(set) var shieldedCategoryTokens: Set<ActivityCategoryToken> = [] {
+        didSet {
+            persistShieldedCategoryTokens()
+        }
+    }
+
+    /// Apps the user explicitly allows inside an otherwise blocked category.
     private(set) var categoryExceptions: Set<ApplicationToken> = [] {
         didSet {
             persistCategoryExceptions()
         }
     }
 
-    /// Web-domain counterpart to ``categoryExceptions`` — domains the
-    /// user has opted out of within a currently-shielded category.
-    ///
-    /// The app-side partial-deselect pathology applies symmetrically to
-    /// web domains under `includeEntireCategory: true`: if the user
-    /// deselects a single domain from a shielded category, the picker
-    /// can demote the category and strip it from `webDomainCategoryTokens`,
-    /// losing the category-wide web shield. Treating web-domain
-    /// deselects as exceptions (and routing them through Apple's
-    /// `.specific(_:except:)` web-category policy) preserves the user's
-    /// "shield this category, except this one domain" intent the same
-    /// way ``categoryExceptions`` does for apps.
+    /// Web domains the user explicitly allows inside an otherwise blocked
+    /// category.
     private(set) var webDomainCategoryExceptions: Set<WebDomainToken> = [] {
         didSet {
             persistWebDomainCategoryExceptions()
         }
     }
 
-    /// Apple's documented limit on tokens that fit in
-    /// `ActivityCategoryPolicy.specific(_:except:)` /
-    /// `.all(except:)`. Exposed as a constant so tests and the commit
-    /// algorithm reference one source of truth.
+    /// Apple's documented maximum exception count for a category policy.
     static let categoryExceptionsLimit = 50
-
-    /// Result of enforcing the no-overlap invariant between
-    /// ``activitySelection`` and the category-exception sets.
-    ///
-    /// ### Invariant
-    ///
-    /// ```
-    /// selection.applicationTokens ∩ categoryExceptions == ∅
-    /// selection.webDomainTokens   ∩ webDomainCategoryExceptions == ∅
-    /// ```
-    ///
-    /// An app token that is in `categoryExceptions` means "the user
-    /// carved this out of a blocked category." An app token that is in
-    /// `selection.applicationTokens` means "the user explicitly wants
-    /// this app shielded as a standalone app." Those are contradictory
-    /// intents for the same token. The carve-out is always the newer
-    /// semantic (it can only appear when the user deselected the token
-    /// *from inside a shielded category*), so in normalization the
-    /// exception wins and the token is stripped from the selection.
-    struct NormalizedAppBlockingState: Equatable, Sendable {
-        let selection: FamilyActivitySelection
-        let categoryExceptions: Set<ApplicationToken>
-        let webDomainCategoryExceptions: Set<WebDomainToken>
-    }
-
-    /// Enforces the no-overlap invariant across `(selection,
-    /// categoryExceptions, webDomainCategoryExceptions)`.
-    ///
-    /// `commitDraft(_:)` produces disjoint sets by construction — the
-    /// derivation subtracts `canonicalDraft.applicationTokens` from the
-    /// derived exceptions. But the on-disk state is split across two
-    /// independent storage stripes (App Group for extensions, standard
-    /// defaults for the main app), so a crashed commit or an old build
-    /// can leave them out of sync. `restoreSelection()` calls this
-    /// helper after reading both stripes so the cold-start state is
-    /// self-healing without needing a one-shot migration.
-    ///
-    /// This is a pure function so the invariant is locked in by tests
-    /// even though `ApplicationToken` / `WebDomainToken` are opaque
-    /// system types that unit tests can't fabricate.
-    static func normalizing(
-        selection: FamilyActivitySelection,
-        categoryExceptions: Set<ApplicationToken>,
-        webDomainCategoryExceptions: Set<WebDomainToken>
-    ) -> NormalizedAppBlockingState {
-        let appOverlap = selection.applicationTokens
-            .intersection(categoryExceptions)
-        let webOverlap = selection.webDomainTokens
-            .intersection(webDomainCategoryExceptions)
-
-        guard !appOverlap.isEmpty || !webOverlap.isEmpty else {
-            return NormalizedAppBlockingState(
-                selection: selection,
-                categoryExceptions: categoryExceptions,
-                webDomainCategoryExceptions: webDomainCategoryExceptions
-            )
-        }
-
-        var normalized = FamilyActivitySelection(
-            includeEntireCategory: selection.includeEntireCategory
-        )
-        normalized.applicationTokens = selection.applicationTokens
-            .subtracting(categoryExceptions)
-        normalized.categoryTokens = selection.categoryTokens
-        normalized.webDomainTokens = selection.webDomainTokens
-            .subtracting(webDomainCategoryExceptions)
-
-        return NormalizedAppBlockingState(
-            selection: normalized,
-            categoryExceptions: categoryExceptions,
-            webDomainCategoryExceptions: webDomainCategoryExceptions
-        )
-    }
 
     var isAuthorized: Bool {
         if authorizationStatus == .approved { return true }
@@ -190,20 +66,19 @@ final class ScreenTimeManager {
         !activitySelection.applicationTokens.isEmpty
             || !activitySelection.categoryTokens.isEmpty
             || !activitySelection.webDomainTokens.isEmpty
+            || !shieldedCategoryTokens.isEmpty
     }
 
     private let store: ManagedSettingsStore
     private let persistenceDefaults: UserDefaults
-    private let activityCenter = DeviceActivityCenter()
 
     private static let selectionDefaultsKey = "com.pomoduo.screentime.selection"
+    private static let shieldedCategoryTokensDefaultsKey =
+        "com.pomoduo.screentime.shieldedCategoryTokens"
     private static let categoryExceptionsDefaultsKey =
         "com.pomoduo.screentime.categoryExceptions"
     private static let webDomainCategoryExceptionsDefaultsKey =
         "com.pomoduo.screentime.webDomainCategoryExceptions"
-    private static let focusActivityName = DeviceActivityName(
-        rawValue: ShieldSessionContext.focusActivityID
-    )
 
     init(
         store: ManagedSettingsStore,
@@ -243,9 +118,13 @@ final class ScreenTimeManager {
 
     func clearSelection() {
         activitySelection = FamilyActivitySelection(includeEntireCategory: true)
+        shieldedCategoryTokens = []
         categoryExceptions = []
         webDomainCategoryExceptions = []
         persistenceDefaults.removeObject(forKey: Self.selectionDefaultsKey)
+        persistenceDefaults.removeObject(
+            forKey: Self.shieldedCategoryTokensDefaultsKey
+        )
         persistenceDefaults.removeObject(
             forKey: Self.categoryExceptionsDefaultsKey
         )
@@ -257,322 +136,97 @@ final class ScreenTimeManager {
         store.shield.webDomains = nil
         store.shield.webDomainCategories = nil
 
-        // Clear App Group so extensions stay in sync.
         ShieldSessionContext.writeSelection(
             FamilyActivitySelection(includeEntireCategory: true)
         )
+        ShieldSessionContext.writeShieldedCategoryTokens([])
         ShieldSessionContext.writeCategoryExceptions([])
         ShieldSessionContext.writeWebDomainCategoryExceptions([])
     }
 
-    // MARK: - Direct Exception Management
-
-    /// Re-shields an app previously exempted from a blocked category.
-    /// The exception is removed from the active set; the coordinator's
-    /// `onChange(of: categoryExceptions)` observer in `PomoDuoApp`
-    /// triggers a single atomic refresh so any currently-running focus
-    /// session picks up the new policy immediately.
+    /// Atomically replaces the live selection with a picker draft.
     ///
-    /// Surfaced on the App Blocking summary screen as a swipe action so
-    /// the user can re-block an excepted app without having to open the
-    /// picker — the picker cannot faithfully represent exception state
-    /// (no public field for it in `FamilyActivitySelection`), so this
-    /// direct API is the product's only truthful undo path.
-    func removeCategoryException(_ token: ApplicationToken) {
-        guard categoryExceptions.contains(token) else { return }
-        categoryExceptions.remove(token)
-    }
-
-    /// Re-shields a web domain previously exempted from a blocked
-    /// category. Symmetric to ``removeCategoryException(_:)``.
-    func removeWebDomainCategoryException(_ token: WebDomainToken) {
-        guard webDomainCategoryExceptions.contains(token) else { return }
-        webDomainCategoryExceptions.remove(token)
-    }
-
-    /// Clears every app exception without touching the committed
-    /// selection, category list, or web-domain exceptions. Useful when
-    /// a user wants to "re-block everything in my selected categories"
-    /// without rebuilding the selection from scratch.
-    func clearAllCategoryExceptions() {
-        guard !categoryExceptions.isEmpty else { return }
-        categoryExceptions = []
-    }
-
-    /// Clears every web-domain exception. Symmetric counterpart to
-    /// ``clearAllCategoryExceptions()``.
-    func clearAllWebDomainCategoryExceptions() {
-        guard !webDomainCategoryExceptions.isEmpty else { return }
-        webDomainCategoryExceptions = []
-    }
-
-    // MARK: - Commit (Draft → Active Selection)
-
-    /// Atomically replaces the live selection with `draft`, deriving any
-    /// category-with-exception intent from the diff against the prior
-    /// committed state.
+    /// `FamilyActivitySelection` has no field for "block this category except
+    /// these apps." When the user deselects an app from a selected category,
+    /// the picker can drop the category token and leave only the remaining
+    /// enumerated app tokens. If we applied that literally, apps in the same
+    /// category that the picker didn't enumerate would also become unblocked.
     ///
-    /// **Why this exists.** ``AppBlockingView`` binds the picker to a
-    /// local draft (not directly to ``activitySelection``) so the user
-    /// can edit without each picker tap re-applying restrictions
-    /// mid-edit. ``commitDraft(_:)`` is the single, atomic write the
-    /// view performs when the user confirms the edit. It guarantees
-    /// `activitySelection` and ``categoryExceptions`` move together so
-    /// the downstream `onChange` observer in `PomoDuoApp` fires once
-    /// for one coherent state, not N times for N picker taps.
-    ///
-    /// **Why exceptions are derived here, not by the picker.** The
-    /// picker observed on device demotes a category to "specific apps"
-    /// when the user deselects one app from inside it: the category
-    /// disappears from `categoryTokens` and the remaining
-    /// picker-enumerated apps are left in `applicationTokens` minus the
-    /// deselected one. Without recovery, the lost category drops the
-    /// system-wide category shield and unblocks every app in the
-    /// category that the picker did not enumerate — the exact
-    /// "deselect one app, many others unblock" failure the user
-    /// reported. The diff below restores the lost category and stores
-    /// the removed apps as exceptions so ``ShieldPolicyMapper`` writes
-    /// `ActivityCategoryPolicy.specific(_:except:)` — Apple's
-    /// documented shape for "shield this category, except these apps".
-    ///
-    /// **Limits.** Apple's `.specific(_:except:)` accepts up to 50
-    /// exception tokens. If the derived exceptions would exceed
-    /// ``categoryExceptionsLimit``, this method falls back to the
-    /// literal draft (no preservation). That's a graceful degradation:
-    /// the user's individual deselects are still honored at the
-    /// `applicationTokens` level, but the category shield is lost; the
-    /// alternative (truncating the exception list) would silently
-    /// re-shield arbitrary apps the user explicitly deselected, which
-    /// is a worse outcome.
+    /// Diffing against the previous committed selection lets us preserve the
+    /// category shield and move the removed app/domain tokens into Apple's
+    /// `ActivityCategoryPolicy.specific(_:except:)` exception list.
     func commitDraft(_ draft: FamilyActivitySelection) {
         let canonicalDraft = Self.canonicalizeRestoredSelection(draft)
-
         let previousSelection = activitySelection
-        let previousAppExceptions = categoryExceptions
-        let previousWebExceptions = webDomainCategoryExceptions
+        let previousShieldedCategories = shieldedCategoryTokens.isEmpty
+            ? previousSelection.categoryTokens
+            : shieldedCategoryTokens
 
-        let lostCategories = previousSelection.categoryTokens
-            .subtracting(canonicalDraft.categoryTokens)
-        let removedApps = previousSelection.applicationTokens
-            .subtracting(canonicalDraft.applicationTokens)
-        let removedWebDomains = previousSelection.webDomainTokens
-            .subtracting(canonicalDraft.webDomainTokens)
+        let lostCategories = previousShieldedCategories.subtracting(
+            canonicalDraft.categoryTokens
+        )
+        let removedApps = previousSelection.applicationTokens.subtracting(
+            canonicalDraft.applicationTokens
+        )
+        let removedWebDomains = previousSelection.webDomainTokens.subtracting(
+            canonicalDraft.webDomainTokens
+        )
 
-        // Recompose the committed-categories universe. If the draft
-        // already covers a category, keep it; if a previously-shielded
-        // category disappeared from the draft *and* the user removed
-        // at least one item (app OR web domain) at the same time,
-        // treat that as a partial deselect and restore the category.
-        // This handles the picker's "demote a category to specific
-        // items when you deselect one item" behavior (option b) for
-        // both apps and web domains.
-        let restoredCategories: Set<ActivityCategoryToken> =
-            (!lostCategories.isEmpty
-                && (!removedApps.isEmpty || !removedWebDomains.isEmpty))
-            ? canonicalDraft.categoryTokens.union(lostCategories)
-            : canonicalDraft.categoryTokens
+        let draftHasSelections =
+            !canonicalDraft.applicationTokens.isEmpty
+            || !canonicalDraft.categoryTokens.isEmpty
+            || !canonicalDraft.webDomainTokens.isEmpty
+        let shouldRestoreCategories =
+            draftHasSelections
+            && !lostCategories.isEmpty
+            && (!removedApps.isEmpty || !removedWebDomains.isEmpty
+                || !categoryExceptions.isEmpty
+                || !webDomainCategoryExceptions.isEmpty)
+        let appResolution = CategoryExceptionResolver.resolve(
+            previousCategories: previousShieldedCategories,
+            previousItems: previousSelection.applicationTokens,
+            previousExceptions: categoryExceptions,
+            draftCategories: canonicalDraft.categoryTokens,
+            draftItems: canonicalDraft.applicationTokens,
+            restoresLostCategories: shouldRestoreCategories
+        )
+        let webResolution = CategoryExceptionResolver.resolve(
+            previousCategories: previousShieldedCategories,
+            previousItems: previousSelection.webDomainTokens,
+            previousExceptions: webDomainCategoryExceptions,
+            draftCategories: canonicalDraft.categoryTokens,
+            draftItems: canonicalDraft.webDomainTokens,
+            restoresLostCategories: shouldRestoreCategories
+        )
+        let restoredCategories = appResolution.categories
+            .union(webResolution.categories)
+        let derivedAppExceptions = appResolution.exceptions
+        let derivedWebExceptions = webResolution.exceptions
 
-        // Derive app exceptions from *any* apps removed between prev
-        // and draft while a category context remains to except them
-        // from. Covers picker behaviors (a) and (b) symmetrically.
-        // Prior exceptions carry forward; tokens now re-selected drop
-        // out (user's most recent intent is "shield this again").
-        let derivedAppExceptions: Set<ApplicationToken>
-        let derivedWebExceptions: Set<WebDomainToken>
-        if restoredCategories.isEmpty {
-            // No category context at all — there's nothing to except
-            // from, so ignore both prior exceptions and new removals.
-            derivedAppExceptions = []
-            derivedWebExceptions = []
-        } else {
-            derivedAppExceptions = previousAppExceptions
-                .union(removedApps)
-                .subtracting(canonicalDraft.applicationTokens)
-            derivedWebExceptions = previousWebExceptions
-                .union(removedWebDomains)
-                .subtracting(canonicalDraft.webDomainTokens)
-        }
-
-        // Enforce Apple's documented 50-token cap on
-        // `.specific(_:except:)`. Each channel's exceptions are
-        // independently capped — exceeding the app cap doesn't drop
-        // web exception preservation and vice versa. The
-        // `specific(_:except:)` API accepts mixed app + web-domain
-        // tokens in the same `except:` list, so the effective
-        // per-category-shield cap is 50 total; in the extreme case
-        // where both channels together exceed 50, both restorations
-        // are dropped so the remaining literal draft still writes
-        // successfully without silent truncation.
-        let totalExceptionCount =
-            derivedAppExceptions.count + derivedWebExceptions.count
-        let cappedAppExceptions: Set<ApplicationToken>
-        let cappedWebExceptions: Set<WebDomainToken>
         let finalCategories: Set<ActivityCategoryToken>
-        if totalExceptionCount > Self.categoryExceptionsLimit {
-            // Fallback: drop the restoration and let the literal draft
-            // stand. The user's deselects still survive at the
-            // specific-apps / specific-web-domains channel level.
-            finalCategories = canonicalDraft.categoryTokens
-            cappedAppExceptions = []
-            cappedWebExceptions = []
+        let finalAppExceptions: Set<ApplicationToken>
+        let finalWebExceptions: Set<WebDomainToken>
+        if derivedAppExceptions.count + derivedWebExceptions.count
+            > Self.categoryExceptionsLimit
+        {
+            finalCategories = restoredCategories
+            finalAppExceptions = []
+            finalWebExceptions = []
         } else {
             finalCategories = restoredCategories
-            cappedAppExceptions = derivedAppExceptions
-            cappedWebExceptions = derivedWebExceptions
+            finalAppExceptions = derivedAppExceptions
+            finalWebExceptions = derivedWebExceptions
         }
 
-        // Build the committed selection. We keep the draft's token
-        // sets as-is (these are the items the user wants shielded *in
-        // addition to* the categories), and we splice in the restored
-        // categories. Set semantics prevent duplication.
         var committed = FamilyActivitySelection(includeEntireCategory: true)
         committed.applicationTokens = canonicalDraft.applicationTokens
-        committed.categoryTokens = finalCategories
+        committed.categoryTokens = canonicalDraft.categoryTokens
         committed.webDomainTokens = canonicalDraft.webDomainTokens
 
-        // Final normalization pass — defense in depth. The derivation
-        // above produces disjoint sets by construction (derivedApp/Web
-        // Exceptions subtract canonicalDraft tokens), but running the
-        // committed state through ``normalizing(...)`` makes the
-        // invariant unconditional at this write boundary regardless of
-        // any future refactor to the derivation.
-        let normalized = Self.normalizing(
-            selection: committed,
-            categoryExceptions: cappedAppExceptions,
-            webDomainCategoryExceptions: cappedWebExceptions
-        )
-
-        // Apply atomically: assign exceptions first so both observers
-        // in `PomoDuoApp` (on activitySelection, categoryExceptions,
-        // webDomainCategoryExceptions) see the coherent state when
-        // they coalesce into `restrictionCoordinator.refreshRestrictions`.
-        categoryExceptions = normalized.categoryExceptions
-        webDomainCategoryExceptions = normalized.webDomainCategoryExceptions
-        activitySelection = normalized.selection
-    }
-
-    // MARK: - Runtime Health
-
-    /// Recomputes ``runtimeHealth`` from a fresh diagnostics snapshot.
-    ///
-    /// `focusIsActive` is the caller's understanding of whether a focus
-    /// session is currently expected to be running — the coordinator
-    /// passes its own `isRestricting`, the app shell passes whatever it
-    /// can read off the coordinator on scene activation. Outside an active
-    /// focus session, the runtime channels are *expected* to be empty, so
-    /// passing `false` keeps the classifier from incorrectly reporting
-    /// degradation.
-    func refreshRuntimeHealth(focusIsActive: Bool) {
-        runtimeHealth = ScreenTimeRuntimeHealth.evaluate(
-            snapshot: diagnosticsSnapshot(),
-            focusIsActive: focusIsActive
-        )
-    }
-
-    // MARK: - Diagnostics & Recovery
-
-    /// Computes a snapshot of every Screen Time piece the app currently
-    /// configures or knows about.
-    ///
-    /// Used by ``AppBlockingDiagnosticsView`` to show on-device truth and
-    /// by tests to assert reset/canonicalization behavior. The snapshot is
-    /// deliberately scoped to "what the app set / what the system has
-    /// registered" — Apple does not expose whether iOS is currently
-    /// shielding apps, so this snapshot never claims that.
-    func diagnosticsSnapshot() -> ScreenTimeDiagnostics {
-        let selection = activitySelection
-        let policyShape = ShieldPolicyMapper.decideShape(
-            applicationTokenCount: selection.applicationTokens.count,
-            categoryTokenCount: selection.categoryTokens.count,
-            webDomainTokenCount: selection.webDomainTokens.count,
-            categoryExceptionCount: categoryExceptions.count,
-            webDomainCategoryExceptionCount:
-                webDomainCategoryExceptions.count
-        )
-
-        let registered = activityCenter.activities.contains(
-            Self.focusActivityName
-        )
-        let scheduleEnd = activityCenter.schedule(
-            for: Self.focusActivityName
-        )
-        .flatMap { schedule in
-            Calendar.current.date(from: schedule.intervalEnd)
-        }
-
-        return ScreenTimeDiagnostics(
-            authorization: ScreenTimeDiagnostics.Authorization(
-                status: authorizationStatus,
-                isUsable: isAuthorized
-            ),
-            selection: ScreenTimeDiagnostics.Selection(
-                applicationCount: selection.applicationTokens.count,
-                categoryCount: selection.categoryTokens.count,
-                webDomainCount: selection.webDomainTokens.count,
-                isCanonical: selection.includeEntireCategory,
-                categoryExceptionCount: categoryExceptions.count,
-                webDomainCategoryExceptionCount:
-                    webDomainCategoryExceptions.count
-            ),
-            policy: policyShape,
-            shieldChannels: ScreenTimeDiagnostics.ShieldChannels(
-                applicationsConfigured: store.shield.applications != nil,
-                applicationsCount: store.shield.applications?.count ?? 0,
-                applicationCategoriesConfigured: store.shield
-                    .applicationCategories != nil,
-                webDomainsConfigured: store.shield.webDomains != nil,
-                webDomainsCount: store.shield.webDomains?.count ?? 0,
-                webDomainCategoriesConfigured: store.shield
-                    .webDomainCategories != nil
-            ),
-            monitoring: ScreenTimeDiagnostics.Monitoring(
-                focusActivityRegistered: registered,
-                focusScheduleEnd: scheduleEnd
-            ),
-            sessionContext: ScreenTimeDiagnostics.SessionContext(
-                isActive: ShieldSessionContext.isSessionActive,
-                phase: ShieldSessionContext.sessionPhase,
-                targetEndDate: ShieldSessionContext.targetEndDate
-            ),
-            extensionTelemetry: ShieldExtensionTelemetry.snapshot(),
-            capturedAt: .now
-        )
-    }
-
-    /// Tears down every piece of Screen Time state PomoDuo controls.
-    ///
-    /// Used by the on-device "Reset App Blocking" recovery path so the user
-    /// can recover from a stale state — a crashed session that left a
-    /// `DeviceActivity` registration alive, an inconsistent App Group
-    /// payload, or any combination — without resorting to delete/reinstall.
-    ///
-    /// The teardown is intentionally direct (no enqueue, no listener
-    /// dependency) so it works even when the in-app
-    /// ``RestrictionCoordinator`` is unaware of the stale state.
-    /// ``RestrictionCoordinator`` will still observe the resulting
-    /// `activitySelection` change via the existing `onChange` wiring and
-    /// flip its own `isRestricting` flag back to `false`.
-    func resetAllScreenTimeState() {
-        // 1. Stop any active focus monitoring schedule. The Monitor
-        //    extension reads from the same `DeviceActivityCenter` and will
-        //    stop receiving callbacks once the activity is unregistered.
-        activityCenter.stopMonitoring([Self.focusActivityName])
-
-        // 2. Clear shared App Group session context so the Shield and
-        //    Monitor extensions don't see a stale "focus is active" flag.
-        ShieldSessionContext.clearSession()
-
-        // 3. Clear extension-invocation telemetry so a fresh diagnosis
-        //    run starts from zero. Without this, stale counts from a
-        //    previous session would make "did the extensions run this
-        //    time?" ambiguous.
-        ShieldExtensionTelemetry.reset()
-
-        // 4. Clear the existing selection. `clearSelection()` already
-        //    handles the in-memory rebuild (canonical empty selection),
-        //    standard-defaults removal, App Group selection rewrite, and
-        //    `ManagedSettingsStore.shield` channel teardown.
-        clearSelection()
+        shieldedCategoryTokens = finalCategories
+        categoryExceptions = finalAppExceptions
+        webDomainCategoryExceptions = finalWebExceptions
+        activitySelection = committed
     }
 
     private func persistSelection() {
@@ -580,12 +234,24 @@ final class ScreenTimeManager {
             return
         }
 
-        // Standard defaults for fast main-app reads.
         persistenceDefaults.set(data, forKey: Self.selectionDefaultsKey)
-
-        // App Group so the DeviceActivity Monitor extension can read the
-        // selection and reapply shields if the app is force-quit.
         ShieldSessionContext.writeSelection(activitySelection)
+    }
+
+    private func persistShieldedCategoryTokens() {
+        if shieldedCategoryTokens.isEmpty {
+            persistenceDefaults.removeObject(
+                forKey: Self.shieldedCategoryTokensDefaultsKey
+            )
+        } else if let data = try? JSONEncoder().encode(shieldedCategoryTokens) {
+            persistenceDefaults.set(
+                data,
+                forKey: Self.shieldedCategoryTokensDefaultsKey
+            )
+        }
+        ShieldSessionContext.writeShieldedCategoryTokens(
+            shieldedCategoryTokens
+        )
     }
 
     private func persistCategoryExceptions() {
@@ -595,8 +261,6 @@ final class ScreenTimeManager {
                 forKey: Self.categoryExceptionsDefaultsKey
             )
         }
-        // App Group so the Monitor extension applies the same exception
-        // set when it reapplies shields after a force-quit.
         ShieldSessionContext.writeCategoryExceptions(categoryExceptions)
     }
 
@@ -613,15 +277,15 @@ final class ScreenTimeManager {
     }
 
     private func restoreSelection() {
-        // Try App Group first (canonical for extensions), fall back to
-        // standard defaults (legacy data from before extensions existed).
         if let shared = ShieldSessionContext.readSelection(),
             !shared.applicationTokens.isEmpty || !shared.categoryTokens.isEmpty
                 || !shared.webDomainTokens.isEmpty
         {
-            applyRestoredState(
-                selection: Self.canonicalizeRestoredSelection(shared)
-            )
+            activitySelection = Self.canonicalizeRestoredSelection(shared)
+            categoryExceptions = restoreCategoryExceptions()
+            webDomainCategoryExceptions = restoreWebDomainCategoryExceptions()
+            shieldedCategoryTokens =
+                restoreShieldedCategoryTokens() ?? activitySelection.categoryTokens
             return
         }
 
@@ -637,51 +301,39 @@ final class ScreenTimeManager {
             return
         }
 
-        let canonical = Self.canonicalizeRestoredSelection(selection)
-        applyRestoredState(selection: canonical)
-
-        // Migrate legacy data to App Group for extension access. Writing
-        // the in-memory `activitySelection` (set by `applyRestoredState`
-        // and possibly normalized below) — rather than the raw decoded
-        // payload — means subsequent reads by the DeviceActivity Monitor
-        // extension land on the exception-aware flag *and* the healed
-        // no-overlap shape, not the raw legacy payload.
+        activitySelection = Self.canonicalizeRestoredSelection(selection)
         ShieldSessionContext.writeSelection(activitySelection)
-    }
-
-    /// Applies a restored selection together with its persisted
-    /// category-exception sets, enforcing the no-overlap invariant.
-    ///
-    /// The two storage stripes (App Group + standard defaults) are
-    /// written independently, so a crashed commit from a prior build
-    /// can leave the persisted `activitySelection.applicationTokens`
-    /// and `categoryExceptions` with a shared token — the exact
-    /// "WhatsApp appears in both the picker and the Category
-    /// Exceptions list" repro. Running the restored tuple through
-    /// ``normalizing(...)`` at the cold-start boundary strips the
-    /// overlap (exception wins) before any observer sees the state, so
-    /// the UI can never bind the same token as both blocked and
-    /// excepted. The didSet on each property re-persists the healed
-    /// form automatically.
-    private func applyRestoredState(selection: FamilyActivitySelection) {
-        let restoredAppExceptions = restoreCategoryExceptions()
-        let restoredWebExceptions = restoreWebDomainCategoryExceptions()
-
-        let normalized = Self.normalizing(
-            selection: selection,
-            categoryExceptions: restoredAppExceptions,
-            webDomainCategoryExceptions: restoredWebExceptions
+        categoryExceptions = restoreCategoryExceptions()
+        webDomainCategoryExceptions = restoreWebDomainCategoryExceptions()
+        shieldedCategoryTokens =
+            restoreShieldedCategoryTokens() ?? activitySelection.categoryTokens
+        ShieldSessionContext.writeShieldedCategoryTokens(shieldedCategoryTokens)
+        ShieldSessionContext.writeCategoryExceptions(categoryExceptions)
+        ShieldSessionContext.writeWebDomainCategoryExceptions(
+            webDomainCategoryExceptions
         )
-
-        activitySelection = normalized.selection
-        categoryExceptions = normalized.categoryExceptions
-        webDomainCategoryExceptions = normalized.webDomainCategoryExceptions
     }
 
-    /// Restores ``categoryExceptions`` from persistence, preferring the
-    /// App Group payload (so the value matches whatever the Monitor
-    /// extension last saw) and falling back to standard defaults for
-    /// installs that predate the App Group exception key.
+    private func restoreShieldedCategoryTokens()
+        -> Set<ActivityCategoryToken>?
+    {
+        if let shared = ShieldSessionContext.readShieldedCategoryTokens() {
+            return shared
+        }
+        guard
+            let data = persistenceDefaults.data(
+                forKey: Self.shieldedCategoryTokensDefaultsKey
+            ),
+            let restored = try? JSONDecoder().decode(
+                Set<ActivityCategoryToken>.self,
+                from: data
+            )
+        else {
+            return nil
+        }
+        return restored
+    }
+
     private func restoreCategoryExceptions() -> Set<ApplicationToken> {
         if let shared = ShieldSessionContext.readCategoryExceptions() {
             return shared
@@ -722,23 +374,8 @@ final class ScreenTimeManager {
         return restored
     }
 
-    /// Rebuilds a decoded ``FamilyActivitySelection`` so it always carries
-    /// `includeEntireCategory: true`.
-    ///
-    /// Legacy payloads — saved before the ``ShieldPolicyMapper`` fix —
-    /// carry `includeEntireCategory: false`. `FamilyActivityPicker` reads
-    /// the flag off the bound selection, so without this canonicalization
-    /// step an upgraded user who had a saved "All Apps & Categories +
-    /// exceptions" selection would silently lose the exception-aware
-    /// semantics the next time they opened the picker.
-    ///
-    /// Fresh payloads saved after the fix already carry `true` — Apple's
-    /// `Codable` conformance preserves the flag — so this helper is a
-    /// no-op for them. It is always safe to call.
-    ///
-    /// - Note: `internal` rather than `private` so regression tests can
-    ///   cover the behavior directly. `@testable import` is the only
-    ///   caller outside this type.
+    /// Rebuilds decoded selections so restored legacy values use the current
+    /// include-entire-category picker behavior.
     static func canonicalizeRestoredSelection(
         _ decoded: FamilyActivitySelection
     ) -> FamilyActivitySelection {

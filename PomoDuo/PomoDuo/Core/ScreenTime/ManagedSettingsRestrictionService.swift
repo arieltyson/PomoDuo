@@ -23,23 +23,18 @@ final class ManagedSettingsRestrictionService: RestrictionService {
 
     /// Applies shields using the shared ``ShieldPolicyMapper`` so the main
     /// app and ``DeviceActivityMonitorExtension`` always compute and write
-    /// the same policy for a given selection.
-    ///
-    /// ``FamilyActivitySelection`` is inclusive (every token it carries is
-    /// something the user picked to block); the mapper additionally
-    /// honors any ``ScreenTimeManager/categoryExceptions`` derived at
-    /// commit time, threading them through
-    /// ``ShieldSettings/ActivityCategoryPolicy/specific(_:except:)`` so a
-    /// "shield this category, except this app" intent survives even
-    /// though `FamilyActivitySelection` itself can't encode it.
+    /// the same picker-selection policy.
     func applyRestrictions() async throws {
         let decision = ShieldPolicyMapper.decide(
-            for: screenTimeManager.activitySelection,
+            applicationTokens:
+                screenTimeManager.activitySelection.applicationTokens,
+            categoryTokens: screenTimeManager.shieldedCategoryTokens,
+            webDomainTokens:
+                screenTimeManager.activitySelection.webDomainTokens,
             categoryExceptions: screenTimeManager.categoryExceptions,
             webDomainCategoryExceptions:
                 screenTimeManager.webDomainCategoryExceptions
         )
-
         ShieldPolicyMapper.apply(decision, to: store)
     }
 

@@ -103,8 +103,7 @@ struct ShieldSessionContextTests {
     // to replace the prior registration — every reschedule during a
     // live session. Without the guard below, the Monitor would
     // eagerly tear down shields + shared context on those spurious
-    // ends, producing the "Session active = No while focus is running"
-    // inconsistency the diagnostics panel previously surfaced.
+    // ends while focus is still running.
 
     @Test("No session context yet returns false")
     func hasUnexpiredTargetEndIsFalseWhenNoContext() {

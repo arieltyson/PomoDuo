@@ -15,7 +15,6 @@ struct ActivePairedSessionView: View {
     @Environment(AuthManager.self) private var authManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(RestrictionCoordinator.self) private var restrictionCoordinator
-    @Environment(ScreenTimeManager.self) private var screenTimeManager
     @Environment(HeartbeatManager.self) private var heartbeatManager
     @Environment(FocusStatsReporter.self) private var focusStatsReporter
     @Environment(ConnectionMonitor.self) private var connectionMonitor
@@ -54,20 +53,12 @@ struct ActivePairedSessionView: View {
 
             Spacer()
 
-            VStack {
-                PairedSessionControls(
-                    session: session,
-                    viewModel: viewModel,
-                    hasReachedPhaseEnd: currentPhaseHasEnded,
-                    isShowingEndConfirmation: $isShowingEndConfirmation
-                )
-
-                if restrictionCoordinator.isRestricting {
-                    BlockingStatusChip(
-                        health: screenTimeManager.runtimeHealth
-                    )
-                }
-            }
+            PairedSessionControls(
+                session: session,
+                viewModel: viewModel,
+                hasReachedPhaseEnd: currentPhaseHasEnded,
+                isShowingEndConfirmation: $isShowingEndConfirmation
+            )
             .padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -17,7 +17,6 @@ import ManagedSettings
 class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     private let store = ManagedSettingsStore()
-    private let activityCenter = DeviceActivityCenter()
 
     // MARK: - Interval Callbacks
 
@@ -28,13 +27,6 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             return
         }
 
-        // Record invocation telemetry *before* touching shields so the main
-        // app can distinguish "extension never ran" from "extension ran but
-        // shield apply failed" after the fact. Capture the shared-context
-        // state the extension saw at this moment so the diagnostics view
-        // can tell whether the context was healthy at callback time.
-        recordInvocation(.monitorIntervalDidStart, for: activity)
-
         applyShields()
     }
 
@@ -44,8 +36,6 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         guard activity.rawValue == ShieldSessionContext.focusActivityID else {
             return
         }
-
-        recordInvocation(.monitorIntervalDidEnd, for: activity)
 
         // See ``ShieldSessionContext/hasUnexpiredTargetEnd(asOf:)`` for
         // the full rationale: iOS fires `intervalDidEnd` *also* when
@@ -64,55 +54,28 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         ShieldSessionContext.clearSession()
     }
 
-    // MARK: - Telemetry
-
-    /// Captures the shared-context state the monitor extension observed
-    /// at callback time. Writes only if the fired activity matches the
-    /// focus activity name (the outer guards already ensure this).
-    ///
-    /// The DeviceActivity monitor sandbox allows both App Group
-    /// `UserDefaults` writes and `DeviceActivityCenter` queries, so we
-    /// additionally capture whether the focus activity is still
-    /// registered from the extension's perspective — useful when
-    /// diagnosing "the activity was removed before `intervalDidEnd`".
-    private func recordInvocation(
-        _ event: ShieldExtensionTelemetry.Event,
-        for activity: DeviceActivityName
-    ) {
-        let registered = activityCenter.activities.contains(activity)
-        ShieldExtensionTelemetry.record(
-            event,
-            isSessionActive: ShieldSessionContext.isSessionActive,
-            phase: ShieldSessionContext.sessionPhase,
-            targetEndDate: ShieldSessionContext.targetEndDate,
-            focusActivityRegistered: registered
-        )
-    }
-
     // MARK: - Shield Management
 
-    /// Reads the user's app selection (and any derived category
-    /// exceptions) from the shared App Group and applies shields via the
-    /// same ``ShieldPolicyMapper`` the main app uses.
+    /// Reads the user's app selection from the shared App Group and applies
+    /// shields via the same ``ShieldPolicyMapper`` the main app uses.
     ///
     /// Sharing the mapper guarantees the extension's re-application
-    /// after a force-quit produces byte-identical shield writes,
-    /// including the `.specific(_:except:)` policy when the user has a
-    /// category-with-exception intent on file. Without reading the
-    /// exceptions here the Monitor would over-shield (re-blocking apps
-    /// the user explicitly deselected) on every reapply.
+    /// after a force-quit produces byte-identical shield writes.
     private func applyShields() {
         guard let selection = ShieldSessionContext.readSelection() else {
             return
         }
 
-        let exceptions = ShieldSessionContext.readCategoryExceptions() ?? []
-        let webExceptions =
-            ShieldSessionContext.readWebDomainCategoryExceptions() ?? []
+        let categoryTokens = ShieldSessionContext
+            .readShieldedCategoryTokens() ?? selection.categoryTokens
         let decision = ShieldPolicyMapper.decide(
-            for: selection,
-            categoryExceptions: exceptions,
-            webDomainCategoryExceptions: webExceptions
+            applicationTokens: selection.applicationTokens,
+            categoryTokens: categoryTokens,
+            webDomainTokens: selection.webDomainTokens,
+            categoryExceptions:
+                ShieldSessionContext.readCategoryExceptions() ?? [],
+            webDomainCategoryExceptions:
+                ShieldSessionContext.readWebDomainCategoryExceptions() ?? []
         )
 
         ShieldPolicyMapper.apply(decision, to: store)

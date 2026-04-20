@@ -48,18 +48,13 @@ final class RestrictionCoordinator {
     /// Whether restrictions are currently active for the running session.
     private(set) var isRestricting = false
 
-    /// The most recent service error, useful for diagnostics.
+    /// The most recent service error.
     private(set) var lastError: (any Error)?
 
     private let restrictionService: any RestrictionService
     private let focusScheduler: FocusActivityScheduler?
     private let sessionContextWriter: any FocusSessionContextWriting
     private let canRestrictEvaluator: @MainActor () -> Bool
-    /// Held weakly so the coordinator can ask the manager to recompute
-    /// ``ScreenTimeManager/runtimeHealth`` after every operation. Not part
-    /// of the coordinator's correctness contract — `nil` is safe and just
-    /// means no automatic health refresh (used in tests with mock services).
-    private weak var screenTimeManager: ScreenTimeManager?
 
     /// Serializes apply/remove calls so a late-arriving apply
     /// can never overwrite an earlier remove.
@@ -92,7 +87,6 @@ final class RestrictionCoordinator {
                 return screenTimeManager.isAuthorized
                     && screenTimeManager.hasSelectedApps
             }
-        self.screenTimeManager = screenTimeManager
     }
 
     /// Whether restrictions can currently be enforced.
@@ -112,11 +106,10 @@ final class RestrictionCoordinator {
 
         let scheduler = focusScheduler
         let contextWriter = sessionContextWriter
-        enqueue { [restrictionService, weak self] in
+        enqueue { [restrictionService] in
             try await restrictionService.applyRestrictions()
             contextWriter.writeFocus(targetEndDate: endDate)
             scheduler?.scheduleMonitoring(until: endDate)
-            self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: true)
             return true
         }
     }
@@ -132,11 +125,10 @@ final class RestrictionCoordinator {
 
         let scheduler = focusScheduler
         let contextWriter = sessionContextWriter
-        enqueue { [restrictionService, weak self] in
+        enqueue { [restrictionService] in
             try await restrictionService.removeRestrictions()
             scheduler?.stopMonitoring()
             contextWriter.clearFocus()
-            self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: false)
             return false
         }
     }
@@ -149,11 +141,10 @@ final class RestrictionCoordinator {
     func forceRemoveRestrictions() {
         let scheduler = focusScheduler
         let contextWriter = sessionContextWriter
-        enqueue { [restrictionService, weak self] in
+        enqueue { [restrictionService] in
             defer {
                 scheduler?.stopMonitoring()
                 contextWriter.clearFocus()
-                self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: false)
             }
             try await restrictionService.removeRestrictions()
             return false
@@ -193,11 +184,10 @@ final class RestrictionCoordinator {
 
         let scheduler = focusScheduler
         let contextWriter = sessionContextWriter
-        enqueue { [restrictionService, weak self] in
+        enqueue { [restrictionService] in
             try await restrictionService.applyRestrictions()
             contextWriter.writeFocus(targetEndDate: endDate)
             scheduler?.scheduleMonitoring(until: endDate)
-            self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: true)
             return true
         }
     }
@@ -212,19 +202,17 @@ final class RestrictionCoordinator {
         guard isRestricting else { return }
 
         if canRestrict {
-            enqueue { [restrictionService, weak self] in
+            enqueue { [restrictionService] in
                 try await restrictionService.applyRestrictions()
-                self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: true)
                 return true
             }
         } else {
             let scheduler = focusScheduler
             let contextWriter = sessionContextWriter
-            enqueue { [restrictionService, weak self] in
+            enqueue { [restrictionService] in
                 try await restrictionService.removeRestrictions()
                 scheduler?.stopMonitoring()
                 contextWriter.clearFocus()
-                self?.screenTimeManager?.refreshRuntimeHealth(focusIsActive: false)
                 return false
             }
         }

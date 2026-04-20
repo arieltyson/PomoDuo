@@ -30,60 +30,27 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     override func configuration(
         shielding application: Application
     ) -> ShieldConfiguration {
-        let configuration = makeConfiguration()
-        recordInvocation(.shieldForApplication)
-        return configuration
+        return makeConfiguration()
     }
 
     override func configuration(
         shielding application: Application,
         in category: ActivityCategory
     ) -> ShieldConfiguration {
-        let configuration = makeConfiguration()
-        recordInvocation(.shieldForApplication)
-        return configuration
+        return makeConfiguration()
     }
 
     override func configuration(
         shielding webDomain: WebDomain
     ) -> ShieldConfiguration {
-        let configuration = makeConfiguration()
-        recordInvocation(.shieldForWebDomain)
-        return configuration
+        return makeConfiguration()
     }
 
     override func configuration(
         shielding webDomain: WebDomain,
         in category: ActivityCategory
     ) -> ShieldConfiguration {
-        let configuration = makeConfiguration()
-        recordInvocation(.shieldForWebDomain)
-        return configuration
-    }
-
-    // MARK: - Telemetry
-
-    /// Writes lightweight invocation telemetry to the App Group. Called
-    /// *after* the configuration has been built so the shield screen's
-    /// latency is not affected by the defaults write. Per Apple's
-    /// documented sandbox for the shield extension, `UserDefaults`
-    /// writes into an App Group suite are in-process sandboxed file I/O
-    /// (the only prohibitions are network requests and moving sensitive
-    /// content out of the extension's address space — neither applies
-    /// here).
-    ///
-    /// Apple does not document whether
-    /// `ShieldConfigurationDataSource.configuration(shielding:)` is
-    /// cached or called on every presentation, so the resulting counter
-    /// is a *lower bound* on shield presentations, not an exact count.
-    private func recordInvocation(_ event: ShieldExtensionTelemetry.Event) {
-        ShieldExtensionTelemetry.record(
-            event,
-            isSessionActive: ShieldSessionContext.isSessionActive,
-            phase: ShieldSessionContext.sessionPhase,
-            targetEndDate: ShieldSessionContext.targetEndDate,
-            focusActivityRegistered: nil
-        )
+        return makeConfiguration()
     }
 
     // MARK: - Configuration Builder

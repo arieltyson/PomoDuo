@@ -23,8 +23,6 @@ struct TimerView: View {
     @State private var suppressNextCompletionHandling = false
     @State private var isShowingPairedSessionConflict = false
 
-    @Environment(ScreenTimeManager.self) private var screenTimeManager
-
     private let sessionStore = SoloTimerSessionStore()
 
     var body: some View {
@@ -50,7 +48,7 @@ struct TimerView: View {
                     isBreak: phase.isBreak,
                     isRunning: viewModel.isRunning,
                     isComplete: viewModel.isComplete,
-                    blockingHealth: blockingHealthForCurrentSession,
+                    isBlockingActive: restrictionCoordinator.isRestricting,
                     onStart: { startFocus(using: activeConfiguration) },
                     onPause: pauseTimer,
                     onResume: resumeTimer,
@@ -108,20 +106,6 @@ struct TimerView: View {
 
     private func updateIdleTimer(isDisabled: Bool) {
         UIApplication.shared.isIdleTimerDisabled = isDisabled
-    }
-
-    /// Runtime health to feed into ``BlockingStatusChip``, or `nil` to hide
-    /// the chip entirely.
-    ///
-    /// `nil` is the truthful state when the coordinator isn't requesting
-    /// shielding for the current session — claiming "Blocking Active" in
-    /// that case would be a lie. When the coordinator *is* requesting
-    /// shielding, the chip itself decides visibility from the health
-    /// value: ``.healthy`` and ``.degraded`` both render the same calm
-    /// "Blocking Active" copy, and ``.unavailable`` renders nothing.
-    private var blockingHealthForCurrentSession: ScreenTimeRuntimeHealth? {
-        guard restrictionCoordinator.isRestricting else { return nil }
-        return screenTimeManager.runtimeHealth
     }
 
     private func consumePendingFocusRequest() {
@@ -847,11 +831,7 @@ private struct TimerCanvasView: View {
 
     let isRunning: Bool
     let isComplete: Bool
-    /// Runtime health for the active focus session, or `nil` if the chip
-    /// should not appear at all (no shielding requested). When non-nil,
-    /// ``BlockingStatusChip`` itself maps ``.unavailable`` to a hidden
-    /// chip, so the caller only owns the "is shielding requested?" gate.
-    let blockingHealth: ScreenTimeRuntimeHealth?
+    let isBlockingActive: Bool
 
     let onStart: () -> Void
     let onPause: () -> Void
@@ -891,8 +871,10 @@ private struct TimerCanvasView: View {
             )
 
             Spacer()
-
-            VStack {
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            TimerControlDock(isBlockingActive: isBlockingActive) {
                 TimerControlsView(
                     isRunning: isRunning,
                     isPaused: isPaused,
@@ -903,14 +885,8 @@ private struct TimerCanvasView: View {
                     onStop: onStop,
                     onSkip: onSkip
                 )
-
-                if let blockingHealth {
-                    BlockingStatusChip(health: blockingHealth)
-                }
             }
-            .padding(.bottom)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             Rectangle()
                 .fill(.background)
