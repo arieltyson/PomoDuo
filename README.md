@@ -5,7 +5,7 @@
 ## App Store  : https://apps.apple.com/ca/app/pomo-duo/id6759349583
 
 <kbd>
-    <img src="https://github.com/user-attachments/assets/c53cb9ce-903b-43c7-944c-b88e451d628d" width="800" height="500">
+    <img src="https://github.com/user-attachments/assets/7ccea315-0f03-4c0e-99db-20d043a63d61" width="1000" height="500">
 </kbd>
 
 ## Project Description 🎨
