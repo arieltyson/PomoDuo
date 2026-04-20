@@ -124,6 +124,15 @@ private struct AuthorizedAppBlockingContent: View {
     let onPickApps: () -> Void
 
     var body: some View {
+        Section {
+            FocusShieldHeroCard()
+                .listRowInsets(
+                    EdgeInsets(top: 8, leading: 0, bottom: 12, trailing: 0)
+                )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+
         Section("Status") {
             HStack {
                 Label("Screen Time", systemImage: "checkmark.shield.fill")
