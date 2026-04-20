@@ -55,12 +55,21 @@ final class ScreenTimeManager {
     var isAuthorized: Bool {
         if authorizationStatus == .approved { return true }
         if #available(iOS 26.4, *),
-            authorizationStatus == .approvedWithDataAccess
+            authorizationStatus.rawValue == Self.approvedWithDataAccessRawValue
         {
             return true
         }
         return false
     }
+
+    /// Raw value for `FamilyControls.AuthorizationStatus.approvedWithDataAccess`,
+    /// added in iOS 26.4 after `.approved` (rawValue 2). Referencing by raw
+    /// value keeps this file source-compatible with the Xcode 26.2
+    /// FamilyControls SDK, which only declares `.notDetermined`, `.denied`,
+    /// and `.approved`. Verified from the iOS 26.4
+    /// `FamilyControls.framework` swiftinterface: the enum is `Int`-backed
+    /// with auto-assigned raw values in declaration order.
+    private static let approvedWithDataAccessRawValue = 3
 
     var hasSelectedApps: Bool {
         !activitySelection.applicationTokens.isEmpty
